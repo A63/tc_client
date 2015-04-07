@@ -139,8 +139,10 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     char* sizestr=strchr(&buf[7], ' ');
     if(!sizestr){return 1;}
     unsigned int size=strtoul(&sizestr[1], 0, 0);
+    if(!size){return 1;}
     unsigned char frameinfo;
     read(tc_client[0], &frameinfo, 1);
+    --size; // For the byte we read above
     unsigned char buf[size];
     unsigned int pos=0;
     while(pos<size)
@@ -160,6 +162,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     if(!strcmp(data->cams[i].id, &buf[7])){cam=&data->cams[i]; break;}
   }
   unsigned int size=strtoul(&sizestr[1], 0, 0);
+  if(!size){return 1;}
   // Mostly ignore the first byte (contains frame type (e.g. keyframe etc.) in 4 bits and codec in the other 4)
   --size;
   AVPacket pkt;

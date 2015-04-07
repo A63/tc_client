@@ -150,6 +150,40 @@ void playnext(int x)
 
 int main(int argc, char** argv)
 {
+  // Handle arguments (-d, -l, -h additions, the rest are handled by tc_client)
+  char daemon=0;
+  char* logfile=0;
+  unsigned int i;
+  for(i=1; i<argc; ++i)
+  {
+    if(!strcmp(argv[i], "-d") || !strcmp(argv[i], "--daemon"))
+    {
+      daemon=1;
+      // Remove non-tc_client argument
+      --argc;
+      memmove(&argv[i], &argv[i+1], sizeof(char*)*(argc-i));
+      argv[argc]=0;
+      --i;
+    }
+    else if(i+1<argc && (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log")))
+    {
+      logfile=argv[i+1];
+      // Remove non-tc_client argument
+      argc-=2;
+      memmove(&argv[i], &argv[i+2], sizeof(char*)*(argc-i));
+      argv[argc]=0;
+      --i;
+    }
+    else if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
+    {
+      printf("Additional options for modbot:\n"
+             "-d/--daemon     = daemonize after startup\n"
+             "-l/--log <file> = log output into <file>\n"
+             "\n");
+      execv("./tc_client", argv);
+      return 1;
+    }
+  }
   int in[2];
   int out[2];
   pipe(in);
@@ -204,6 +238,21 @@ int main(int argc, char** argv)
     }
     len=0;
     // printf("Got line '%s'\n", buf);
+    // Note: daemonizing and setting up logging here to avoid interfering with account password entry
+    if(daemon)
+    {
+      if(fork()){return 0;}
+      daemon=0;
+      if(!logfile){logfile="/dev/null";} // Prevent writing to stdout as a daemon
+    }
+    if(logfile)
+    {
+      int f=open(logfile, O_WRONLY|O_CREAT|O_APPEND, 0600);
+      dup2(f, 1);
+      dup2(f, 2);
+      close(f);
+      logfile=0;
+    }
     char* space=strchr(buf, ' ');
     if(!space){continue;}
     if(!strcmp(space, " is a moderator."))
@@ -301,10 +350,11 @@ int main(int argc, char** argv)
             {
               queue_del(&queue, queue.items[i].video);
               if(!playing && i==0){playnext(0);}
+              i=1; // distinguish from just having reached the front of the queue
               break;
             }
           }
-          if(i==queue.itemcount)
+          if(!i)
           {
             say(pm, "I can't find any request by you, sorry\n");
           }
@@ -458,9 +508,9 @@ int main(int argc, char** argv)
               {
                 list_save(&goodvids, "goodvids.txt");
                 if(!playing){playnext(0);} // Next in queue just got approved, so play it
-                else{say(pm, "Queue approved\n");}
+                else{say(pm, "Queue approved. Make sure none of the videos were inappropriate\n");}
               }else{
-                say(0, "%s: there is nothing in the queue that isn't already approved, please do not overuse this function\n", nick);
+                say(pm, "The queue is already approved (or empty)\n");
               }
               continue;
             }else{

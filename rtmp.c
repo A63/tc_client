@@ -114,6 +114,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
     if(chunk->type==RTMP_SET_PACKET_SIZE)
     {
       memcpy(&chunksize_in, chunk->buf, sizeof(unsigned int));
+      chunksize_in=be32(chunksize_in);
 //      printf("Server set chunk size to %u (packet size: %u)\n", chunksize_in, chunk->length);
     }
 // printf("Got chunk: chunkid=%u, type=%u, length=%u, streamid=%u\n", chunk->id, chunk->type, chunk->length, chunk->streamid);

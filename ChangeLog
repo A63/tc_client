@@ -1,3 +1,10 @@
+0.24:
+Fixed endianness of RTMP set-chunk-size handling.
+modbot: fixed a bug where '!wrongrequest' would claim no request was found when (and only when) the request was last in queue.
+modbot: added the options -d/--daemon and -l/--log plus better handling of -h/--help.
+modbot: moved and changed the note about '!approve entire queue' overuse to a note about making sure none of the videos were inappropriate in the "Queue approved" message.
+camviewer: fixed a bug introduced in 0.23 where audio data was handled improperly, resulting in audio/video data being missed.
+camviewer: ignore 0-byte audio/video packets.
 0.23:
 Added the moderator commands /mute and /push2talk (contributed by Jade)
 Set tc_client as a dependency of utils.
