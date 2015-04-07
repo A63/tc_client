@@ -21,6 +21,61 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <ctype.h>
+
+// ANSI colors and their IRC equivalents
+struct color{const char* ansi; const char* irc;};
+struct color colortable[]={
+  {"31",   "\x03""05"},
+  {"31;1", "\x03""04"},
+  {"33",   "\x03""07"},
+  {"33",   "\x03""07"},
+  {"33;1", "\x03""08"},
+  {"32;1", "\x03""09"},
+  {"32;1", "\x03""09"},
+  {"32",   "\x03""03"},
+  {"36",   "\x03""10"},
+  {"34;1", "\x03""12"},
+  {"34;1", "\x03""12"},
+  {"34",   "\x03""02"},
+  {"35",   "\x03""06"},
+  {"35;1", "\x03""13"},
+  {"35;1", "\x03""13"},
+  {"35;1", "\x03""13"}
+};
+
+const char* findcolor_irc(const char* ansi)
+{
+  int len;
+  for(len=0; ansi[len]&&ansi[len]!='m'; ++len);
+  int i;
+  for(i=0; i<16; ++i)
+  {
+    if(!strncmp(colortable[i].ansi, ansi, len) && !colortable[i].ansi[len])
+    {
+      return colortable[i].irc;
+    }
+  }
+  return 0;
+}
+
+int findcolor_ansi(char* irc, char** end)
+{
+  char color[4];
+  strncpy(color, irc, 3);
+  color[3]=0;
+  if(!isdigit(color[1])){*end=&irc[1]; return -1;}
+  if(!isdigit(color[2])){*end=&irc[2]; color[2]=color[1]; color[1]='0';}else{*end=&irc[3];}
+  int i;
+  for(i=0; i<16; ++i)
+  {
+    if(!strcmp(colortable[i].irc, color))
+    {
+      return i;
+    }
+  }
+  return -1;
+}
 
 int main(int argc, char** argv)
 {
@@ -146,13 +201,16 @@ printf("Got from tc_client: '%s'\n", buf);
         continue;
       }
       if(buf[0]!='['){continue;} // Beyond this we only care about timestamped lines
-      // Strip out ANSI escape codes (TODO: translate them to IRC color codes instead)
+      // Translate ANSI escape codes to IRC color code instead
       char* ansi;
+      const char* color="";
       while((ansi=strstr(buf, "\x1b[")))
       {
         int len;
         for(len=0; ansi[len]&&ansi[len]!='m'; ++len);
         if(ansi[len]=='m'){++len;}
+        const char* c=findcolor_irc(&ansi[2]);
+        if(c){color=c;}
         memmove(ansi, &ansi[len], strlen(&ansi[len])+1);
       }
 
@@ -171,9 +229,9 @@ printf("Got from tc_client: '%s'\n", buf);
           msg=strchr(&msg[5], ' ');
           if(!msg){continue;}
           msg=&msg[1];
-          dprintf(sock, ":%s!user@host PRIVMSG %s :%s\n", name, nick, msg);
+          dprintf(sock, ":%s!user@host PRIVMSG %s :%s%s\n", name, nick, color, msg);
         }else{ // Regular channel message
-          dprintf(sock, ":%s!user@host PRIVMSG #%s :%s\n", name, channel, msg);
+          dprintf(sock, ":%s!user@host PRIVMSG #%s :%s%s\n", name, channel, color, msg);
         }
       }else{ // action, parse the actions and send them as JOINs, NICKs and QUITs etc. instead
         msg[0]=0;
@@ -206,7 +264,6 @@ printf("Got from tc_client: '%s'\n", buf);
         ++len;
       }
       if(len<=0){continue;}
-      while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       buf[len]=0;
 printf("Got from IRC client: '%s'\n", buf);
       if(!strncmp(buf, "PRIVMSG ", 8))
@@ -217,6 +274,14 @@ printf("Got from IRC client: '%s'\n", buf);
         msg[0]=0;
         msg=&msg[1];
         if(msg[0]==':'){msg=&msg[1];}
+        char* color;
+        while((color=strchr(msg, '\x03')))
+        {
+          char* end;
+          int c=findcolor_ansi(color, &end);
+          if(c!=-1){dprintf(tc_in[1], "/color %i\n", c);}
+          memmove(color, end, strlen(end)+1);
+        }
         if(target[0]=='#' && !strcmp(&target[1], channel))
         {
           dprintf(tc_in[1], "%s\n", msg);
@@ -234,9 +299,12 @@ printf("Got from IRC client: '%s'\n", buf);
       {
         dprintf(sock, ":irchack PONG %s\n", &buf[5]);
       }
+      else if(!strncmp(buf, "QUIT ", 5)){break;}
     }
   }
 
+  close(tc_in[1]);
+  close(tc_out[0]);
   shutdown(sock, SHUT_RDWR);
   return 0;
 }

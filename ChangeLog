@@ -1,3 +1,7 @@
+0.8:
+irchack: convert tc_client's ANSI codes to IRC color codes.
+irchack: convert IRC color codes to '/color <number>' commands for tc_client.
+Made it possible to turn off/on colors being displayed with '/color off' and '/color on'
 0.7:
 Added command handling (/color <number>, /colors, /nick <newnick>, and adding the privacy field for /msg)
 0.6:

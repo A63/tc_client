@@ -39,6 +39,8 @@ struct writebuf
   int len;
 };
 
+char showcolor=1;
+
 unsigned int flip(unsigned int bits, int bytecount)
 {
   unsigned int ret=0;
@@ -271,6 +273,7 @@ int main(int argc, char** argv)
     {
       pfd[0].revents=0;
       len=read(0, buf, 2047);
+      if(len<1){break;}
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       if(!len){continue;} // Don't send empty lines
       buf[len]=0;
@@ -282,6 +285,8 @@ int main(int argc, char** argv)
         {
           if(buf[6]) // Color specified
           {
+            if(!strcmp((char*)&buf[7], "off")){showcolor=0; continue;}
+            if(!strcmp((char*)&buf[7], "on")){showcolor=1; continue;}
             currentcolor=atoi((char*)&buf[7]);
             printf("\x1b[%smChanged color\x1b[0m\n", termcolors[currentcolor%16]);
           }else{ // No color specified, state our current color
@@ -397,7 +402,7 @@ int main(int argc, char** argv)
       else if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[4].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
       {
         wchar_t* msg=fromnumlist(amfin->items[3].string.string);
-        const char* color=resolvecolor(amfin->items[4].string.string);
+        const char* color=(showcolor?resolvecolor(amfin->items[4].string.string):"0");
         printf("%s \x1b[%sm%s: %ls\x1b[0m\n", timestamp(), color, amfin->items[5].string.string, msg);
         free(msg);
         fflush(stdout);
@@ -480,5 +485,6 @@ int main(int argc, char** argv)
     }
 //    ++outnum; (Debugging)
   }
+  close(sock);
   return 0;
 }
