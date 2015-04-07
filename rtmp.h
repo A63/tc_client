@@ -27,7 +27,7 @@
 struct rtmp
 {
   unsigned char type;
-  unsigned int streamid;
+  unsigned int chunkid;
   unsigned int length;
   unsigned int msgid;
   void* buf;

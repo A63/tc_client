@@ -1,26 +1,32 @@
 tc_client is a very primitive application, it doesn't implement a user interface on its own,
 you could use it stand-alone but it will be ugly and if someone says something while you are typing a message your input-line will get cut off.
-Better interfaces can be implemented as wrappers that launch tc_client with stdin and stdout as pipes.
+Better interfaces can be implemented as wrappers that launch tc_client with stdin and stdout as pipes. See the bottom of this document for some included applications that run on top of tc_client.
 
 Commands supported by tc_client:
-/msg <nickname> <message> = send a PM, incoming PMs look similar
-/color <on/off>           = enable/disable showing colors with ANSI escapes
-/color <0-15>             = set the color of your outgoing messages
-/colors                   = list the available colors
-/nick <newnick>           = change nickname
-/help                     = list these commands at runtime
+/msg <to> <msg> = send a PM, incoming PMs look similar
+/color <0-15>   = set the color of your outgoing messages
+/color <on/off> = enable/disable showing colors with ANSI escapes
+/color          = see your current color
+/colors         = list the available colors
+/nick <newnick> = change nickname
+/opencam <nick> = see someone's cam/mic (Warning: writes binary data to stdout)
+/close <nick>   = close someone's cam/mic stream (as a mod)
+/ban <nick>     = ban someone
+/banlist        = list who is banned
+/forgive <nick/ID> = unban someone
+/help           = list these commands at runtime
 
-Some things that will probably never change:
-*tc_client can't view people's webcams or listen to mics
+Some things that may never change:
 *tc_client can't stream/broadcast your webcam/mic
 *tc_client itself won't play youtube videos, but applications that rely on tc_client can interpret the /mbs, /mbsk and /mbc commands
 
 Current commands sent by the TC servers that tc_client doesn't know how to handle:
-notice
+notice (some, notice is used for many functions)
 joinsdone
 avons (list of people currently on cam)
 pros
 
 Included applications that rely on tc_client (type 'make utils' to build):
-*irchack = a minimal IRC server that translates between IRC and tc_client's commands
-*modbot  = a bot that handles youtube video requests with a queue and an approval system to keep inappropriate videos from being played. Supports the following commands: !help, !request, !queue (show queue status), for mods only: !playnext (try playing next in queue without marking it yet), !approve, !badvid (Note: modbot depends on youtube-dl to find out the length of videos)
+*irchack   = a minimal IRC server that translates between IRC and tc_client's commands
+*modbot    = a bot that handles youtube video requests with a queue and an approval system to keep inappropriate videos from being played. Supports the following commands: !help, !request, !queue (show queue status), for mods only: !playnext (try playing next in queue without marking it yet), !approve, !badvid (Note: modbot depends on youtube-dl to find out the length of videos)
+*camviewer = an example application for viewing cam streams

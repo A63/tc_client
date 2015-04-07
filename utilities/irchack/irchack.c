@@ -24,7 +24,25 @@
 #include <sys/socket.h>
 #include <ctype.h>
 #include <signal.h>
-#include "../compat.h"
+
+#ifdef __ANDROID__
+// Android has no dprintf, so we make our own
+#include <stdarg.h>
+size_t dprintf(int fd, const char* fmt, ...)
+{
+  va_list va;
+  va_start(va, fmt);
+  int len=vsnprintf(0, 0, fmt, va);
+  va_end(va);
+  char buf[len+1];
+  va_start(va, fmt);
+  vsnprintf(buf, len+1, fmt, va);
+  va_end(va);
+  buf[len]=0;
+  write(fd, buf, len);
+  return len;
+}
+#endif
 
 // ANSI colors and their IRC equivalents
 struct color{const char* ansi; const char* irc;};

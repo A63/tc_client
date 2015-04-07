@@ -21,84 +21,123 @@
 #include "endian.h"
 #include "rtmp.h"
 
+struct chunk
+{
+  unsigned int id;
+  unsigned int length;
+  unsigned char type;
+  unsigned int timestamp;
+  unsigned int streamid;
+  unsigned int pos;
+  void* buf;
+};
+struct chunk* chunks=0;
+unsigned int chunkcount=0;
+
+struct chunk* chunk_get(unsigned int id)
+{
+  unsigned int i;
+  for(i=0; i<chunkcount; ++i)
+  {
+    if(chunks[i].id==id){return &chunks[i];}
+  }
+// printf("No chunk found for %u, creating new one\n", id);
+  ++chunkcount;
+  chunks=realloc(chunks, sizeof(struct chunk)*chunkcount);
+  chunks[i].id=id;
+  chunks[i].streamid=0;
+  chunks[i].buf=0;
+  chunks[i].timestamp=0;
+  chunks[i].length=0;
+  return &chunks[i];
+}
+
 char rtmp_get(int sock, struct rtmp* rtmp)
 {
-  static unsigned int length;
-  static unsigned char type;
-  static unsigned int timestamp;
-  // Header format and stream ID
+  // Header format and chunk ID
   unsigned int x=0;
   if(read(sock, &x, 1)<1){return 0;}
-  unsigned int streamid=x&0x3f;
+  unsigned int chunkid=x&0x3f;
   unsigned int fmt=(x&0xc0)>>6;
-  unsigned int msgid=0;
+  struct chunk* chunk=chunk_get(chunkid);
   // Handle extended stream IDs
-  if(streamid<2) // (0=1 extra byte, 1=2 extra bytes)
+  if(chunkid<2) // (0=1 extra byte, 1=2 extra bytes)
   {
-    read(sock, &x, streamid+1);
-    streamid=64+x;
+    read(sock, &x, chunkid+1);
+    chunkid=64+x;
   }
   if(fmt<3)
   {
     // Timestamp
     read(sock, &x, 3);
-    timestamp=x;
+    chunk->timestamp=x;
     if(fmt<2)
     {
       // Length
       x=0;
       read(sock, ((void*)&x)+1, 3);
-      length=be32(x);
+      chunk->length=be32(x);
       // Type
-      read(sock, &type, sizeof(type));
+      read(sock, &chunk->type, sizeof(chunk->type));
       if(fmt<1)
       {
         // Message ID
-        read(sock, &msgid, sizeof(msgid));
+        read(sock, &chunk->streamid, sizeof(chunk->streamid));
       }
     }
   }
   // Extended timestamp
-  if(timestamp==0xffffff)
+  if(chunk->timestamp==0xffffff)
   {
     read(sock, &x, sizeof(x));
-    timestamp=be32(x);
+    chunk->timestamp=be32(x);
   }
 
-  rtmp->type=type;
-  rtmp->streamid=streamid;
-  rtmp->length=length;
-  rtmp->msgid=le32(msgid);
-  free(rtmp->buf);
-  rtmp->buf=malloc(rtmp->length);
-  size_t pos=0;
-  size_t w;
-  // Only read up to 128 bytes at a time and discard the (garbage/RTMP continuation header) bytes in between
-  while(pos<length)
+  if(!chunk->buf)
   {
-    w=read(sock, rtmp->buf+pos, ((length-pos>127)?128:(length-pos)));
-    if(w<1){break;}
-    pos+=w;
-    if(length-pos>0){read(sock, &w, 1);} // Skip junk once every 128 bytes
+    chunk->buf=malloc(chunk->length);
+    chunk->pos=0;
   }
-  return 1;
+  unsigned int rsize=((chunk->length-chunk->pos>127)?128:(chunk->length-chunk->pos));
+  while(rsize>0)
+  {
+    size_t r=read(sock, chunk->buf+chunk->pos, rsize);;
+    if(r<1){return 0;}
+    rsize-=r;
+    chunk->pos+=r;
+//    if(rsize){printf("Got a short read, %u remaining\n", rsize);}
+  }
+  if(chunk->pos==chunk->length)
+  {
+// printf("Got chunk: chunkid=%u, type=%u, length=%u, streamid=%u\n", chunk->id, chunk->type, chunk->length, chunk->streamid);
+    rtmp->type=chunk->type;
+    rtmp->chunkid=chunk->id;
+    rtmp->length=chunk->length;
+    rtmp->msgid=le32(chunk->streamid);
+    free(rtmp->buf);
+    rtmp->buf=chunk->buf;
+    chunk->buf=0;
+    return 1;
+  }
+// printf("Waiting for next part of chunk\n");
+  return 2;
 }
 
 void rtmp_send(int sock, struct rtmp* rtmp)
 {
   // Header format and stream ID
   unsigned int fmt=(rtmp->msgid?0:1);
-  unsigned char basicheader=(rtmp->streamid<64?rtmp->streamid:(rtmp->streamid<256?0:1)) | (fmt<<6);
+  unsigned char basicheader=(rtmp->chunkid<64?rtmp->chunkid:(rtmp->chunkid<256?0:1)) | (fmt<<6);
   write(sock, &basicheader, sizeof(basicheader));
-  if(rtmp->streamid>=64) // Handle large stream IDs
+  if(rtmp->chunkid>=64) // Handle large stream IDs
   {
-    if(rtmp->streamid<256)
+    if(rtmp->chunkid<256)
     {
-      unsigned char streamid=rtmp->streamid-64;
-      write(sock, &streamid, sizeof(streamid));
+      unsigned char chunkid=rtmp->chunkid-64;
+      write(sock, &chunkid, sizeof(chunkid));
     }else{
-      unsigned short streamid=le16(rtmp->streamid-64);
-      write(sock, &streamid, sizeof(streamid));
+      unsigned short chunkid=le16(rtmp->chunkid-64);
+      write(sock, &chunkid, sizeof(chunkid));
     }
   }
   unsigned int x=0;

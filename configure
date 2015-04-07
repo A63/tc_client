@@ -38,4 +38,44 @@ else
 fi
 rm -f iconvtest iconvtest.c
 
+printf 'Checking for gtk+-3.0... '
+libs="`pkg-config --libs gtk+-3.0`"
+if [ "x$libs" != "x" ]; then
+  echo "GTK_LIBS=${libs}" >> config.mk
+  echo "GTK_CFLAGS=`pkg-config --cflags gtk+-3.0`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for libavcodec... '
+libs="`pkg-config --libs libavcodec`"
+if [ "x$libs" != "x" ]; then
+  echo "AVCODEC_LIBS=${libs}" >> config.mk
+  echo "AVCODEC_CFLAGS=`pkg-config --cflags libavcodec`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for libswscale... '
+libs="`pkg-config --libs libswscale`"
+if [ "x$libs" != "x" ]; then
+  echo "SWSCALE_LIBS=${libs}" >> config.mk
+  echo "SWSCALE_CFLAGS=`pkg-config --cflags libswscale`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for libavutil... '
+libs="`pkg-config --libs libavutil`"
+if [ "x$libs" != "x" ]; then
+  echo "AVUTIL_LIBS=${libs}" >> config.mk
+  echo "AVUTIL_CFLAGS=`pkg-config --cflags libavutil`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
 echo Done

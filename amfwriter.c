@@ -22,10 +22,10 @@
 #include "rtmp.h"
 #include "amfwriter.h"
 
-void amfinit(struct rtmp* msg, unsigned int streamid)
+void amfinit(struct rtmp* msg, unsigned int chunkid)
 {
   msg->type=RTMP_AMF0;
-  msg->streamid=streamid;
+  msg->chunkid=chunkid;
   msg->length=0;
   msg->msgid=0;
   msg->buf=0;

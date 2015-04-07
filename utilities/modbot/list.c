@@ -1,5 +1,5 @@
 /*
-    A simple list implementation
+    modbot, a bot for tc_client that queues and plays videos
     Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify

@@ -1,3 +1,14 @@
+0.21:
+Renamed streamids to chunkids to better match the specification.
+Added a /close command for mods to close cam/mic streams.
+Added /ban, /banlist and /forgive commands.
+Added a /opencam command to receive cam data, and the 'camviewer' utility to handle the cam data (depends on libavcodec/libswscale and gtk+ 3.x), mostly as a reference.
+Do not echo while entering account password at runtime.
+Announce when someone cams up, and list who is on cam when joining.
+modbot: added !wrongrequest to undo a request.
+modbot: allow entering account password at runtime and without echo.
+modbot: added !skip/!skip <number> to skip videos in the queue.
+irchack: translate between /userinfo and WHOIS.
 0.20:
 Fixed amf0 reading of numbers (type 0)
 Added support for sending format 0 RTMP packets (which include the msgid field)
