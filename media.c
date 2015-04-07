@@ -16,19 +16,11 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
-//#include "rtmp.h"
-//#include "amfparser.h"
+#include <string.h>
 #include "endian.h"
 #include "media.h"
 #include "amfwriter.h"
 #include "idlist.h"
-/*
-struct stream
-{
-  unsigned int streamid;
-  unsigned int userid;
-};
-*/
 
 struct stream* streams=0;
 unsigned int streamcount=0;
@@ -43,14 +35,9 @@ char stream_idtaken(unsigned int id)
   return 0;
 }
 
-void stream_start(const char* nick, int sock) // called upon privmsg "/cam ..."
+void stream_start(const char* nick, int sock) // called upon privmsg "/opencam ..."
 {
   unsigned int userid=idlist_get(nick);
-/*
-  unsigned int id=idlist_get((char*)&buf[5]);
-  camid=malloc(128);
-  sprintf(camid, "%u", id);
-*/
   unsigned int streamid=1;
   while(stream_idtaken(streamid)){++streamid;}
   ++streamcount;
@@ -90,16 +77,40 @@ void stream_play(struct amf* amf, int sock) // called upon _result
 
 void stream_handledata(struct rtmp* rtmp)
 {
-rtmp->msgid=1;
   unsigned int i;
   for(i=0; i<streamcount; ++i)
   {
     if(streams[i].streamid!=rtmp->msgid){continue;}
-    printf("Video: %u %u\n", streams[i].userid, rtmp->length); // TODO: if this becomes permanent we will have to specify a nick or ID or something
-//  write(1, rtmp.buf, rtmp.length);
+// fprintf(stderr, "Chunk: chunkid: %u, streamid: %u, userid: %u\n", rtmp->chunkid, rtmp->msgid, streams[i].userid);
+    printf("Video: %u %u\n", streams[i].userid, rtmp->length);
     fwrite(rtmp->buf, rtmp->length, 1, stdout);
     fflush(stdout);
     return;
   }
   printf("Received media data to unknown stream ID %u\n", rtmp->msgid);
+}
+
+void stream_handlestatus(struct amf* amf)
+{
+  if(amf->itemcount<3 || amf->items[2].type!=AMF_OBJECT){return;}
+  struct amfobject* obj=&amf->items[2].object;
+  struct amfitem* code=amf_getobjmember(obj, "code");
+  struct amfitem* details=amf_getobjmember(obj, "details");
+  if(!code || !details){return;}
+  if(code->type!=AMF_STRING || details->type!=AMF_STRING){return;}
+  if(!strcmp(code->string.string, "NetStream.Play.Stop"))
+  {
+    unsigned int id=strtoul(details->string.string, 0, 0);
+    unsigned int i;
+    for(i=0; i<streamcount; ++i)
+    {
+      if(streams[i].userid==id)
+      {
+        printf("VideoEnd: %u\n", streams[i].userid);
+// TODO: remove stream from array
+// TODO: destroyStream or something?
+        return;
+      }
+    }
+  }
 }

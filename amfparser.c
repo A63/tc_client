@@ -177,6 +177,16 @@ void amf_free(struct amf* amf)
   free(amf);
 }
 
+struct amfitem* amf_getobjmember(struct amfobject* obj, const char* name)
+{
+  unsigned int i;
+  for(i=0; i<obj->membercount; ++i)
+  {
+    if(!strcmp(obj->members[i].name, name)){return &obj->members[i].value;}
+  }
+  return 0;
+}
+
 void printamfobject(struct amfobject* obj, int indent)
 {
   int i, j;

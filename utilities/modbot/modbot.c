@@ -34,6 +34,7 @@ struct queue queue={0,0};
 struct list goodvids={0,0}; // pre-approved videos
 struct list badvids={0,0}; // not allowed, essentially banned
 char* playing=0;
+char* requester=0;
 time_t started=0;
 int tc_client;
 
@@ -105,7 +106,7 @@ void playnextvid()
 {
   waitskip=0;
   playing=queue.items[0].video;
-  free(queue.items[0].requester);
+  requester=queue.items[0].requester;
   free(queue.items[0].title);
   --queue.itemcount;
   memmove(queue.items, &queue.items[1], sizeof(struct queueitem)*queue.itemcount);
@@ -118,7 +119,9 @@ void playnextvid()
 void playnext(int x)
 {
   free(playing);
+  free(requester);
   playing=0;
+  requester=0;
   if(queue.itemcount<1){alarm(0); printf("Nothing more to play\n"); return;} // Nothing more to play
   if(!list_contains(&goodvids, queue.items[0].video))
   {
@@ -297,6 +300,7 @@ int main(int argc, char** argv)
             if(!strcmp(queue.items[i].requester, nick))
             {
               queue_del(&queue, queue.items[i].video);
+              if(!playing && i==0){playnext(0);}
               break;
             }
           }
@@ -332,21 +336,28 @@ int main(int argc, char** argv)
           {
             char buf[len];
             buf[0]=0;
+            unsigned int listed=0;
             for(i=0; i<queue.itemcount; ++i)
             {
-              if(!list_contains(&goodvids, queue.items[i].video))
+              if(listed<5 && !list_contains(&goodvids, queue.items[i].video))
               {
                 if(buf[0]){strcat(buf, ", ");}
                 strcat(buf, queue.items[i].video);
                 strcat(buf, " (");
                 strcat(buf, queue.items[i].title);
                 strcat(buf, ")");
+                ++listed;
               }
             }
-            say(pm, "%u videos in queue, %u of which are not yet approved by mods (%s)\n", queue.itemcount, notapproved, buf);
+            say(pm, "%u videos in queue, %u of which are not yet approved by mods (%s%s)\n", queue.itemcount, notapproved, buf, (listed<notapproved)?", etc.":"");
           }else{
             say(pm, "%u videos in queue\n", queue.itemcount);
           }
+        }
+        else if(!strcmp(msg, "!whorequested"))
+        {
+          if(!playing){say(pm, "Nothing is playing\n");}
+          else{say(pm, "%s requested %s\n", requester, playing);}
         }
         else if(!strcmp(msg, "!time")) // Debugging
         {

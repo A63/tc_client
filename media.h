@@ -25,6 +25,7 @@ struct stream
 extern struct stream* streams;
 extern unsigned int streamcount;
 
-extern void stream_start(const char* nick, int sock); // called upon privmsg "/cam ..."
+extern void stream_start(const char* nick, int sock); // called upon privmsg "/opencam ..."
 extern void stream_play(struct amf* amf, int sock); // called upon _result
 extern void stream_handledata(struct rtmp* rtmp);
+extern void stream_handlestatus(struct amf* amf);

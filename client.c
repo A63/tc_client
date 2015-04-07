@@ -400,7 +400,8 @@ int main(int argc, char** argv)
                  "/close <nick>   = close someone's cam/mic stream (as a mod)\n"
                  "/ban <nick>     = ban someone\n"
                  "/banlist        = list who is banned\n"
-                 "/forgive <nick/ID> = unban someone\n");
+                 "/forgive <nick/ID> = unban someone\n"
+                 "/names          = list everyone that is online\n");
           fflush(stdout);
         }
         else if(!strncmp(buf, "/color", 6) && (!buf[6]||buf[6]==' '))
@@ -508,6 +509,17 @@ int main(int argc, char** argv)
           amfnum(&amf, 0);
           amfnull(&amf);
           amfsend(&amf, sock);
+          continue;
+        }
+        else if(!strcmp(buf, "/names"))
+        {
+          printf("Currently online: ");
+          for(i=0; i<idlistlen; ++i)
+          {
+            printf("%s%s", (i?", ":""), idlist[i].name);
+          }
+          printf("\n");
+          fflush(stdout);
           continue;
         }
       }
@@ -742,7 +754,7 @@ int main(int argc, char** argv)
         for(;len<10; ++len){printf(" ");}
         printf(" %s\n", amfin->items[i+1].string.string);
       }
-      printf("Use /forgive <ID> to unban someone\n");
+      printf("Use /forgive <ID/nick> to unban someone\n");
       fflush(stdout);
     }
     // "avons", 0, "ID1", "nick1", "IDn", "nickn"...
@@ -774,6 +786,10 @@ int main(int argc, char** argv)
     {
       // Creating a new stream worked, now play media (cam/mic) on it (if that's what the result was for)
       stream_play(amfin, sock);
+    }
+    else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "onStatus"))
+    {
+      stream_handlestatus(amfin);
     }
     // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
     amf_free(amfin);

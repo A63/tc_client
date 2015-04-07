@@ -49,6 +49,7 @@ struct chunk* chunk_get(unsigned int id)
   chunks[i].buf=0;
   chunks[i].timestamp=0;
   chunks[i].length=0;
+  chunks[i].type=0;
   return &chunks[i];
 }
 
@@ -101,7 +102,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   unsigned int rsize=((chunk->length-chunk->pos>127)?128:(chunk->length-chunk->pos));
   while(rsize>0)
   {
-    size_t r=read(sock, chunk->buf+chunk->pos, rsize);;
+    size_t r=read(sock, chunk->buf+chunk->pos, rsize);
     if(r<1){return 0;}
     rsize-=r;
     chunk->pos+=r;

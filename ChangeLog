@@ -1,3 +1,12 @@
+0.22:
+Cleaned up media.c/h which I forgot to clean up before releasing 0.21.
+Detect when someone cams down.
+Added a /names command to list who is online.
+camviewer: fall back to GTK+2 if GTK+3 is not available.
+camviewer: show multiple cameras (cams to view are now picked up from who is on cam when joining and whenever someone cams up instead of from argv[1])
+modbot: list at most 5 not yet approved videos for !queue to avoid sending messages which are too large.
+modbot: fixed a bug where removing a non-approved video from queue using !wrongrequest and that video was the first in queue, the second video in queue wouldn't be played.
+modbot: added !whorequested to see who requested the currently playing video.
 0.21:
 Renamed streamids to chunkids to better match the specification.
 Added a /close command for mods to close cam/mic streams.

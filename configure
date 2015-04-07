@@ -39,17 +39,26 @@ fi
 rm -f iconvtest iconvtest.c
 
 printf 'Checking for gtk+-3.0... '
-libs="`pkg-config --libs gtk+-3.0`"
+libs="`pkg-config --libs gtk+-3.0 2> /dev/null`"
 if [ "x$libs" != "x" ]; then
   echo "GTK_LIBS=${libs}" >> config.mk
   echo "GTK_CFLAGS=`pkg-config --cflags gtk+-3.0`" >> config.mk
   echo yes
 else
   echo no
+  printf 'Checking for gtk+-2.0... '
+  libs="`pkg-config --libs gtk+-2.0 2> /dev/null`"
+  if [ "x$libs" != "x" ]; then
+    echo "GTK_LIBS=${libs}" >> config.mk
+    echo "GTK_CFLAGS=`pkg-config --cflags gtk+-2.0`" >> config.mk
+    echo yes
+  else
+    echo no
+  fi
 fi
 
 printf 'Checking for libavcodec... '
-libs="`pkg-config --libs libavcodec`"
+libs="`pkg-config --libs libavcodec 2> /dev/null`"
 if [ "x$libs" != "x" ]; then
   echo "AVCODEC_LIBS=${libs}" >> config.mk
   echo "AVCODEC_CFLAGS=`pkg-config --cflags libavcodec`" >> config.mk
@@ -59,7 +68,7 @@ else
 fi
 
 printf 'Checking for libswscale... '
-libs="`pkg-config --libs libswscale`"
+libs="`pkg-config --libs libswscale 2> /dev/null`"
 if [ "x$libs" != "x" ]; then
   echo "SWSCALE_LIBS=${libs}" >> config.mk
   echo "SWSCALE_CFLAGS=`pkg-config --cflags libswscale`" >> config.mk
@@ -69,7 +78,7 @@ else
 fi
 
 printf 'Checking for libavutil... '
-libs="`pkg-config --libs libavutil`"
+libs="`pkg-config --libs libavutil 2> /dev/null`"
 if [ "x$libs" != "x" ]; then
   echo "AVUTIL_LIBS=${libs}" >> config.mk
   echo "AVUTIL_CFLAGS=`pkg-config --cflags libavutil`" >> config.mk

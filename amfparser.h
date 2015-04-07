@@ -65,5 +65,6 @@ extern char amf_compareitems(struct amfitem* a, struct amfitem* b);
 
 extern struct amf* amf_parse(const unsigned char* buf, int len);
 extern void amf_free(struct amf* amf);
+extern struct amfitem* amf_getobjmember(struct amfobject* obj, const char* name);
 
 extern void printamf(struct amf* amf);
