@@ -120,22 +120,12 @@ void list_save(struct list* list, const char* file)
   close(f);
 }
 
-void list_movetoback(struct list* list, const char* item)
+void list_movetofront(struct list* list, unsigned int pos)
 {
-  char tmp[strlen(item)+1];
-  strcpy(tmp, item);
-  list_del(list, tmp);
-  list_add(list, tmp);
-}
-
-char* getyoutube(char* string) // Extract youtube ID from URL/other forms
-{
-  char* x;
-  if((x=strstr(string, "?v=")))
-  {
-    return &x[3];
-  }
-  return string; // last resort: assume it's already an ID
+  if(pos>=list->itemcount){return;}
+  char* move=list->items[pos];
+  memmove(&list->items[1], list->items, sizeof(char*)*pos);
+  list->items[0]=move;
 }
 
 void say(const char* pm, const char* fmt, ...)
@@ -157,7 +147,7 @@ void say(const char* pm, const char* fmt, ...)
   write(tc_client, buf, strlen(buf));
 }
 
-unsigned int getduration(const char* vid)
+void getvidinfo(const char* vid, const char* type, char* buf, unsigned int len)
 {
   int out[2];
   pipe(out);
@@ -165,19 +155,27 @@ unsigned int getduration(const char* vid)
   {
     close(out[0]);
     dup2(out[1], 1);
-    write(1, ":", 1);
-    execlp("youtube-dl", "youtube-dl", "--get-duration", "--", vid, (char*)0);
+    execlp("youtube-dl", "youtube-dl", "--default-search", "auto", type, "--", vid, (char*)0);
     perror("execlp(youtube-dl)");
     _exit(1);
   }
   wait(0);
   close(out[1]);
-  char timebuf[128];
-  int len=read(out[0], timebuf, 127);
-  if(len<2){printf("Failed to get video duration using youtube-dl, assuming 60s\n"); return 60;} // If using youtube-dl fails, assume all videos are 1 minute long
-  timebuf[len]=0;
+  len=read(out[0], buf, len-1);
+  if(len<0){len=0;}
+  while(len>0 && (buf[len-1]=='\r' || buf[len-1]=='\n')){--len;} // Strip newlines
+  buf[len]=0;
   close(out[0]);
+}
+
+unsigned int getduration(const char* vid)
+{
+  char timebuf[128];
+  timebuf[0]=':'; // Sacrifice 1 byte to avoid having to deal with a special case later on, where no ':' is found and we go from the start of the string, but only once
+  getvidinfo(vid, "--get-duration", &timebuf[1], 127);
+  if(!timebuf[1]){printf("Failed to get video duration using youtube-dl, assuming 60s\n"); return 60;} // If using youtube-dl fails, assume videos are 1 minute long
   // youtube-dl prints it out in hh:mm:ss format, convert it to plain seconds
+  unsigned int len;
   // Seconds
   char* sep=strrchr(timebuf, ':');
   if(sep){sep[0]=0; len=atoi(&sep[1]);}
@@ -193,7 +191,7 @@ unsigned int getduration(const char* vid)
   return len;
 }
 
-char waitskip=0;
+unsigned int waitskip=0;
 void playnextvid()
 {
   waitskip=0;
@@ -220,17 +218,16 @@ void playnext(int x)
       {
         if(list_contains(&goodvids, queue.items[i]))
         {
-          waitskip=1;
+          waitskip=i;
           alarm(120);
           break;
         }
       }
       return;
     }else{
-      waitskip=0;
       say(0, "Skipping http://youtube.com/watch?v=%s because it is still not approved after 2 minutes\n", queue.items[0]);
-      list_movetoback(&queue, queue.items[0]);
-      alarm(1);
+      list_movetofront(&queue, waitskip);
+      waitskip=0;
     }
   }
   playnextvid();
@@ -309,13 +306,22 @@ int main(int argc, char** argv)
         }
         if(!strncmp(msg, "!request ", 9))
         {
-          char* vid=getyoutube(&msg[9]);
+          char title[256];
+          char vid[256];
+          getvidinfo(&msg[9], "--get-id", vid, 256);
+          if(!vid[0]){say(pm, "No video found, sorry\n"); continue;} // Nothing found
+          getvidinfo(vid, "--get-title", title, 256);
           printf("Requested ID '%s' by '%s'\n", vid, nick);
           // Check if it's already queued and mention which spot it's in
           int pos;
           if((pos=list_getpos(&queue, vid))>-1)
           {
-            say(pm, "That video is already in queue (number %i)\n", pos);
+            say(pm, "Video '%s' is already in queue (number %i)\n", title, pos);
+            continue;
+          }
+          if(list_contains(&badvids, vid))
+          {
+            say(pm, "Video '%s' is marked as bad, won't add to queue\n", title);
             continue;
           }
           if(list_contains(&mods, nick))
@@ -327,16 +333,11 @@ int main(int argc, char** argv)
             list_save(&badvids, "badvids.txt");
             list_add(&queue, vid);
           }else{ // Not a mod
-            if(list_contains(&badvids, vid))
-            {
-              write(tc_client, "Video is marked as bad, won't add to queue\n", 43);
-              continue;
-            }
             list_add(&queue, vid);
           }
           if(!list_contains(&goodvids, vid))
           {
-            say(pm, "Video '%s' is added to the queue but will need to be approved by mods\n", vid);
+            say(pm, "Video '%s' (%s) is added to the queue but will need to be approved by mods\n", vid, title);
           }
           else if(!playing){playnext(0);}
           else{say(pm, "Added to queue\n");}
@@ -367,6 +368,12 @@ int main(int argc, char** argv)
             say(pm, "%u videos in queue\n", queue.itemcount);
           }
         }
+        else if(!strcmp(msg, "!time")) // Debugging
+        {
+          unsigned int remaining=alarm(0);
+          alarm(remaining);
+          say(pm, "'%s' is scheduled to end in %u seconds\n", playing, remaining);
+        }
         else if(!strcmp(msg, "!help"))
         {
           say(nick, "The following commands can be used:\n");
@@ -379,13 +386,15 @@ int main(int argc, char** argv)
           usleep(100000);
           say(nick, "!playnext       = play the next video in queue without approving it (to see if it's ok)\n");
           usleep(100000);
-          say(nick, "!approve        = mark the currently playing video, or if none is playing the next in queue\n");
+          say(nick, "!approve        = mark the currently playing video as good, or if none is playing the next in queue\n");
           usleep(100000);
-          say(nick, "!approve <link> = mark the specified video as okay \n");
+          say(nick, "!approve <link> = mark the specified video as okay\n");
+          say(nick, "!approve next   = mark the next not yet approved video as okay\n");
           usleep(100000);
           say(nick, "!badvid         = stop playing the current video and mark it as bad\n");
           usleep(100000);
           say(nick, "!badvid <link>  = mark the specified video as bad, preventing it from ever being queued again\n");
+          say(nick, "You can also just play videos manually and they will be marked as good.\n");
         }
         else if(list_contains(&mods, nick)) // Mods-only commands
         {
@@ -415,8 +424,21 @@ int main(int argc, char** argv)
           }
           else if(!strncmp(msg, "!approve ", 9))
           {
-            char* vid=getyoutube(&msg[9]);
-            if(!vid[0]){vid=playing; if(!vid){continue;}}
+            char* vid=&msg[9];
+            if(!vid[0]){continue;} // No video specified
+            char vidbuf[256];
+            if(!strcmp(vid, "next"))
+            {
+              unsigned int i;
+              for(i=0; i<queue.itemcount; ++i)
+              {
+                if(!list_contains(&goodvids, queue.items[i])){vid=queue.items[i]; break;}
+              }
+              if(i==queue.itemcount){say(pm, "Nothing more to approve :)\n"); continue;}
+            }else{
+              getvidinfo(vid, "--get-id", vidbuf, 256);
+              vid=vidbuf;
+            }
             list_add(&goodvids, vid);
             list_del(&badvids, vid);
             list_save(&goodvids, "goodvids.txt");
@@ -447,7 +469,12 @@ int main(int argc, char** argv)
             playing=strdup(vid);
             alarm(getduration(vid));
           }
-          else if(!strcmp(msg, "/mbc youTube")){playnext(0);} // TODO: handle /mbsk (seek) too?
+          else if(!strcmp(msg, "/mbc youTube")){playnext(0);} // Video cancelled
+          else if(!strncmp(msg, "/mbsk youTube ", 14)) // Seeking
+          {
+            unsigned int pos=strtol(&msg[14], 0, 0)/1000;
+            alarm(getduration(playing)-pos);
+          }
         }
       }else{ // Actions
         if(!strncmp(space, " changed nickname to ", 21))

@@ -1,3 +1,11 @@
+0.18:
+This release only affects modbot:
+Switched to using youtube-dl for getting IDs (including proper searching)
+Fixed and clarified the !help text.
+When a video is next to be played and has not been approved for 2 minutes, move the first approved video to the front instead of moving the first video to the back.
+Added '!approve next' which approves the first thing in queue that is not yet approved.
+Added !time to get the amount of time left for the current video (mostly for debugging)
+Handle /mbsk (seeking)
 0.17:
 irchack: translate tc_client's "No such nick" to IRC's 401 (No such nick/channel)
 modbot: mark manually started videos as playing.
