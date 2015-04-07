@@ -1,6 +1,7 @@
 /*
     cursedchat, a simple curses interface for tc_client
     Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015  Pamela Hiatt
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -35,6 +36,7 @@ char* channeltopic;
 WINDOW* input;
 int to_app;
 struct list userlist={0,0};
+char* nickname=0;
 
 // Translate ANSI escape codes to curses commands and write the text to a window
 void waddansi(WINDOW* w, char* str)
@@ -188,8 +190,9 @@ void gotline(char* line)
   }
   write(to_app, line, strlen(line));
   write(to_app, "\n", 1);
-// TODO: grab user's nick for this
-  wprintw(buffers[currentbuf].pad, "\n%s: %s", "You", line);
+  time_t timestamp=time(0);
+  struct tm* t=localtime(&timestamp);
+  wprintw(buffers[currentbuf].pad, "\n[%02i:%02i] %s: %s", t->tm_hour, t->tm_min, nickname, line);
   drawchat();
 }
 
@@ -391,6 +394,12 @@ int main(int argc, char** argv)
         channeltopic=strdup(&buf[12]);
         drawtopic();
       }
+      else if(!strncmp(buf, "Connection ID: ", 15)) // Our initial nickname is "guest-" plus our connection ID
+      {
+        unsigned int length=strlen(&buf[15]);
+        nickname=malloc(length+strlen("guest-")+1);
+        sprintf(nickname, "guest-%s", &(buf[15]));
+      }
       else if(!strncmp(buf, "Currently online: ", 18))
       {
         // Populate the userlist
@@ -436,8 +445,14 @@ int main(int argc, char** argv)
           msg[0]=0;
           // Update name in userlist
           list_switch(&userlist, nick, &msg[21]);
-          unsigned int i;
+          // If it was us, keep track of the new nickname
+          if(!strcmp(nickname, nick))
+          {
+            free(nickname);
+            nickname=strdup(&msg[21]);
+          }
           // Prevent duplicate names for buffers, and all the issues that would bring
+          unsigned int i;
           if((i=findbuffer(&msg[21])))
           {
             renamebufferunique(i);

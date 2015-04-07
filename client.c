@@ -89,16 +89,16 @@ char* gethost(char *channel, char *password)
   int urllen;
   if(password)
   {
-    urllen=strlen("http://tinychat.com/api/find.room/?site=tinychat&password=0")+strlen(channel)+strlen(password);
+    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=tinychat&password=0")+strlen(channel)+strlen(password);
   }else{
-    urllen=strlen("http://tinychat.com/api/find.room/?site=tinychat0")+strlen(channel);
+    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=tinychat0")+strlen(channel);
   }
   char url[urllen];
   if(password)
   {
-    sprintf(url, "http://tinychat.com/api/find.room/%s?site=tinychat&password=%s", channel, password);
+    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=tinychat&password=%s", channel, password);
   }else{
-    sprintf(url, "http://tinychat.com/api/find.room/%s?site=tinychat", channel);
+    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=tinychat", channel);
   }
   char* response=http_get(url, 0);
   if(!response){exit(-1);}
@@ -122,8 +122,8 @@ char* gethost(char *channel, char *password)
 
 char* getkey(const char* id, const char* channel)
 {
-  char url[strlen("http://tinychat.com/api/captcha/check.php?guest%5Fid=&room=tinychat%5E0")+strlen(id)+strlen(channel)];
-  sprintf(url, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%s&room=tinychat%%5E%s", id, channel);
+  char url[strlen("http://apl.tinychat.com/api/captcha/check.php?guest%5Fid=&room=tinychat%5E0")+strlen(id)+strlen(channel)];
+  sprintf(url, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%s&room=tinychat%%5E%s", id, channel);
   char* response=http_get(url, 0);
   char* key=strstr(response, "\"key\":\"");
 
@@ -145,8 +145,8 @@ char* getkey(const char* id, const char* channel)
 char* getbroadcastkey(const char* channel, const char* nick)
 {
   unsigned int id=idlist_get(nick);
-  char url[strlen("http://tinychat.com/api/broadcast.pw?name=&site=tinychat&nick=&id=0")+128+strlen(channel)+strlen(nick)];
-  sprintf(url, "http://tinychat.com/api/broadcast.pw?name=%s&site=tinychat&nick=%s&id=%u", channel, nick, id);
+  char url[strlen("http://apl.tinychat.com/api/broadcast.pw?name=&site=tinychat&nick=&id=0")+128+strlen(channel)+strlen(nick)];
+  sprintf(url, "http://apl.tinychat.com/api/broadcast.pw?name=%s&site=tinychat&nick=%s&id=%u", channel, nick, id);
   char* response=http_get(url, 0);
   char* key=strstr(response, " token='");
 
@@ -444,7 +444,8 @@ int main(int argc, char** argv)
                  "/push2talk      = puts all non-operators in push2talk mode\n"
                  "/camup          = open an audio/video stream for broadcasting your video\n"
                  "/camdown        = close the broadcasting stream\n"
-                 "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n");
+                 "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n"
+                 "/topic <topic>  = set the channel topic\n");
           fflush(stdout);
           continue;
         }
@@ -612,6 +613,17 @@ int main(int argc, char** argv)
           char buf[len];
           fullread(0, buf, len);
           stream_sendvideo(sock, buf, len);
+          continue;
+        }
+        else if(!strncmp(buf, "/topic ", 7))
+        {
+          amfinit(&amf, 3);
+          amfstring(&amf, "topic");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          amfstring(&amf, &buf[7]);
+          amfstring(&amf, "");
+          amfsend(&amf, sock);
           continue;
         }
       }

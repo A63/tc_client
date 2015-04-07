@@ -1,5 +1,5 @@
 /*
-    A simple list implementation
+    tc_client-gtk, a graphical user interface for tc_client
     Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
@@ -14,16 +14,13 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-struct list
-{
-  char** items;
-  unsigned int itemcount;
-};
+#include <gtk/gtk.h>
 
-extern void list_del(struct list* list, const char* item);
-extern void list_add(struct list* list, const char* item);
-extern void list_switch(struct list* list, char* olditem, char* newitem);
-extern int list_getpos(struct list* list, char* item);
-extern char list_contains(struct list* list, char* item);
-extern void list_load(struct list* list, const char* file);
-extern void list_save(struct list* list, const char* file);
+extern char autoscroll_before(GtkAdjustment* scroll);
+extern void autoscroll_after(GtkAdjustment* scroll);
+extern void settings_reset(GtkBuilder* gui);
+extern void showsettings(GtkMenuItem* item, GtkBuilder* gui);
+extern void savesettings(GtkButton* button, GtkBuilder* gui);
+extern void toggle_soundcmd(GtkToggleButton* button, GtkBuilder* gui);
+extern void toggle_logging(GtkToggleButton* button, GtkBuilder* gui);
+extern void toggle_youtubecmd(GtkToggleButton* button, GtkBuilder* gui);

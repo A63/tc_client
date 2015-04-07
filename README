@@ -17,6 +17,7 @@ Commands supported by tc_client:
 /camup          = open an audio/video stream for broadcasting your video
 /video <length> = send a <length> bytes long encoded frame, send the frame data after this line
 /camdown        = close the audio/video stream
+/topic <topic>  = set the channel topic
 /help           = list these commands at runtime
 
 Current commands sent by the TC servers that tc_client doesn't know how to handle:
@@ -24,8 +25,15 @@ notice (some, notice is used for many functions)
 joinsdone
 pros
 
+Some notes about the code:
+In tc_client (and the utilities) we often use &string[offset], which can be confusing to some.
+We use it to get the part of the string after the first <offset> characters, e.g. we have a string that says "Connection ID: 562", we do &string[15] to get only the "562" part.
+The order of operations is as follows: &(string[offset])
+&string[offset] is equivalent to string+offset
+
 Included applications that rely on tc_client (type 'make utils' to build):
-*irchack    = a minimal IRC server that translates between IRC and tc_client's commands
-*modbot     = a bot that handles youtube video requests with a queue and an approval system to keep inappropriate videos from being played. Supports the following commands: !help, !request, !queue (show queue status), for mods only: !playnext (try playing next in queue without marking it yet), !approve, !badvid (Note: modbot depends on youtube-dl to find out the length of videos)
-*camviewer  = an example application for viewing cam streams
-*cursedchat = a curses chat interface
+*irchack       = a minimal IRC server that translates between IRC and tc_client's commands
+*modbot        = a bot that handles youtube video requests with a queue and an approval system to keep inappropriate videos from being played. Supports the following commands: !help, !request, !queue (show queue status), for mods only: !playnext (try playing next in queue without marking it yet), !approve, !badvid (Note: modbot depends on youtube-dl to find out the length of videos)
+*camviewer     = an example application for viewing cam streams
+*cursedchat    = a curses chat interface
+*tc_client-gtk = a more complete and full-featured interface based on camviewer

@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/wait.h>
 #include <ctype.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
@@ -46,6 +47,10 @@
 #include "userlist.h"
 #include "media.h"
 #include "compat.h"
+#include "config.h"
+#include "gui.h"
+#include "logging.h"
+#include "../stringutils.h"
 
 struct viddata
 {
@@ -65,27 +70,13 @@ struct viddata
 #endif
   GtkTextBuffer* buffer; // TODO: struct buffer array, for PMs
   GtkAdjustment* scroll;
+  GtkBuilder* gui;
 };
 
 int tc_client[2];
 int tc_client_in[2];
-
-char autoscroll_before(GtkAdjustment* scroll)
-{
-  // Figure out if we're at the bottom and should autoscroll with new content
-  int upper=gtk_adjustment_get_upper(scroll);
-  int size=gtk_adjustment_get_page_size(scroll);
-  int value=gtk_adjustment_get_value(scroll);
-  return (value+size==upper);
-}
-
-void autoscroll_after(GtkAdjustment* scroll)
-{
-  while(gtk_events_pending()){gtk_main_iteration();} // Make sure the textview's new size affects scroll's "upper" value first
-  int upper=gtk_adjustment_get_upper(scroll);
-  int size=gtk_adjustment_get_page_size(scroll);
-  gtk_adjustment_set_value(scroll, upper-size);
-}
+const char* channel=0;
+const char* mycolor=0;
 
 void updatescaling(struct viddata* data, unsigned int width, unsigned int height)
 {
@@ -134,10 +125,26 @@ void printchat(struct viddata* data, const char* text)
   if(bottom){autoscroll_after(data->scroll);}
 }
 
-char buf[1024];
-gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
+void printchat_color(struct viddata* data, const char* text, const char* color, unsigned int offset)
 {
-  int fd=g_io_channel_unix_get_fd(channel);
+  char bottom=autoscroll_before(data->scroll);
+  // Insert new content
+  GtkTextIter end;
+  gtk_text_buffer_get_end_iter(data->buffer, &end);
+  gtk_text_buffer_insert(data->buffer, &end, "\n", -1);
+  int startnum=gtk_text_iter_get_offset(&end);
+  gtk_text_buffer_insert(data->buffer, &end, text, -1);
+  // Set color if there was one
+  GtkTextIter start;
+  gtk_text_buffer_get_iter_at_offset(data->buffer, &start, startnum+offset);
+  gtk_text_buffer_apply_tag_by_name(data->buffer, color, &start, &end);
+  if(bottom){autoscroll_after(data->scroll);}
+}
+
+char buf[1024];
+gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
+{
+  int fd=g_io_channel_unix_get_fd(iochannel);
   struct viddata* data=datap;
   unsigned int i;
   for(i=0; i<1023; ++i)
@@ -174,6 +181,28 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     }
     return 1;
   }
+  if(!strcmp(buf, "Password required"))
+  {
+    wait(0); // Reap the previous process
+    gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(data->gui, "main")));
+    gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(data->gui, "channelpasswordwindow")));
+    return 1;
+  }
+  if(buf[0]=='/') // For the /help text
+  {
+    printchat(data, buf);
+    return 1;
+  }
+  // Remove escape codes and pick up the text color while we're at it
+  char* color=0;
+  char* esc;
+  char* escend;
+  while((esc=strchr(buf, '\x1b'))&&(escend=strchr(esc, 'm')))
+  {
+    escend[0]=0;
+    if(!color && strcmp(&esc[1], "[0")){color=strdup(&esc[1]);}
+    memmove(esc, &escend[1], strlen(&escend[1])+1);
+  }
   char* space=strchr(buf, ' ');
   // Timestamped events
   if(buf[0]=='['&&isdigit(buf[1])&&isdigit(buf[2])&&buf[3]==':'&&isdigit(buf[4])&&isdigit(buf[5])&&buf[6]==']'&&buf[7]==' ')
@@ -181,31 +210,46 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     char* nick=&buf[8];
     space=strchr(nick, ' ');
     if(!space){return 1;}
-//    if(space[-1]==':') // TODO: Handle messages specifically, e.g. handle /msg
-    // Remove escape codes and pick up the text color while we're at it
-    char* color=0;
-    char* esc;
-    char* escend;
-    while((esc=strchr(buf, '\x1b'))&&(escend=strchr(esc, 'm')))
+    if(space[-1]==':')
     {
-      escend[0]=0;
-      if(!color && strcmp(&esc[1], "[0")){color=strdup(&esc[1]);}
-      memmove(esc, &escend[1], strlen(&escend[1])+1);
+// TODO: handle /msg (PMs)
+      if(config_get_bool("soundradio_cmd") && !fork())
+      {
+        execlp("sh", "sh", "-c", config_get_str("soundcmd"), (char*)0);
+        _exit(0);
+      }
+      if(!strncmp(space, " /mbs youTube ", 14) && config_get_bool("youtuberadio_cmd") && !fork())
+      {
+// TODO: store the PID and make sure it's dead before starting a new video?
+// TODO: only play videos from mods?
+        char* id=&space[14];
+        char* offset=strchr(id, ' ');
+        if(!offset){_exit(1);}
+        offset[0]=0;
+        offset=&offset[1];
+        // Handle format string
+        const char* fmt=config_get_str("youtubecmd");
+        int len=strlen(fmt)+1;
+        len+=strcount(fmt, "%i")*(strlen(id)-2);
+        len+=strcount(fmt, "%t")*(strlen(id)-2);
+        char cmd[len];
+        cmd[0]=0;
+        while(fmt[0])
+        {
+          if(!strncmp(fmt, "%i", 2)){strcat(cmd, id); fmt=&fmt[2]; continue;}
+          if(!strncmp(fmt, "%t", 2)){strcat(cmd, offset); fmt=&fmt[2]; continue;}
+          for(len=0; fmt[len] && strncmp(&fmt[len], "%i", 2) && strncmp(&fmt[len], "%t", 2); ++len);
+          strncat(cmd, fmt, len);
+          fmt=&fmt[len];
+        }
+        execlp("sh", "sh", "-c", cmd, (char*)0);
+        _exit(0);
+      }
     }
-    char bottom=autoscroll_before(data->scroll);
+// TODO: handle logging PMs
+    if(config_get_bool("enable_logging")){logger_write(buf, channel, 0);}
     // Insert new content
-    GtkTextIter end;
-    gtk_text_buffer_get_end_iter(data->buffer, &end);
-    gtk_text_buffer_insert(data->buffer, &end, "\n", -1);
-    int startnum=gtk_text_iter_get_offset(&end);
-    gtk_text_buffer_insert(data->buffer, &end, buf, -1);
-    if(color) // Set color if there was one
-    {
-      GtkTextIter start;
-      gtk_text_buffer_get_iter_at_offset(data->buffer, &start, startnum+8); // 8 to skip timestamps
-      gtk_text_buffer_apply_tag_by_name(data->buffer, color, &start, &end);
-    }
-    if(bottom){autoscroll_after(data->scroll);}
+    printchat_color(data, buf, color, 8);
     if(space[-1]!=':') // Not a message
     {
       if(!strcmp(space, " entered the channel"))
@@ -232,8 +276,21 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
         }
       }
     }
+    free(color);
     return 1;
   }
+  if(!strcmp(buf, "Changed color") || !strncmp(buf, "Current color: ", 15))
+  {
+    printchat_color(data, buf, color, 0);
+    free((void*)mycolor);
+    mycolor=color;
+    return 1;
+  }
+  if(!strncmp(buf, "Color ", 6))
+  {
+    printchat_color(data, buf, color, 0);
+  }
+  free(color);
   if(space && !strcmp(space, " is a moderator."))
   {
     space[0]=0;
@@ -595,14 +652,103 @@ gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
 void sendmessage(GtkEntry* entry, struct viddata* data)
 {
   const char* msg=gtk_entry_get_text(entry);
+  dprintf(tc_client_in[1], "%s\n", msg);
+  // Don't print commands
+  if(!strcmp(msg, "/help") ||
+     !strncmp(msg, "/color ", 7) ||
+     !strcmp(msg, "/color") ||
+     !strcmp(msg, "/colors") ||
+     !strncmp(msg, "/nick ", 6) ||
+//     !strncmp(msg, "/msg ", 5) || // except PM commands
+     !strncmp(msg, "/opencam ", 9) ||
+     !strncmp(msg, "/close ", 7) ||
+     !strncmp(msg, "/ban ", 5) ||
+     !strcmp(msg, "/banlist") ||
+     !strncmp(msg, "/forgive ", 9) ||
+     !strcmp(msg, "/names") ||
+     !strcmp(msg, "/mute") ||
+     !strcmp(msg, "/push2talk") ||
+     !strcmp(msg, "/camup") ||
+     !strcmp(msg, "/camdown") ||
+     !strncmp(msg, "/video ", 7) ||
+     !strncmp(msg, "/topic ", 7))
+  {
+    gtk_entry_set_text(entry, "");
+    return;
+  }
   char text[strlen("[00:00] ")+strlen("You: ")+strlen(msg)+1];
   time_t timestamp=time(0);
   struct tm* t=localtime(&timestamp);
   sprintf(text, "[%02i:%02i] ", t->tm_hour, t->tm_min);
   sprintf(&text[8], "You: %s", msg);
-  printchat(data, text);
-  dprintf(tc_client_in[1], "%s\n", msg);
+  if(config_get_bool("enable_logging")){logger_write(text, channel, 0);}
+  printchat_color(data, text, mycolor, 8);
   gtk_entry_set_text(entry, "");
+}
+
+void startsession(GtkButton* button, struct viddata* data)
+{
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(data->gui, "startwindow")));
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(data->gui, "channelpasswordwindow")));
+  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(data->gui, "main")));
+  const char* nick=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_nick")));
+  channel=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_channel")));
+  const char* chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "channelpassword")));
+  const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_username")));
+  const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_password")));
+  pipe(tc_client);
+  pipe(tc_client_in);
+  if(!fork())
+  {
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
+    close(tc_client[0]);
+    close(tc_client_in[1]);
+    dup2(tc_client[1], 1);
+    dup2(tc_client_in[0], 0);
+    if(acc_user[0])
+    {
+      execl("./tc_client", "./tc_client", "-u", acc_user, channel, nick, chanpass, (char*)0);
+    }else{
+      execl("./tc_client", "./tc_client", channel, nick, chanpass, (char*)0);
+    }
+  }
+  if(acc_user[0]){dprintf(tc_client_in[1], "%s\n", acc_pass);}
+  write(tc_client_in[1], "/color\n", 7);
+  GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
+  g_io_channel_set_encoding(tcchannel, 0, 0);
+  g_io_add_watch(tcchannel, G_IO_IN, handledata, data);
+  // Remember, if asked to
+  char save=0;
+  if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(data->gui, "start_rememberchan"))))
+  {
+    config_set("remember_nick", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_nick"))));
+    config_set("remember_chan", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_channel"))));
+    config_set("remember_chan_nick", "True");
+    save=1;
+  }
+  else if(config_get_bool("remember_chan_nick")) // Remove previously remembered info
+  {
+    config_set("remember_nick", "");
+    config_set("remember_chan", "");
+    config_set("remember_chan_nick", "False");
+    save=1;
+  }
+  // Same for account
+  if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(data->gui, "start_rememberacc"))))
+  {
+    config_set("remember_username", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_username"))));
+    config_set("remember_password", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_password"))));
+    config_set("remember_acc", "True");
+    save=1;
+  }
+  else if(config_get_bool("remember_acc")) // Remove previously remembered info
+  {
+    config_set("remember_username", "");
+    config_set("remember_password", "");
+    config_set("remember_acc", "False");
+    save=1;
+  }
+  if(save){config_save();}
 }
 
 int main(int argc, char** argv)
@@ -643,6 +789,7 @@ int main(int argc, char** argv)
   gtk_init(&argc, &argv);
   GtkBuilder* gui=gtk_builder_new_from_file("gtkgui.glade");
   gtk_builder_connect_signals(gui, 0);
+  data.gui=gui;
 
 #ifdef HAVE_V4L2
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
@@ -652,6 +799,9 @@ int main(int argc, char** argv)
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast"));
   gtk_widget_destroy(item);
 #endif
+
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings"));
+  g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
   
   data.box=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
   userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));
@@ -678,37 +828,54 @@ int main(int argc, char** argv)
   //colormap("[35;1", "#b9807f");
 
   GtkWidget* panes=GTK_WIDGET(gtk_builder_get_object(gui, "vpaned"));
-  g_signal_connect(panes, "notify::position", (GCallback)handleresizepane, &data);
+  g_signal_connect(panes, "notify::position", G_CALLBACK(handleresizepane), &data);
 
   GtkWidget* inputfield=GTK_WIDGET(gtk_builder_get_object(gui, "inputfield"));
-  g_signal_connect(inputfield, "activate", (GCallback)sendmessage, &data);
-  g_signal_connect(inputfield, "key-press-event", (GCallback)inputkeys, &data);
+  g_signal_connect(inputfield, "activate", G_CALLBACK(sendmessage), &data);
+  g_signal_connect(inputfield, "key-press-event", G_CALLBACK(inputkeys), &data);
+
+  config_load();
+  // Sound
+  GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "soundradio_cmd"));
+  g_signal_connect(option, "toggled", G_CALLBACK(toggle_soundcmd), gui);
+  // Logging
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "enable_logging"));
+  g_signal_connect(option, "toggled", G_CALLBACK(toggle_logging), gui);
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "save_settings"));
+  g_signal_connect(option, "clicked", G_CALLBACK(savesettings), gui);
+  // Youtube
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
+  g_signal_connect(option, "toggled", G_CALLBACK(toggle_youtubecmd), gui);
 
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "main"));
-  g_signal_connect(window, "configure-event", (GCallback)handleresize, &data);
-  gtk_widget_show_all(window);
+  g_signal_connect(window, "configure-event", G_CALLBACK(handleresize), &data);
 
-  pipe(tc_client);
-  pipe(tc_client_in);
-  if(!fork())
+  // Start window and channel password window signals
+  GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "connectbutton"));
+  g_signal_connect(button, "clicked", G_CALLBACK(startsession), &data);
+  button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordbutton"));
+  g_signal_connect(button, "clicked", G_CALLBACK(startsession), &data);
+  button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpassword"));
+  g_signal_connect(button, "activate", G_CALLBACK(startsession), &data);
+  GtkWidget* startwindow=GTK_WIDGET(gtk_builder_get_object(gui, "startwindow"));
+  // Set channel and nick from last session
+  if(config_get_bool("remember_chan_nick"))
   {
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
-    close(tc_client[0]);
-    close(tc_client_in[1]);
-    dup2(tc_client[1], 1);
-    dup2(tc_client_in[0], 0);
-    argv[0]="./tc_client";
-    execv("./tc_client", argv);
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "start_nick")), config_get_str("remember_nick"));
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "start_channel")), config_get_str("remember_chan"));
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "start_rememberchan")), 1);
   }
-  close(tc_client_in[0]);
-  GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
-  g_io_channel_set_encoding(tcchannel, 0, 0);
-  unsigned int channel_id=g_io_add_watch(tcchannel, G_IO_IN, handledata, &data);
+  // Set username and password from last session
+  if(config_get_bool("remember_acc"))
+  {
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")), config_get_str("remember_username"));
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")), config_get_str("remember_password"));
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "start_rememberacc")), 1);
+  }
+  gtk_widget_show_all(startwindow);
 
   gtk_main();
  
-  g_source_remove(channel_id);
-  g_io_channel_shutdown(tcchannel, 0, 0);
   camera_cleanup();
 #ifdef HAVE_SOUND
   #if HAVE_SOUND==avresample

@@ -1,5 +1,5 @@
 /*
-    A simple list implementation
+    A few simple string utilities
     Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
@@ -14,16 +14,16 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-struct list
-{
-  char** items;
-  unsigned int itemcount;
-};
+#include <string.h>
 
-extern void list_del(struct list* list, const char* item);
-extern void list_add(struct list* list, const char* item);
-extern void list_switch(struct list* list, char* olditem, char* newitem);
-extern int list_getpos(struct list* list, char* item);
-extern char list_contains(struct list* list, char* item);
-extern void list_load(struct list* list, const char* file);
-extern void list_save(struct list* list, const char* file);
+int strcount(const char* haystack, const char* needle)
+{
+  int c=0;
+  haystack=strstr(haystack, needle);
+  while(haystack)
+  {
+    ++c;
+    haystack=strstr(&haystack[1], needle);
+  }
+  return c;
+}

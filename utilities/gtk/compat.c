@@ -61,11 +61,12 @@
     close(f);
     buf[st.st_size]=0;
     char* pos;
-    if((pos=strstr(buf, "<requires ")))
+    if((pos=strstr(buf, "<requires "))) // Don't require anything
     {
       char* end=newline(pos);
       memmove(pos, end, strlen(end)+1);
     }
+    // Convert orientation properties into GtkV/GtkH object types
     char* orientation;
     while((orientation=strstr(buf, "<property name=\"orientation\">")))
     {
@@ -80,6 +81,7 @@
         pos[10]=dir;
       }
     }
+    // Convert remaining GtkBoxes and GtkPaneds with the default orientation
     while((pos=strstr(buf, "class=\"GtkBox\"")) || (pos=strstr(buf, "class=\"GtkPaned\"")))
     {
       memmove(&pos[11], &pos[10], strlen(&pos[10])+1);

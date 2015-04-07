@@ -170,9 +170,10 @@ else
   echo no
   printf 'Checking endianness and writing our own macros... '
   echo '#include <stdio.h>' > endiantest.c
-  echo 'int main(){int num=1;char* x=(char*)&num;if(x[0]){printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=1\n");}else{printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=2\n");}return 0;}' >> endiantest.c
+  echo 'int main(){int num=1;char* x=(char*)&num;if(x[0]){printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=1");}else{printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=2");}return 0;}' >> endiantest.c
   "$CC" endiantest.c -o endiantest > /dev/null 2> /dev/null
   ./endiantest >> config.mk
+  echo >> config.mk
   echo done
 fi
 rm -f endiantest.c endiantest

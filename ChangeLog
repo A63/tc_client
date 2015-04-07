@@ -1,3 +1,14 @@
+0.30:
+Adjusted the configure script for compatibility with shells that still interpret escaped characters in single-quotes (contributed by Jade)
+Added a /topic command to set the channel topic.
+tc_client-gtk: allow scrollbars around the cams, otherwise resizing the window to a smaller size will be blocked.
+tc_client-gtk: added optional notification sounds and a settings window to configure it.
+tc_client-gtk: added optional logging.
+tc_client-gtk: added a startup dialog instead of requiring commandline arguments.
+tc_client-gtk: display the color of our outgoing messages.
+tc_client-gtk: added an option to run a command for youtube videos being played.
+cursedchat: keep track of our own nickname and print that when we send a message instead of "You:" (contributed by Pamela)
+cursedchat: added timestamps for outgoing messages.
 0.29:
 Added testbuilds.sh to automatically try building the project with different configurations to verify that the latest changes did not break it in some cases.
 Check for endianness macros in the configure script and if they are missing/broken, test endianness and add our own macros.

@@ -1,5 +1,5 @@
 /*
-    A simple list implementation
+    tc_client-gtk, a graphical user interface for tc_client
     Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
@@ -14,16 +14,6 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-struct list
-{
-  char** items;
-  unsigned int itemcount;
-};
 
-extern void list_del(struct list* list, const char* item);
-extern void list_add(struct list* list, const char* item);
-extern void list_switch(struct list* list, char* olditem, char* newitem);
-extern int list_getpos(struct list* list, char* item);
-extern char list_contains(struct list* list, char* item);
-extern void list_load(struct list* list, const char* file);
-extern void list_save(struct list* list, const char* file);
+extern void logger_write(const char* line, const char* channel, const char* nick);
+extern void logger_close_all(void);
