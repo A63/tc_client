@@ -1,3 +1,6 @@
+0.13:
+Check the validity of nicknames before switching.
+Roll our own endianness conversion functions since the ones provided by libc are not standardized.
 0.12:
 Wrote a sender for the RTMP code and changed the AMF0 writer to use it, plus working directly with the rtmp struct instead of an intermediate amfmsg struct.
 Added handling of moderators turning into regular users, or 'deop' (contributed by Jade)

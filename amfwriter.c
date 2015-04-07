@@ -18,7 +18,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <endian.h>
+#include "endian.h"
 #include "rtmp.h"
 #include "amfwriter.h"
 
@@ -59,7 +59,7 @@ void amfstring(struct rtmp* msg, const char* string)
   unsigned char* type=msg->buf+offset;
   type[0]='\x02';
   uint16_t* strlength=(uint16_t*)(msg->buf+offset+1);
-  *strlength=htobe16(len);
+  *strlength=be16(len);
   memcpy(msg->buf+offset+3, string, len);
 }
 
@@ -79,7 +79,7 @@ void amfobjitem(struct rtmp* msg, char* name)
   msg->length+=2+len;
   msg->buf=realloc(msg->buf, msg->length);
   uint16_t* strlength=(uint16_t*)(msg->buf+offset);
-  *strlength=htobe16(len);
+  *strlength=be16(len);
   memcpy(msg->buf+offset+2, name, len);
 }
 

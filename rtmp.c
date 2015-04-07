@@ -18,7 +18,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <endian.h>
+#include "endian.h"
 #include "rtmp.h"
 
 char rtmp_get(int sock, struct rtmp* rtmp)
@@ -47,7 +47,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
       // Length
       x=0;
       read(sock, ((void*)&x)+1, 3);
-      length=be32toh(x);
+      length=be32(x);
       // Type
       read(sock, &type, sizeof(type));
       if(fmt<1)
@@ -62,7 +62,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   if(timestamp==0xffffff)
   {
     read(sock, &x, sizeof(x));
-    timestamp=be32toh(x);
+    timestamp=be32(x);
   }
 
   rtmp->type=type;
@@ -93,7 +93,7 @@ void rtmp_send(int sock, struct rtmp* rtmp)
       unsigned char streamid=rtmp->streamid-64;
       write(sock, &streamid, sizeof(streamid));
     }else{
-      unsigned short streamid=htole16(rtmp->streamid-64);
+      unsigned short streamid=le16(rtmp->streamid-64);
       write(sock, &streamid, sizeof(streamid));
     }
   }
@@ -101,7 +101,7 @@ void rtmp_send(int sock, struct rtmp* rtmp)
   // Timestamp
   write(sock, &x, 3); // Time is irrelevant
   // Length
-  x=htobe32(rtmp->length);
+  x=be32(rtmp->length);
   write(sock, ((void*)&x)+1, 3);
   // Type
   write(sock, &rtmp->type, sizeof(rtmp->type));

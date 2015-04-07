@@ -41,19 +41,6 @@ struct writebuf
 
 char showcolor=1;
 
-unsigned int flip(unsigned int bits, int bytecount)
-{
-  unsigned int ret=0;
-  unsigned char* bytes=(unsigned char*)&bits;
-  unsigned char* retb=(unsigned char*)&ret;
-  int i;
-  for(i=0; i<bytecount; ++i)
-  {
-    retb[i]=bytes[bytecount-1-i];
-  }
-  return ret;
-}
-
 void b_read(int sock, void* buf, size_t len)
 {
   while(len>0)
@@ -157,12 +144,28 @@ char* timestamp()
   return timestampbuf;
 }
 
+char checknick(const char* nick) // Returns zero if the nick is valid, otherwise returning the character that failed the check
+{
+  unsigned int i;
+  for(i=0; nick[i]; ++i)
+  {
+    if(!strchr("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-^[]{}`\\|", nick[i])){return nick[i];}
+  }
+  return 0;
+}
+
 int main(int argc, char** argv)
 {
   setlocale(LC_ALL, "");
   if(argc<3)
    {
     printf("Usage: %s <channelname> <nickname> [password]\n", argv[0]);
+    return 1;
+  }
+  char badchar;
+  if((badchar=checknick(argv[2])))
+  {
+    printf("'%c' is not allowed in nicknames.\n", badchar);
     return 1;
   }
   char* channel=argv[1];
@@ -299,6 +302,11 @@ int main(int argc, char** argv)
         }
         else if(!strncmp((char*)buf, "/nick ", 6))
         {
+          if((badchar=checknick((char*)&buf[6])))
+          {
+            printf("'%c' is not allowed in nicknames.\n", badchar);
+            continue;
+          }
           amfinit(&amf, 3);
           amfstring(&amf, "nick");
           amfnum(&amf, 0);
