@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <poll.h>
+#include <locale.h>
 #include <curl/curl.h>
 #include "rtmp.h"
 #include "amfparser.h"
@@ -250,6 +251,7 @@ char* getkey(char* id, char* channel)
 
 int main(int argc, char** argv)
 {
+  setlocale(LC_ALL, "");
   if(argc<3)
    {
     printf("Usage: %s <roomname> <nickname> [password]\n", argv[0]);
@@ -404,7 +406,10 @@ int main(int argc, char** argv)
       len=read(0, buf, 2047);
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       buf[len]=0;
-      char* msg=tonumlist((char*)buf);
+      len=mbstowcs(0, (char*)buf, 0);
+      wchar_t wcsbuf[len+1];
+      mbstowcs(wcsbuf, (char*)buf, len+1);
+      char* msg=tonumlist(wcsbuf);
       amfinit(&amf);
       amfstring(&amf, "privmsg");
       amfnum(&amf, 0);
@@ -467,11 +472,11 @@ int main(int argc, char** argv)
       // Items for privmsg: 0=cmd, 2=channel, 3=msg, 4=color/lang, 5=nick
       if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
       {
-        char* msg=fromnumlist(amfin->items[3].string.string);
+        wchar_t* msg=fromnumlist(amfin->items[3].string.string);
         // Timestamps, e.g. "[hh:mm] name: message"
         time_t timestamp=time(0);
         struct tm* t=localtime(&timestamp);
-        printf("[%02i:%02i] %s: %s\n", t->tm_hour, t->tm_min, amfin->items[5].string.string, msg);
+        printf("[%02i:%02i] %s: %ls\n", t->tm_hour, t->tm_min, amfin->items[5].string.string, msg);
         free(msg);
       }
       amf_free(amfin);

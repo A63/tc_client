@@ -17,11 +17,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <wchar.h>
+#include <locale.h>
 #include "numlist.h"
 
 // Functions for converting to/from the comma-separated decimal character code format that tinychat uses for chat messages, e.g. "97,98,99" = "abc"
 
-char* fromnumlist(char* in)
+wchar_t* fromnumlist(char* in)
 {
   int len=1;
   char* x=in;
@@ -30,7 +32,7 @@ char* fromnumlist(char* in)
     ++len;
     x=&x[1];
   }
-  char* string=malloc(len+1);
+  unsigned char string[len+1];
   int i;
   for(i=0; i<len; ++i)
   {
@@ -39,11 +41,22 @@ char* fromnumlist(char* in)
     in=&in[1];
   }
   string[len]=0;
-  return string;
+  wchar_t* wstring=malloc(sizeof(wchar_t)*(len+1));
+  setlocale(LC_ALL, "en_US.ISO-8859-1");
+  mbstowcs(wstring, (char*)string, len);
+  wstring[len]=0;
+  setlocale(LC_ALL, "");
+  return wstring;
 }
 
-char* tonumlist(const char* in)
+char* tonumlist(const wchar_t* in_x)
 {
+  int len=wcslen(in_x);
+  char in[len+1];
+  setlocale(LC_ALL, "en_US.ISO-8859-1");
+  wcstombs(in, in_x, len);
+  in[len]=0;
+  setlocale(LC_ALL, "");
   char* out=malloc(strlen(in)*strlen("255,"));
   out[0]=0;
   char* x=out;
