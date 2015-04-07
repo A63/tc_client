@@ -1,0 +1,31 @@
+<html>
+<head>
+  <title>modbot commands</title>
+  <style>
+  <!--
+  th{text-align:left;}
+  -->
+  </style>
+</head>
+<body>
+  modbot is a utility to queue videos to be played, with a list of approved videos that will automatically play when requested. Below is a list of supported commands.<br /><br />
+  <table cellspacing="1" border="0">
+    <tr><th>Command</th><th>Description</th></tr>
+    <tr><td>!request &lt;link/searchterm&gt;</td><td>request a video to be played</td></tr>
+    <tr><td>!queue</td><td>get the number of songs in queue and which (if any) need to  be approved</td></tr>
+    <tr><td>!wrongrequest</td><td>undo the last request you made</td></tr>
+    <tr><td>!requestedby</td><td>see who requested the current video</td></tr>
+    <tr><td>!modstats</td><td>get a percentage of how often there are mods in the channel (aside from modbot)</td></tr>
+    <tr><td>!syncvid</td><td>synchronize video position (or see a video that was started while having youtube videos disabled in the flash client)</td></tr>
+    <tr><th colspan="2">Mod commands:</th></tr>
+    <tr><td>!playnext</td><td>play the next video in queue without approving it (to see if it's ok)</td></tr>
+    <tr><td>!approve</td><td>mark the currently playing video as good, or if none is playing the next in queue</td></tr>
+    <tr><td>!approve &lt;link/searchterm&gt;</td><td>mark the specified video as okay</td></tr>
+    <tr><td>!approve next</td><td>mark the next not yet approved video as okay</td></tr>
+    <tr><td>!approve entire queue</td><td>approve all videos in queue (for playlists)</td></tr>
+    <tr><td>!badvid</td><td>stop playing the current video and mark it as bad</td></tr>
+    <tr><td>!badvid &lt;link/searchterm&gt;</td><td>mark the specified video as bad, preventing it from ever being queued again</td></tr>
+  </table><br />
+  You can also just play videos manually/the good old way and they will be marked as good.
+</body>
+</html>

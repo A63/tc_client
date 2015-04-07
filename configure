@@ -1,0 +1,181 @@
+#!/bin/sh
+# Just a simple handwritten configure
+rm -f config.mk
+
+host=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+  --host=*) host="`echo "$1" | sed -e 's/--host=//'`";;
+  esac
+  shift
+done
+
+printf 'Checking for a C compiler... '
+if [ "x$CC" = "x" -a "x$host" != "x" ]; then
+  if which "${host}-cc" > /dev/null 2> /dev/null; then CC="${host}-cc"
+  elif which "${host}-gcc" > /dev/null 2> /dev/null; then CC="${host}-gcc"
+  elif which "${host}-clang" > /dev/null 2> /dev/null; then CC="${host}-clang"
+  fi
+fi
+if [ "x$CC" = "x" ]; then
+  if which cc > /dev/null 2> /dev/null; then CC=cc
+  elif which gcc > /dev/null 2> /dev/null; then CC=gcc
+  elif which clang > /dev/null 2> /dev/null; then CC=clang
+  fi
+fi
+if [ "x$CC" = "x" ]; then echo "None found"; exit 1; fi
+echo "$CC"
+echo "CC=$CC" >> config.mk
+
+printf 'Checking if we need -liconv for iconv... '
+echo '#include <iconv.h>' > iconvtest.c
+echo 'int main(){iconv_t x=iconv_open("a","b");return 0;}' >> iconvtest.c
+if ! "$CC" iconvtest.c -o iconvtest > /dev/null 2> /dev/null; then
+  echo 'LIBS+=-liconv' >> config.mk
+  echo yes
+else
+  echo no
+fi
+rm -f iconvtest iconvtest.c
+
+printf 'Checking for gtk+-3.0... '
+libs="`pkg-config --libs gtk+-3.0 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "GTK_LIBS=${libs}" >> config.mk
+  echo "GTK_CFLAGS=`pkg-config --cflags gtk+-3.0`" >> config.mk
+  echo yes
+else
+  echo no
+  printf 'Checking for gtk+-2.0... '
+  libs="`pkg-config --libs gtk+-2.0 2> /dev/null`"
+  if [ "x$libs" != "x" ]; then
+    echo "GTK_LIBS=${libs}" >> config.mk
+    echo "GTK_CFLAGS=`pkg-config --cflags gtk+-2.0`" >> config.mk
+    echo yes
+  else
+    echo no
+  fi
+fi
+
+printf 'Checking for libavcodec... '
+libs="`pkg-config --libs libavcodec 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "AVCODEC_LIBS=${libs}" >> config.mk
+  echo "AVCODEC_CFLAGS=`pkg-config --cflags libavcodec`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for libswscale... '
+libs="`pkg-config --libs libswscale 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "SWSCALE_LIBS=${libs}" >> config.mk
+  echo "SWSCALE_CFLAGS=`pkg-config --cflags libswscale`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for libavutil... '
+libs="`pkg-config --libs libavutil 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "AVUTIL_LIBS=${libs}" >> config.mk
+  echo "AVUTIL_CFLAGS=`pkg-config --cflags libavutil`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+# TODO: Figure out how to mix sound sources so that this doesn't sound horrible with more than one person on mic, having it disabled by default until then
+if [ "x${ENABLE_MIC}" != "x" ]; then
+printf 'Checking for libavresample... '
+libs="`pkg-config --libs libavresample 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "AVRESAMPLE_LIBS=${libs}" >> config.mk
+  echo "AVRESAMPLE_CFLAGS=`pkg-config --cflags libavresample`" >> config.mk
+  echo yes
+else
+  echo no
+  printf 'Checking for libswresample... '
+  libs="`pkg-config --libs libswresample 2> /dev/null`"
+  if [ "x$libs" != "x" ]; then
+    echo "SWRESAMPLE_LIBS=${libs}" >> config.mk
+    echo "SWRESAMPLE_CFLAGS=`pkg-config --cflags libswresample`" >> config.mk
+    echo yes
+  else
+    echo no
+  fi
+fi
+
+printf 'Checking for libao... '
+libs="`pkg-config --libs ao 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "AO_LIBS=${libs}" >> config.mk
+  echo "AO_CFLAGS=`pkg-config --cflags ao`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+fi
+
+printf 'Checking for ncurses... '
+libs="`ncursesw5-config --libs 2> /dev/null || ncurses5-config --libs 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "CURSES_LIBS=${libs}" >> config.mk
+  echo "CURSES_CFLAGS=`ncursesw5-config --cflags 2> /dev/null || ncurses5-config --cflags 2> /dev/null`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for readline... '
+echo '#include <stdio.h>' > readlinetest.c
+echo '#include <readline/readline.h>' >> readlinetest.c
+echo 'int main(){rl_initialize();return 0;}' >> readlinetest.c
+if "$CC" readlinetest.c -lreadline ${libs} -o readlinetest > /dev/null 2> /dev/null; then
+  echo "READLINE_LIBS=-lreadline" >> config.mk
+  echo yes
+else
+  echo no
+fi
+rm -f readlinetest.c readlinetest
+
+printf 'Checking for libv4l2... '
+libs="`pkg-config --libs libv4l2 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "LIBV4L2_LIBS=${libs}" >> config.mk
+  echo "LIBV4L2_CFLAGS=`pkg-config --cflags libv4l2`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+# TODO: handle crosscompiling better
+printf 'Checking if endianness macros work... '
+echo '#include <stdio.h>' > endiantest.c
+echo 'int main(){' >> endiantest.c
+echo '#if defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__) && defined(__BYTE_ORDER__)' >> endiantest.c
+echo '  if(__ORDER_LITTLE_ENDIAN__==__ORDER_BIG_ENDIAN__){return 1;}' >> endiantest.c
+echo '  if(__BYTE_ORDER__!=__ORDER_LITTLE_ENDIAN__ && __BYTE_ORDER__!=__ORDER_BIG_ENDIAN__){return 1;}' >> endiantest.c
+echo '  return 0;' >> endiantest.c
+echo '#else' >> endiantest.c
+echo '  return 1;' >> endiantest.c
+echo '#endif' >> endiantest.c
+echo '}' >> endiantest.c
+"$CC" endiantest.c -o endiantest > /dev/null 2> /dev/null
+if ./endiantest 2> /dev/null; then
+  echo yes
+else
+  echo no
+  printf 'Checking endianness and writing our own macros... '
+  echo '#include <stdio.h>' > endiantest.c
+  echo 'int main(){int num=1;char* x=(char*)&num;if(x[0]){printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=1");}else{printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=2");}return 0;}' >> endiantest.c
+  "$CC" endiantest.c -o endiantest > /dev/null 2> /dev/null
+  ./endiantest >> config.mk
+  echo >> config.mk
+  echo done
+fi
+rm -f endiantest.c endiantest
+
+echo Done
