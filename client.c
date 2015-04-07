@@ -229,8 +229,14 @@ void usage(const char* me)
          "-u, --user <user>    Username of tinychat account to use.\n"
          "-p, --pass <pass>    Password of tinychat account to use.\n"
          "-c, --color <value>  Color to use in chat.\n"
+#ifdef RTMP_DEBUG
+         "    --rtmplog <file> Write RTMP input to file.\n"
+#endif
          ,me);
 }
+#ifdef RTMP_DEBUG
+extern int rtmplog;
+#endif
 
 int main(int argc, char** argv)
 {
@@ -262,6 +268,9 @@ int main(int argc, char** argv)
       ++i;
       currentcolor=atoi(argv[i]);
     }
+#ifdef RTMP_DEBUG
+    else if(!strcmp(argv[i], "--rtmplog")){++i; rtmplog=open(argv[i], O_WRONLY|O_CREAT|O_TRUNC, 0600); if(rtmplog<0){perror("rtmplog: open");}}
+#endif
     else if(!channel){channel=argv[i];}
     else if(!nickname){nickname=strdup(argv[i]);}
     else if(!password){password=argv[i];}
@@ -437,6 +446,7 @@ int main(int argc, char** argv)
                  "/camdown        = close the broadcasting stream\n"
                  "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n");
           fflush(stdout);
+          continue;
         }
         else if(!strncmp(buf, "/color", 6) && (!buf[6]||buf[6]==' '))
         {
@@ -642,6 +652,7 @@ int main(int argc, char** argv)
       char* id=amfin->items[amfin->itemcount-1].string.string;
       printf("Connection ID: %s\n", id);
       char* key=getkey(id, channel);
+      if(!key){printf("Failed to get channel key\n"); return 1;}
 
       amfinit(&amf, 3);
       amfstring(&amf, "cauth");

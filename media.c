@@ -52,6 +52,7 @@ void stream_start(const char* nick, int sock) // called upon privmsg "/opencam .
   amfnull(&amf);
   amfsend(&amf, sock);
   printf("Starting media stream for %s (%u)\n", nick, userid);
+  fflush(stdout);
 }
 
 void streamout_start(unsigned int id, int sock) // called upon privmsg "/camup"

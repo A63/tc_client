@@ -34,6 +34,9 @@ struct chunk
 struct chunk* chunks=0;
 unsigned int chunkcount=0;
 unsigned int chunksize_in=128;
+#ifdef RTMP_DEBUG
+int rtmplog=-1;
+#endif
 
 size_t fullread(int fd, void* buf, size_t len)
 {
@@ -42,6 +45,12 @@ size_t fullread(int fd, void* buf, size_t len)
   {
     size_t r=read(fd, buf, remaining);
     if(r<1){return 0;}
+#ifdef RTMP_DEBUG
+    if(rtmplog>-1)
+    {
+      write(rtmplog, buf, r);
+    }
+#endif
     remaining-=r;
     buf+=r;
   }

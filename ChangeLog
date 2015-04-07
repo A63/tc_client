@@ -1,3 +1,18 @@
+0.29:
+Added testbuilds.sh to automatically try building the project with different configurations to verify that the latest changes did not break it in some cases.
+Check for endianness macros in the configure script and if they are missing/broken, test endianness and add our own macros.
+If getkey() returns null, print a descriptive message and exit (instead of segfaulting)
+Added optional code to record incoming RTMP packets, add -DRTMP_DEBUG=1 to CFLAGS to enable.
+Added compatibility hacks for apple systems (building onto android ones)
+Handle /help without sending it as a message.
+camviewer: create a new pipe for showing our own cam instead of mixing it in with tc_client's output.
+camviewer: remove associated cameras when a user leaves (in case there was no explicit message about ending the stream)
+camviewer: support older versions of libav which had parts of libavutil in libavcore instead.
+Forked camviewer into tc_client-gtk to keep camviewer as a simpler demo while tc_client-gtk develops into a more complete client interface.
+tc_client-gtk: added a menubar and moved the broadcasting option to there instead of as a button.
+tc_client-gtk: scale cams to fit/fill into the window.
+tc_client-gtk: added a text view for chat, an input field and a user list, switched to a glade file instead of building the GUI manually from code.
+modbot: added a !syncvid command to synchronize video position (or to see a video that was started while having youtube videos disabled in the flash client)
 0.28:
 Delete streams when they stop, to allow reusing stream IDs.
 Added a /camdown command.

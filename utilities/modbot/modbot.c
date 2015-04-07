@@ -499,6 +499,16 @@ int main(int argc, char** argv)
           }
           say(pm, "The channel has had mods %u%% of the time for the past %u %s\n", hasmods, session, timeformat);
         }
+        else if(!strcmp(msg, "!syncvid"))
+        {
+          if(playing)
+          {
+            space[0]=0;
+            say(0, "/priv %s /mbs youTube %s %u\n", nick, playing, (time(0)-started)*1000);
+          }else{
+            say(pm, "Nothing is playing\n");
+          }
+        }
         else if(list_contains(&mods, nick)) // Mods-only commands
         {
           if(!strcmp(msg, "!playnext"))

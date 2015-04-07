@@ -31,7 +31,7 @@ char* fromnumlist(char* in, size_t* outlen)
     ++len;
     x=&x[1];
   }
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__APPLE__)
   *outlen=len;
   unsigned char* string=malloc(len+1);
 #else
@@ -46,7 +46,7 @@ char* fromnumlist(char* in, size_t* outlen)
   }
   string[len]=0;
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__APPLE__)
   return string;
 #else
   iconv_t cd=iconv_open("", "utf-16");
@@ -66,7 +66,7 @@ char* fromnumlist(char* in, size_t* outlen)
 
 char* tonumlist(char* i_in, size_t len)
 {
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__APPLE__)
   #define in i_in
 #else
   iconv_t cd=iconv_open("utf-16le", "");

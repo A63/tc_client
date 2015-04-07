@@ -151,4 +151,30 @@ else
   echo no
 fi
 
+# TODO: handle crosscompiling better
+printf 'Checking if endianness macros work... '
+echo '#include <stdio.h>' > endiantest.c
+echo 'int main(){' >> endiantest.c
+echo '#if defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__) && defined(__BYTE_ORDER__)' >> endiantest.c
+echo '  if(__ORDER_LITTLE_ENDIAN__==__ORDER_BIG_ENDIAN__){return 1;}' >> endiantest.c
+echo '  if(__BYTE_ORDER__!=__ORDER_LITTLE_ENDIAN__ && __BYTE_ORDER__!=__ORDER_BIG_ENDIAN__){return 1;}' >> endiantest.c
+echo '  return 0;' >> endiantest.c
+echo '#else' >> endiantest.c
+echo '  return 1;' >> endiantest.c
+echo '#endif' >> endiantest.c
+echo '}' >> endiantest.c
+"$CC" endiantest.c -o endiantest > /dev/null 2> /dev/null
+if ./endiantest 2> /dev/null; then
+  echo yes
+else
+  echo no
+  printf 'Checking endianness and writing our own macros... '
+  echo '#include <stdio.h>' > endiantest.c
+  echo 'int main(){int num=1;char* x=(char*)&num;if(x[0]){printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=1\n");}else{printf("CFLAGS+=-D__ORDER_LITTLE_ENDIAN__=1 -D__ORDER_BIG_ENDIAN__=2 -D__BYTE_ORDER__=2\n");}return 0;}' >> endiantest.c
+  "$CC" endiantest.c -o endiantest > /dev/null 2> /dev/null
+  ./endiantest >> config.mk
+  echo done
+fi
+rm -f endiantest.c endiantest
+
 echo Done

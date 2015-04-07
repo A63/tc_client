@@ -1,4 +1,4 @@
-VERSION=0.28
+VERSION=0.29
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
 ifneq ($(wildcard config.mk),)
@@ -9,12 +9,13 @@ IRCHACK_OBJ=utilities/irchack/irchack.o utilities/compat.o
 MODBOT_OBJ=utilities/modbot/modbot.o utilities/list.o utilities/modbot/queue.o
 CAMVIEWER_OBJ=utilities/camviewer/camviewer.o
 CURSEDCHAT_OBJ=utilities/cursedchat/cursedchat.o utilities/cursedchat/buffer.o utilities/compat.o utilities/list.o
+TC_CLIENT_GTK_OBJ=utilities/gtk/camviewer.o utilities/gtk/userlist.o utilities/gtk/media.o utilities/gtk/compat.o
 UTILS=irchack modbot
 ifdef GTK_LIBS
 ifdef AVCODEC_LIBS
 ifdef AVUTIL_LIBS
 ifdef SWSCALE_LIBS
-  UTILS+=camviewer
+  UTILS+=camviewer tc_client-gtk
   CFLAGS+=$(GTK_CFLAGS) $(AVCODEC_CFLAGS) $(AVUTIL_CFLAGS) $(SWSCALE_CFLAGS)
   ifdef AO_LIBS
     ifdef AVRESAMPLE_LIBS
@@ -55,8 +56,11 @@ camviewer: $(CAMVIEWER_OBJ)
 cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
 
+tc_client-gtk: $(TC_CLIENT_GTK_OBJ)
+	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
+
 clean:
-	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) tc_client irchack modbot camviewer cursedchat
+	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk
 
 tarball:
-	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh utilities/irchack/irchack.c utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/queue.h utilities/modbot/commands.html utilities/camviewer/camviewer.c utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h configure
+	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh utilities/irchack/irchack.c utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/queue.h utilities/modbot/commands.html utilities/camviewer/camviewer.c utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h gtkgui.glade configure
