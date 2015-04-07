@@ -16,13 +16,23 @@
 */
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/prctl.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
 #ifdef HAVE_SOUND
-#include <libswresample/swresample.h>
-#include <ao/ao.h>
+// TODO: use libavresample instead if available
+  #include <libswresample/swresample.h>
+  #include <ao/ao.h>
 #endif
 #include <gtk/gtk.h>
+#undef HAVE_V4L2 // Not working yet, something is wrong with the frames making the encoding break (for keyframes in particular and I don't know why)
+#ifdef HAVE_V4L2
+  #include <libv4l2.h>
+  #include <linux/videodev2.h>
+#endif
 
 #if GTK_MAJOR_VERSION==2
   #define GTK_ORIENTATION_HORIZONTAL 0
@@ -58,6 +68,7 @@ struct viddata
   unsigned int camcount;
   GtkWidget* box;
   AVCodec* vdecoder;
+//  AVCodec* vencoder;
   AVCodec* adecoder;
 #ifdef HAVE_SOUND
   int audiopipe;
@@ -164,6 +175,27 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     gtk_widget_show_all(cam->box);
     return 1;
   }
+/*
+  if(!strcmp(buf, "Starting outgoing media stream"))
+  {
+    ++data->camcount;
+    data->cams=realloc(data->cams, sizeof(struct camera)*data->camcount);
+    struct camera* cam=&data->cams[data->camcount-1];
+    cam->frame=av_frame_alloc();
+    cam->dstframe=av_frame_alloc();
+    cam->nick=strdup("You");
+    cam->id=strdup("out");
+    cam->vctx=avcodec_alloc_context3(data->vdecoder);
+    avcodec_open2(cam->vctx, data->vdecoder, 0);
+    cam->cam=gtk_image_new();
+    cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_box_pack_start(GTK_BOX(cam->box), cam->cam, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(cam->box), gtk_label_new(cam->nick), 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(data->box), cam->box, 0, 0, 0);
+    gtk_widget_show_all(cam->box);
+    return 1;
+  }
+*/
   if(!strncmp(buf, "VideoEnd: ", 10))
   {
     for(i=0; i<data->camcount; ++i)
@@ -212,7 +244,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     {
       if(!strcmp(data->cams[i].id, &buf[7])){cam=&data->cams[i]; break;}
     }
-    if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); free(pkt.data); return 1;}
+    if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
     int gotframe;
     avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
     if(!gotframe){return 1;}
@@ -249,7 +281,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     pos+=read(tc_client[0], pkt.data+pos, size-pos);
   }
   if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
-  if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); free(pkt.data); return 1;}
+  if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
   pkt.size=size;
   int gotframe;
   avcodec_decode_video2(cam->vctx, cam->frame, &gotframe, &pkt);
@@ -295,6 +327,85 @@ void audiothread(int fd)
 }
 #endif
 
+#ifdef HAVE_V4L2
+void camup(GtkWidget* button, struct viddata* data)
+{
+  dprintf(tc_client_in[1], "/camup\n");
+  gtk_widget_destroy(button); // Only once
+// printf("Camming up!\n");
+  if(!fork())
+  {
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
+    unsigned int delay=500000;
+    // Set up camera
+    int fd=v4l2_open("/dev/video0", O_RDWR);
+    struct v4l2_format fmt;
+    fmt.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    fmt.fmt.pix.width=320;
+    fmt.fmt.pix.height=240;
+    fmt.fmt.pix.pixelformat=V4L2_PIX_FMT_RGB24;
+    fmt.fmt.pix.field=V4L2_FIELD_NONE;
+    fmt.fmt.pix.bytesperline=fmt.fmt.pix.width*3;
+    fmt.fmt.pix.sizeimage=fmt.fmt.pix.bytesperline*fmt.fmt.pix.height;
+    v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt);
+    AVCodecContext* ctx=avcodec_alloc_context3(data->vencoder);
+    ctx->width=fmt.fmt.pix.width;
+    ctx->height=fmt.fmt.pix.height;
+    ctx->pix_fmt=PIX_FMT_YUV420P;
+    ctx->time_base.num=1;
+    ctx->time_base.den=10;
+    avcodec_open2(ctx, data->vencoder, 0);
+    AVFrame* frame=av_frame_alloc();
+    frame->format=PIX_FMT_RGB24;
+    frame->width=fmt.fmt.pix.width;
+    frame->height=fmt.fmt.pix.height;
+    av_image_alloc(frame->data, frame->linesize, ctx->width, ctx->height, frame->format, 1);
+    AVPacket packet;
+    packet.buf=0;
+    packet.data=0;
+    packet.size=0;
+    packet.dts=AV_NOPTS_VALUE;
+    packet.pts=AV_NOPTS_VALUE;
+
+    // Set up frame for conversion from the camera's format to a format the encoder can use
+    AVFrame* dstframe=av_frame_alloc();
+    dstframe->format=ctx->pix_fmt;
+    dstframe->width=ctx->width;
+    dstframe->height=ctx->height;
+    av_image_alloc(dstframe->data, dstframe->linesize, ctx->width, ctx->height, ctx->pix_fmt, 1);
+
+    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
+
+    while(1)
+    {
+      usleep(delay);
+      if(delay>100000){delay-=50000;}
+      v4l2_read(fd, frame->data[0], fmt.fmt.pix.sizeimage);
+      int gotpacket;
+      sws_scale(swsctx, (const uint8_t*const*)frame->data, frame->linesize, 0, frame->height, dstframe->data, dstframe->linesize);
+      av_init_packet(&packet);
+      packet.data=0;
+packet.size=0;
+      avcodec_encode_video2(ctx, &packet, dstframe, &gotpacket);
+      unsigned char frameinfo=0x20;
+// if(packet.flags&AV_PKT_FLAG_KEY){printf("Sending keyframe!\n");}
+      if(packet.flags&AV_PKT_FLAG_KEY){frameinfo|=0x01;}else{frameinfo|=0x02;}
+      dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
+      write(tc_client_in[1], &frameinfo, 1);
+      write(tc_client_in[1], packet.data, packet.size);
+      // Also send the packet to our main thread so we can see ourselves
+      dprintf(tc_client[1], "Video: out %i\n", packet.size+1);
+      write(tc_client[1], &frameinfo, 1);
+      write(tc_client[1], packet.data, packet.size);
+
+      av_free_packet(&packet);
+    }
+    sws_freeContext(swsctx);
+    _exit(0);
+  }
+}
+#endif
+
 int main(int argc, char** argv)
 {
   struct viddata data={0,0,0,0,0};
@@ -310,6 +421,7 @@ int main(int argc, char** argv)
   data.audiopipe=audiopipe[1];
   if(!fork())
   {
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
     close(audiopipe[1]);
     audiothread(audiopipe[0]);
     _exit(0);
@@ -322,12 +434,19 @@ int main(int argc, char** argv)
   g_signal_connect(w, "destroy", gtk_main_quit, 0);
   data.box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_container_add(GTK_CONTAINER(w), data.box);
+#ifdef HAVE_V4L2
+  data.vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
+  GtkWidget* cambutton=gtk_button_new_with_label("Broadcast cam");
+  g_signal_connect(cambutton, "clicked", G_CALLBACK(camup), &data);
+  gtk_box_pack_start(GTK_BOX(data.box), cambutton, 0, 0, 0);
+#endif
   gtk_widget_show_all(w);
 
   pipe(tc_client);
   pipe(tc_client_in);
   if(!fork())
   {
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
     close(tc_client[0]);
     close(tc_client_in[1]);
     dup2(tc_client[1], 1);
@@ -335,7 +454,6 @@ int main(int argc, char** argv)
     argv[0]="./tc_client";
     execv("./tc_client", argv);
   }
-  close(tc_client[1]);
   close(tc_client_in[0]);
   GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
   g_io_channel_set_encoding(tcchannel, 0, 0);

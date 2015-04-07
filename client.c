@@ -120,7 +120,7 @@ char* gethost(char *channel, char *password)
   return host;
 }
 
-char* getkey(char* id, char* channel)
+char* getkey(const char* id, const char* channel)
 {
   char url[strlen("http://tinychat.com/api/captcha/check.php?guest%5Fid=&room=tinychat%5E0")+strlen(id)+strlen(channel)];
   sprintf(url, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%s&room=tinychat%%5E%s", id, channel);
@@ -137,6 +137,23 @@ char* getkey(char* id, char* channel)
     memmove(backslash, &backslash[1], strlen(backslash));
     --keyend;
   }
+  key=strndup(key, keyend-key);
+  free(response);
+  return key;
+}
+
+char* getbroadcastkey(const char* channel, const char* nick)
+{
+  unsigned int id=idlist_get(nick);
+  char url[strlen("http://tinychat.com/api/broadcast.pw?name=&site=tinychat&nick=&id=0")+128+strlen(channel)+strlen(nick)];
+  sprintf(url, "http://tinychat.com/api/broadcast.pw?name=%s&site=tinychat&nick=%s&id=%u", channel, nick, id);
+  char* response=http_get(url, 0);
+  char* key=strstr(response, " token='");
+
+  if(!key){return 0;}
+  key+=8;
+  char* keyend=strchr(key, '\'');
+  if(!keyend){return 0;}
   key=strndup(key, keyend-key);
   free(response);
   return key;
@@ -415,7 +432,9 @@ int main(int argc, char** argv)
                  "/forgive <nick/ID> = unban someone\n"
                  "/names          = list everyone that is online\n"
                  "/mute           = temporarily mutes all non-moderator broadcasts\n"
-                 "/push2talk      = puts all non-operators in push2talk mode\n");
+                 "/push2talk      = puts all non-operators in push2talk mode\n"
+                 "/camup          = open an audio/video stream for broadcasting your video\n"
+                 "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n");
           fflush(stdout);
         }
         else if(!strncmp(buf, "/color", 6) && (!buf[6]||buf[6]==' '))
@@ -554,6 +573,29 @@ int main(int argc, char** argv)
           amfnull(&amf);
           amfstring(&amf, "push2talk");
           amfsend(&amf, sock);
+          continue;
+        }
+        else if(!strcmp(buf, "/camup"))
+        {
+          // Retrieve and send the key for broadcasting access
+          char* key=getbroadcastkey(channel, nickname);
+          amfinit(&amf, 3);
+          amfstring(&amf, "bauth");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          amfstring(&amf, key);
+          amfsend(&amf, sock);
+          free(key);
+          // Initiate stream
+          streamout_start(idlist_get(nickname), sock);
+          continue;
+        }
+        else if(!strncmp(buf, "/video ", 7)) // Send video data
+        {
+          size_t len=strtoul(&buf[7],0,10);
+          char buf[len];
+          fullread(0, buf, len);
+          stream_sendvideo(sock, buf, len);
           continue;
         }
       }

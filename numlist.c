@@ -31,7 +31,12 @@ char* fromnumlist(char* in, size_t* outlen)
     ++len;
     x=&x[1];
   }
+#ifdef __ANDROID__
+  *outlen=len;
+  unsigned char* string=malloc(len+1);
+#else
   unsigned short string[len+1];
+#endif
   int i;
   for(i=0; i<len; ++i)
   {
@@ -41,6 +46,9 @@ char* fromnumlist(char* in, size_t* outlen)
   }
   string[len]=0;
 
+#ifdef __ANDROID__
+  return string;
+#else
   iconv_t cd=iconv_open("", "utf-16");
   char* outbuf=malloc(len*4);
   char* i_out=outbuf;
@@ -53,10 +61,14 @@ char* fromnumlist(char* in, size_t* outlen)
   iconv_close(cd);
   *outlen-=remaining;
   return outbuf;
+#endif
 }
 
 char* tonumlist(char* i_in, size_t len)
 {
+#ifdef __ANDROID__
+  #define in i_in
+#else
   iconv_t cd=iconv_open("utf-16le", "");
   unsigned short in[len+1];
   char* i_out=(char*)in;
@@ -64,6 +76,7 @@ char* tonumlist(char* i_in, size_t len)
   while(outlen>0 && len>0 && iconv(cd, &i_in, &len, &i_out, &outlen)>0);
   iconv_close(cd);
   len=((void*)i_out-(void*)in)/2;
+#endif
 
   char* out=malloc(len*strlen("65535,"));
   out[0]=0;

@@ -1,5 +1,5 @@
 /*
-    tc_client, a simple non-flash client for tinychat(.com)
+    Some compatibility code to work on more limited platforms
     Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
@@ -14,25 +14,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define RTMP_SET_PACKET_SIZE 0x01
-#define RTMP_PING            0x04
-#define RTMP_SERVER_BW       0x05
-#define RTMP_CLIENT_BW       0x06
-#define RTMP_AUDIO           0x08
-#define RTMP_VIDEO           0x09
-#define RTMP_AMF3            0x11
-#define RTMP_INVOKE          0x12
-#define RTMP_AMF0            0x14
-
-struct rtmp
-{
-  unsigned char type;
-  unsigned int chunkid;
-  unsigned int length;
-  unsigned int msgid;
-  void* buf;
-};
-
-extern size_t fullread(int fd, void* buf, size_t len);
-extern char rtmp_get(int sock, struct rtmp* rtmp);
-extern void rtmp_send(int sock, struct rtmp* rtmp);
+#ifdef __ANDROID__
+#include <stdint.h>
+extern size_t dprintf(int fd, const char* fmt, ...);
+#define mbtowc(x,y,z) 1
+#endif

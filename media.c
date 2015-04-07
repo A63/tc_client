@@ -44,6 +44,7 @@ void stream_start(const char* nick, int sock) // called upon privmsg "/opencam .
   streams=realloc(streams, sizeof(struct stream)*streamcount);
   streams[streamcount-1].userid=userid;
   streams[streamcount-1].streamid=streamid;
+  streams[streamcount-1].outgoing=0;
   struct rtmp amf;
   amfinit(&amf, 3);
   amfstring(&amf, "createStream");
@@ -51,6 +52,24 @@ void stream_start(const char* nick, int sock) // called upon privmsg "/opencam .
   amfnull(&amf);
   amfsend(&amf, sock);
   printf("Starting media stream for %s (%u)\n", nick, userid);
+}
+
+void streamout_start(unsigned int id, int sock) // called upon privmsg "/camup"
+{
+  unsigned int streamid=1;
+  while(stream_idtaken(streamid)){++streamid;}
+  ++streamcount;
+  streams=realloc(streams, sizeof(struct stream)*streamcount);
+  streams[streamcount-1].userid=id;
+  streams[streamcount-1].streamid=streamid;
+  streams[streamcount-1].outgoing=1;
+  struct rtmp amf;
+  amfinit(&amf, 3);
+  amfstring(&amf, "createStream");
+  amfnum(&amf, streamid+1);
+  amfnull(&amf);
+  amfsend(&amf, sock);
+  printf("Starting outgoing media stream\n");
 }
 
 void stream_play(struct amf* amf, int sock) // called upon _result
@@ -62,12 +81,13 @@ void stream_play(struct amf* amf, int sock) // called upon _result
     {
       struct rtmp amf;
       amfinit(&amf, 8);
-      amfstring(&amf, "play");
+      amfstring(&amf, streams[i].outgoing?"publish":"play");
       amfnum(&amf, 0);
       amfnull(&amf);
       char camid[snprintf(0,0,"%u0", streams[i].userid)];
       sprintf(camid, "%u", streams[i].userid);
       amfstring(&amf, camid);
+      if(streams[i].outgoing){amfstring(&amf, "live");}
       amf.msgid=le32(streams[i].streamid);
       amfsend(&amf, sock);
       return;
@@ -115,6 +135,25 @@ void stream_handlestatus(struct amf* amf)
         // Note: not removing it from the list because tinychat doesn't seem to handle reusing stream IDs
         return;
       }
+    }
+  }
+}
+
+void stream_sendvideo(int sock, void* buf, size_t len)
+{
+  unsigned int i;
+  for(i=0; i<streamcount; ++i)
+  {
+    if(streams[i].outgoing)
+    {
+      struct rtmp msg;
+      msg.type=RTMP_VIDEO;
+      msg.chunkid=6;
+      msg.length=len;
+      msg.msgid=streams[i].streamid;
+      msg.buf=buf;
+      rtmp_send(sock, &msg);
+      return;
     }
   }
 }

@@ -5,8 +5,35 @@ if [ "$host" = "" ]; then
   if [ "$host" = "" ]; then host='i386-pc-linux-gnu'; fi
   echo "No target host specified (argv[1]), defaulting to ${host}"
 fi
-./configure --host="$host"
 here="`pwd`"
+export PATH="${here}/curlprefix/bin:${here}/ncursesprefix/bin:${PATH}"
+if [ ! -e ncursesprefix ]; then
+  wget -c http://ftp.gnu.org/gnu/ncurses/ncurses-5.9.tar.gz
+  tar -xzf ncurses-5.9.tar.gz
+  cd ncurses-5.9
+  mkdir build
+  cd build
+  # Some hackery to build ncursesw5-config, which seems to get disabled along with --disable-database
+  ../configure --prefix="${here}/ncursesprefix" --host="${host}" --enable-static --disable-shared --with-termlib --enable-widec --without-cxx ac_cv_header_locale_h=no
+  mv Makefile Makefile.tmp
+  ../configure --prefix="${here}/ncursesprefix" --host="${host}" --enable-static --disable-shared --with-termlib --enable-widec --without-cxx --disable-database --with-fallbacks=linux ac_cv_header_locale_h=no
+  mv Makefile.tmp Makefile
+  make
+  make install
+  cd "$here"
+  cp ncursesprefix/lib/libtinfow.a ncursesprefix/lib/libtinfo.a
+fi
+if [ ! -e readlineprefix ]; then
+  wget -c http://ftp.gnu.org/gnu/readline/readline-6.3.tar.gz
+  tar -xzf readline-6.3.tar.gz
+  cd readline-6.3
+  mkdir build
+  cd build
+  ../configure --prefix="${here}/readlineprefix" --host="${host}" --enable-static --disable-shared bash_cv_wcwidth_broken=no
+  make
+  make install
+  cd "$here"
+fi
 if [ ! -e curlprefix ]; then
   wget -c http://curl.haxx.se/download/curl-7.40.0.tar.bz2
   tar -xjf curl-7.40.0.tar.bz2
@@ -18,6 +45,7 @@ if [ ! -e curlprefix ]; then
   make install
   cd "$here"
 fi
+./configure --host="$host" > config.log 2>&1
 if grep -q 'LIBS+=-liconv' config.mk && [ ! -e iconvprefix ]; then
   wget -c http://ftp.gnu.org/gnu/libiconv/libiconv-1.14.tar.gz
   tar -xzf libiconv-1.14.tar.gz
@@ -29,8 +57,9 @@ if grep -q 'LIBS+=-liconv' config.mk && [ ! -e iconvprefix ]; then
   make install
   cd "$here"
 fi
-export PATH="${here}/curlprefix/bin:${PATH}"
 echo "CFLAGS+=-I${here}/iconvprefix/include" >> config.mk
 echo "LDFLAGS+=-L${here}/iconvprefix/lib" >> config.mk
+echo "READLINE_CFLAGS=-I${here}/readlineprefix/include" >> config.mk
+echo "READLINE_LIBS=-L${here}/readlineprefix/lib -lreadline" >> config.mk
 make
 make utils

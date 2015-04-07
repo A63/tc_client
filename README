@@ -14,19 +14,17 @@ Commands supported by tc_client:
 /ban <nick>     = ban someone
 /banlist        = list who is banned
 /forgive <nick/ID> = unban someone
+/camup          = open an audio/video stream for broadcasting your video
+/video <length> = send a <length> bytes long encoded frame, send the frame data after this line
 /help           = list these commands at runtime
-
-Some things that may never change:
-*tc_client can't stream/broadcast your webcam/mic
-*tc_client itself won't play youtube videos, but applications that rely on tc_client can interpret the /mbs, /mbsk and /mbc commands
 
 Current commands sent by the TC servers that tc_client doesn't know how to handle:
 notice (some, notice is used for many functions)
 joinsdone
-avons (list of people currently on cam)
 pros
 
 Included applications that rely on tc_client (type 'make utils' to build):
-*irchack   = a minimal IRC server that translates between IRC and tc_client's commands
-*modbot    = a bot that handles youtube video requests with a queue and an approval system to keep inappropriate videos from being played. Supports the following commands: !help, !request, !queue (show queue status), for mods only: !playnext (try playing next in queue without marking it yet), !approve, !badvid (Note: modbot depends on youtube-dl to find out the length of videos)
-*camviewer = an example application for viewing cam streams
+*irchack    = a minimal IRC server that translates between IRC and tc_client's commands
+*modbot     = a bot that handles youtube video requests with a queue and an approval system to keep inappropriate videos from being played. Supports the following commands: !help, !request, !queue (show queue status), for mods only: !playnext (try playing next in queue without marking it yet), !approve, !badvid (Note: modbot depends on youtube-dl to find out the length of videos)
+*camviewer  = an example application for viewing cam streams
+*cursedchat = a curses chat interface

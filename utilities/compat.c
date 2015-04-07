@@ -1,5 +1,5 @@
 /*
-    tc_client, a simple non-flash client for tinychat(.com)
+    Some compatibility code to work on more limited platforms
     Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
@@ -14,21 +14,22 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "amfparser.h"
-#include "rtmp.h"
-struct stream
+#include "compat.h"
+#ifdef __ANDROID__
+// Android has no dprintf, so we make our own
+#include <stdarg.h>
+size_t dprintf(int fd, const char* fmt, ...)
 {
-  unsigned int streamid;
-  unsigned int userid;
-  char outgoing;
-};
-
-extern struct stream* streams;
-extern unsigned int streamcount;
-
-extern void stream_start(const char* nick, int sock); // called upon privmsg "/opencam ..."
-extern void streamout_start(unsigned int id, int sock); // called upon privmsg "/camup"
-extern void stream_play(struct amf* amf, int sock); // called upon _result
-extern void stream_handledata(struct rtmp* rtmp);
-extern void stream_handlestatus(struct amf* amf);
-extern void stream_sendvideo(int sock, void* buf, size_t len);
+  va_list va;
+  va_start(va, fmt);
+  int len=vsnprintf(0, 0, fmt, va);
+  va_end(va);
+  char buf[len+1];
+  va_start(va, fmt);
+  vsnprintf(buf, len+1, fmt, va);
+  va_end(va);
+  buf[len]=0;
+  write(fd, buf, len);
+  return len;
+}
+#endif

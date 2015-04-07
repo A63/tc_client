@@ -19,9 +19,12 @@
 #include <poll.h>
 #include <signal.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 #include <locale.h>
 #include <curses.h>
 #include <readline/readline.h>
+#include "../compat.h"
+#include "../list.h"
 #include "buffer.h"
 
 #define HALFSCREEN (LINES>4?(LINES-3)/2:1)
@@ -30,6 +33,7 @@ WINDOW* topic;
 char* channeltopic;
 WINDOW* input;
 int to_app;
+struct list userlist={0,0};
 
 // Translate ANSI escape codes to curses commands and write the text to a window
 void waddansi(WINDOW* w, char* str)
@@ -284,6 +288,31 @@ void resizechat(int sig)
   drawinput();
 }
 
+void dontprintmatches(char** matches, int num, int maxlen)
+{
+}
+
+unsigned int completionmatch;
+char* completenicks(const char* text, int state)
+{
+  // text is the word we're completing on, state is the iteration count (one iteration per matching name, until we return 0)
+  if(!state){completionmatch=0;}
+  while(completionmatch<userlist.itemcount)
+  {
+    if(!strncmp(userlist.items[completionmatch], text, strlen(text)))
+    {
+      char* completion=malloc(strlen(userlist.items[completionmatch])+2);
+      strcpy(completion, userlist.items[completionmatch]);
+      // Check if we're on the first word and only add the ":" if we are
+      if(strlen(text)>=rl_point){strcat(completion, ":");}
+      ++completionmatch;
+      return completion;
+    }
+    ++completionmatch;
+  }
+  return 0;
+}
+
 int main(int argc, char** argv)
 {
   if(argc<3){execv("./tc_client", argv); return 1;}
@@ -313,6 +342,8 @@ int main(int argc, char** argv)
   rl_initialize();
   rl_callback_handler_install(0, gotline);
   rl_bind_key('\x1b', escinput);
+  rl_completion_display_matches_hook=dontprintmatches;
+  rl_completion_entry_function=completenicks;
   wprintw(input, "> ");
   wrefresh(topic);
   wrefresh(input);
@@ -358,6 +389,20 @@ int main(int argc, char** argv)
         channeltopic=strdup(&buf[12]);
         drawtopic();
       }
+      else if(!strncmp(buf, "Currently online: ", 18))
+      {
+        // Populate the userlist
+        char* name=&buf[16];
+        while(name)
+        {
+          name=&name[2];
+          char* next=strstr(name, ", ");
+          if(next){next[0]=0;}
+          list_add(&userlist, name);
+          if(next){next[0]=',';}
+          name=next;
+        }
+      }
       else if(buf[0]=='['&&isdigit(buf[1])&&isdigit(buf[2])&&buf[3]==':'&&isdigit(buf[4])&&isdigit(buf[5])&&buf[6]==']'&&buf[7]==' ')
       {
         char* nick=&buf[8];
@@ -387,6 +432,8 @@ int main(int argc, char** argv)
         else if(!strncmp(msg, " changed nickname to ", 21))
         {
           msg[0]=0;
+          // Update name in userlist
+          list_switch(&userlist, nick, &msg[21]);
           unsigned int i;
           // Prevent duplicate names for buffers, and all the issues that would bring
           if((i=findbuffer(&msg[21])))
@@ -401,6 +448,20 @@ int main(int argc, char** argv)
               buffers[i].name=strdup(&msg[21]);
             }
           }
+          msg[0]=' ';
+        }
+        else if(!strcmp(msg, " entered the channel"))
+        {
+          msg[0]=0;
+          // Add to the userlist
+          list_add(&userlist, nick);
+          msg[0]=' ';
+        }
+        else if(!strcmp(msg, " left the channel"))
+        {
+          msg[0]=0;
+          // Remove from the userlist
+          list_del(&userlist, nick);
           msg[0]=' ';
         }
       }

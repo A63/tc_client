@@ -1,3 +1,9 @@
+0.27:
+Added some more compatibility hacks for android.
+Added support for video broadcasting (adding /camup and /video <length> followed by the encoded data for each frame)
+crossbuild.sh: build ncurses and readline for the target platform.
+cursedchat: disable readline's match-listing, which does not work well with the curses interface.
+cursedchat: made tab completion work with nicknames.
 0.26:
 modbot: fixed a segfault when trying to skip more videos than what's in the queue.
 modbot: fixed a segfault when receiving a manual /mbc command but no video is playing.

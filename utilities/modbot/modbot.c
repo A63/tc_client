@@ -26,7 +26,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <termios.h>
-#include "list.h"
+#include "../list.h"
 #include "queue.h"
 
 struct list mods={0,0};
@@ -405,7 +405,7 @@ int main(int argc, char** argv)
             }
             say(pm, "%u video%s in queue, %u of which are not yet approved by mods (%s%s)\n", queue.itemcount, (queue.itemcount==1)?"":"s", notapproved, buf, (listed<notapproved)?", etc.":"");
           }else{
-            say(pm, "%u videos in queue\n", queue.itemcount);
+            say(pm, "%u video%s in queue\n", queue.itemcount, (queue.itemcount==1)?"":"s");
           }
         }
         else if(!strcmp(msg, "!requestedby"))

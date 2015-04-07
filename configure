@@ -132,4 +132,14 @@ else
 fi
 rm -f readlinetest.c readlinetest
 
+printf 'Checking for libv4l2... '
+libs="`pkg-config --libs libv4l2 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "LIBV4L2_LIBS=${libs}" >> config.mk
+  echo "LIBV4L2_CFLAGS=`pkg-config --cflags libv4l2`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
 echo Done

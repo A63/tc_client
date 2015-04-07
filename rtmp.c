@@ -84,8 +84,9 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   if(fmt<3)
   {
     // Timestamp
-    fullread(sock, &x, 3);
-    chunk->timestamp=x;
+    x=0;
+    fullread(sock, ((void*)&x)+1, 3);
+    chunk->timestamp=be32(x);
     if(fmt<2)
     {
       // Length
@@ -166,16 +167,17 @@ void rtmp_send(int sock, struct rtmp* rtmp)
   {
     write(sock, &rtmp->msgid, sizeof(rtmp->msgid));
   }
-  // Send 128 bytes at a time separated by 0xc3 (because apparently that's something RTMP requires)
+  // Send 128 bytes at a time separated by a "continuation header", the 0xc3 byte for chunk 3
   void* pos=rtmp->buf;
   unsigned int len=rtmp->length;
+  basicheader|=0xc0; // Turn it into a "continuation header" by setting format to 3
   while(len>0)
   {
     int w;
     if(len>128)
     {
       w=write(sock, pos, 128);
-      w+=write(sock, "\xc3", 1);
+      w+=write(sock, &basicheader, 1);
       len-=128;
     }else{
       w=write(sock, pos, len);
