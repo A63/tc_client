@@ -96,6 +96,8 @@ int findcolor_ansi(char* irc, char** end)
   return -1;
 }
 
+extern char session(int sock, const char* nick, const char* channel, const char* pass);
+
 int main(int argc, char** argv)
 {
   int port=(argc>1?atoi(argv[1]):6667);
@@ -108,57 +110,66 @@ int main(int argc, char** argv)
   if(bind(lsock, (struct sockaddr*)&addr, sizeof(addr))){perror("bind"); return 1;}
   listen(lsock, 1);
   printf("Done! Open an IRC client and connect to localhost on port %i\n", port);
-  int sock=accept(lsock, 0, 0);
-  close(lsock);
-  char buf[2048];
-  char* nick=0;
-  char* channel=0;
-  char* pass=0;
-  int len;
-  while(!nick || !channel) // Init loop, wait for USER, NICK and JOIN, well not USER
+  int sock;
+  while((sock=accept(lsock, 0, 0))>-1)
   {
-    len=0;
+    char buf[2048];
+    char* nick=0;
+    char* channel=0;
+    char* pass=0;
+    int len;
     while(1)
     {
-      if(read(sock, &buf[len], 1)!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
-      ++len;
-    }
-    buf[len]=0;
-    if(!strncmp(buf, "NICK ", 5))
-    {
-      char* newnick=&buf[5];
-      if(newnick[0]==':'){newnick=&nick[1];}
-      if(!nick)
+      len=0;
+      while(len<2047)
       {
-        dprintf(sock, ":irchack 001 %s :Welcome\n", newnick);
-      }else{
-        dprintf(sock, ":%s!user@host NICK :%s\n", nick, newnick);
+        if(read(sock, &buf[len], 1)!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
+        ++len;
       }
-      free(nick);
-      nick=strdup(newnick);
-    }
-    else if(!strncmp(buf, "JOIN ", 5))
-    {
-      free(channel);
-      channel=&buf[5];
-      if(channel[0]==':'){channel=&channel[1];}
-      free(pass);
-      pass=strchr(channel, ' ');
-      if(pass)
+      buf[len]=0;
+      if(!strncmp(buf, "NICK ", 5))
       {
-        pass[0]=0;
-        pass=&pass[1];
-        if(pass[0]==':'){pass=strdup(&pass[1]);}
+        char* newnick=&buf[5];
+        if(newnick[0]==':'){newnick=&nick[1];}
+        if(!nick)
+        {
+          dprintf(sock, ":irchack 001 %s :Welcome\n", newnick);
+        }else{
+          dprintf(sock, ":%s!user@host NICK :%s\n", nick, newnick);
+        }
+        free(nick);
+        nick=strdup(newnick);
       }
-      if(channel[0]=='#'){channel=&channel[1];}
-      channel=strdup(channel);
+      else if(nick && !strncmp(buf, "JOIN ", 5))
+      {
+        free(channel);
+        channel=&buf[5];
+        if(channel[0]==':'){channel=&channel[1];}
+        free(pass);
+        pass=strchr(channel, ' ');
+        if(pass)
+        {
+          pass[0]=0;
+          pass=&pass[1];
+          if(pass[0]==':'){pass=strdup(&pass[1]);}
+        }
+        if(channel[0]=='#'){channel=&channel[1];}
+        channel=strdup(channel);
+        if(!session(sock, nick, channel, pass)){break;}
+      }
+      else if(!strncmp(buf, "PING ", 5))
+      {
+        dprintf(sock, ":irchack PONG %s\n", &buf[5]);
+      }
     }
-    else if(!strncmp(buf, "PING ", 5))
-    {
-      dprintf(sock, ":irchack PONG %s\n", &buf[5]);
-    }
+    shutdown(sock, SHUT_RDWR);
   }
-  // We now have what we need to launch tc_client
+  close(lsock);
+  return 0;
+}
+
+char session(int sock, const char* nick, const char* channel, const char* pass)
+{
   printf("Nick: %s\n", nick);
   printf("Channel: %s\n", channel);
   printf("Password: %s\n", pass);
@@ -173,7 +184,7 @@ int main(int argc, char** argv)
     dup2(tc_in[0], 0);
     dup2(tc_out[1], 1);
     execl("./tc_client", "./tc_client", channel, nick, pass, (char*)0);
-    printf("Failed to exec tc_client\n");
+    perror("Failed to exec tc_client");
     _exit(1);
   }
   close(tc_in[0]);
@@ -185,6 +196,9 @@ int main(int argc, char** argv)
   pfd[1].fd=sock;
   pfd[1].events=POLLIN;
   pfd[1].revents=0;
+  char buf[2048];
+  int len;
+  char joins=0;
   while(1)
   {
     poll(pfd, 2, -1);
@@ -192,18 +206,13 @@ int main(int argc, char** argv)
     {
       pfd[0].revents=0;
       len=0;
-      while(1)
+      while(len<2047)
       {
         if(read(tc_out[0], &buf[len], 1)!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
         ++len;
       }
       buf[len]=0;
 printf("Got from tc_client: '%s'\n", buf);
-      if(!strncmp(buf, "Guest ID: ", 10))
-      {
-        dprintf(sock, ":%s!user@host NICK :guest-%s\n", nick, &buf[10]);
-        continue;
-      }
       if(!strncmp(buf, "Currently online: ", 18))
       {
         dprintf(sock, ":irchack 353 %s = #%s :", nick, channel);
@@ -216,7 +225,24 @@ printf("Got from tc_client: '%s'\n", buf);
           user=next;
         }
         write(sock, "\n", 1);
+        joins=1;
+        continue;
+      }
+      else if(joins)
+      {
         dprintf(sock, ":irchack 366 %s #%s :End of /NAMES list.\n", nick, channel);
+        joins=0;
+      }
+      if(!strcmp(buf, "Password required"))
+      {
+        dprintf(sock, ":irchack 475 %s :Cannot join %s without the correct password\n", channel, channel);
+        close(tc_in[1]);
+        close(tc_out[0]);
+        return 1;
+      }
+      if(!strncmp(buf, "Guest ID: ", 10))
+      {
+        dprintf(sock, ":%s!user@host NICK :guest-%s\n", nick, &buf[10]);
         continue;
       }
       char* space=strchr(buf, ' ');
@@ -284,7 +310,7 @@ printf("Got from tc_client: '%s'\n", buf);
     {
       pfd[1].revents=0;
       len=0;
-      while(1)
+      while(len<2047)
       {
         if(read(sock, &buf[len], 1)!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
         ++len;
@@ -331,6 +357,5 @@ printf("Got from IRC client: '%s'\n", buf);
 
   close(tc_in[1]);
   close(tc_out[0]);
-  shutdown(sock, SHUT_RDWR);
   return 0;
 }

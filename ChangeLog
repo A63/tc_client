@@ -1,3 +1,6 @@
+0.10:
+irchack: stay connected if joining a channel fails and tell the IRC client if a channel password is required.
+irchack: keep listening for connections and accept the next after a session ends.
 0.9:
 Added compatibility workarounds for android.
 Keep track of who is a moderator. (contributed by Jade)
