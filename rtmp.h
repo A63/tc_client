@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -33,3 +33,4 @@ struct rtmp
 };
 
 extern char rtmp_get(int sock, struct rtmp* rtmp);
+extern void rtmp_send(int sock, struct rtmp* rtmp);

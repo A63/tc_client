@@ -1,6 +1,7 @@
 /*
     irchack, a simple application to reuse IRC clients as user interfaces for tc_client
     Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -250,6 +251,12 @@ printf("Got from tc_client: '%s'\n", buf);
       {
         space[0]=0;
         dprintf(sock, ":irchack MODE #%s +o %s\n", channel, buf);
+        continue;
+      }
+      if(space && !strcmp(space, " is no longer a moderator."))
+      {
+        space[0]=0;
+        dprintf(sock, ":irchack MODE #%s -o %s\n", channel, buf);
         continue;
       }
       if(buf[0]!='['){continue;} // Beyond this we only care about timestamped lines

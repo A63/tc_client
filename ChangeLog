@@ -1,3 +1,7 @@
+0.12:
+Wrote a sender for the RTMP code and changed the AMF0 writer to use it, plus working directly with the rtmp struct instead of an intermediate amfmsg struct.
+Added handling of moderators turning into regular users, or 'deop' (contributed by Jade)
+Handle new nicknames being in use when using /nick, and thus failing (contributed by Jade)
 0.11:
 Rewrote the RTMP code to read from the socket instead of from a buffer, this will prevent messages from being dropped when they are larger than the buffer.
 0.10:

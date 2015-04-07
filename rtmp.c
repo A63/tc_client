@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -79,4 +79,49 @@ char rtmp_get(int sock, struct rtmp* rtmp)
     memmove(rtmp->buf+i, rtmp->buf+i+1, rtmp->length-i);
   }
   return 1;
+}
+
+void rtmp_send(int sock, struct rtmp* rtmp)
+{
+  // Header format and stream ID
+  unsigned char basicheader=(rtmp->streamid<64?rtmp->streamid:(rtmp->streamid<256?0:1)) | (1<<6);
+  write(sock, &basicheader, sizeof(basicheader));
+  if(rtmp->streamid>=64) // Handle large stream IDs
+  {
+    if(rtmp->streamid<256)
+    {
+      unsigned char streamid=rtmp->streamid-64;
+      write(sock, &streamid, sizeof(streamid));
+    }else{
+      unsigned short streamid=htole16(rtmp->streamid-64);
+      write(sock, &streamid, sizeof(streamid));
+    }
+  }
+  unsigned int x=0;
+  // Timestamp
+  write(sock, &x, 3); // Time is irrelevant
+  // Length
+  x=htobe32(rtmp->length);
+  write(sock, ((void*)&x)+1, 3);
+  // Type
+  write(sock, &rtmp->type, sizeof(rtmp->type));
+  // TODO: is there a situation where message IDs are needed? (format 0 header)
+  // Send 128 bytes at a time separated by 0xc3 (because apparently that's something RTMP requires)
+  void* pos=rtmp->buf;
+  unsigned int len=rtmp->length;
+  while(len>0)
+  {
+    int w;
+    if(len>128)
+    {
+      w=write(sock, pos, 128);
+      w+=write(sock, "\xc3", 1);
+      len-=128;
+    }else{
+      w=write(sock, pos, len);
+      len=0;
+    }
+// printf("Wrote %i bytes\n", w);
+    pos+=128;
+  }
 }

@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014-2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -19,87 +19,43 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <endian.h>
+#include "rtmp.h"
 #include "amfwriter.h"
 
-#pragma pack(push)
-#pragma pack(1)
-struct rtmph
+void amfinit(struct rtmp* msg, unsigned int streamid)
 {
-  unsigned int streamid:6;
-  unsigned int fmt:2;
-  unsigned int timestamp:24;
-  unsigned int length:24;
-  unsigned char type;
-  unsigned int msgid;
-};
-#pragma pack(pop)
-
-extern unsigned int flip(unsigned int bits, int bytecount);
-
-void amfinit(struct amfmsg* msg)
-{
-  msg->len=0;
-  msg->buf=malloc(sizeof(struct rtmph));
-}
-
-void amfsend(struct amfmsg* msg, int sock)
-{
-  struct rtmph* head=(struct rtmph*)msg->buf;
-  head->streamid=3;
-  head->fmt=0;
-  head->timestamp=0; // Time is irrelevant
-  head->length=flip(msg->len, 3);
-  head->type=20;
-  head->msgid=0;
-  // Send 128 bytes at a time separated by 0xc3 (because apparently that's something RTMP requires)
-// printf("Writing %i-byte message\n", msg->len);
-  write(sock, msg->buf, sizeof(struct rtmph));
-  unsigned char* pos=msg->buf+sizeof(struct rtmph);
-  while(msg->len>0)
-  {
-    int w;
-    if(msg->len>128)
-    {
-      w=write(sock, pos, 128);
-      w+=write(sock, "\xc3", 1);
-      msg->len-=128;
-    }else{
-      w=write(sock, pos, msg->len);
-      msg->len=0;
-    }
-// printf("Wrote %i bytes\n", w);
-    pos+=128;
-  }
-  free(msg->buf);
+  msg->type=RTMP_AMF0;
+  msg->streamid=streamid;
+  msg->length=0;
   msg->buf=0;
 }
 
-void amfnum(struct amfmsg* msg, double v)
+void amfnum(struct rtmp* msg, double v)
 {
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1+sizeof(double);
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
+  int offset=msg->length;
+  msg->length+=1+sizeof(double);
+  msg->buf=realloc(msg->buf, msg->length);
   unsigned char* type=msg->buf+offset;
   type[0]='\x00';
   memcpy(msg->buf+offset+1, &v, sizeof(v));
 }
 
-void amfbool(struct amfmsg* msg, char v)
+void amfbool(struct rtmp* msg, char v)
 {
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=2;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
+  int offset=msg->length;
+  msg->length+=2;
+  msg->buf=realloc(msg->buf, msg->length);
   unsigned char* x=msg->buf+offset;
   x[0]='\x01';
   x[1]=!!v;
 }
 
-void amfstring(struct amfmsg* msg, const char* string)
+void amfstring(struct rtmp* msg, const char* string)
 {
   int len=strlen(string);
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=3+len;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
+  int offset=msg->length;
+  msg->length+=3+len;
+  msg->buf=realloc(msg->buf, msg->length);
   unsigned char* type=msg->buf+offset;
   type[0]='\x02';
   uint16_t* strlength=(uint16_t*)(msg->buf+offset+1);
@@ -107,41 +63,41 @@ void amfstring(struct amfmsg* msg, const char* string)
   memcpy(msg->buf+offset+3, string, len);
 }
 
-void amfobjstart(struct amfmsg* msg)
+void amfobjstart(struct rtmp* msg)
 {
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
+  int offset=msg->length;
+  msg->length+=1;
+  msg->buf=realloc(msg->buf, msg->length);
   unsigned char* type=msg->buf+offset;
   type[0]='\x03';
 }
 
-void amfobjitem(struct amfmsg* msg, char* name)
+void amfobjitem(struct rtmp* msg, char* name)
 {
   int len=strlen(name);
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=2+len;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
+  int offset=msg->length;
+  msg->length+=2+len;
+  msg->buf=realloc(msg->buf, msg->length);
   uint16_t* strlength=(uint16_t*)(msg->buf+offset);
   *strlength=htobe16(len);
   memcpy(msg->buf+offset+2, name, len);
 }
 
-void amfobjend(struct amfmsg* msg)
+void amfobjend(struct rtmp* msg)
 {
   amfobjitem(msg, "");
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
+  int offset=msg->length;
+  msg->length+=1;
+  msg->buf=realloc(msg->buf, msg->length);
   unsigned char* type=msg->buf+offset;
   type[0]='\x09';
 }
 
-void amfnull(struct amfmsg* msg)
+void amfnull(struct rtmp* msg)
 {
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
+  int offset=msg->length;
+  msg->length+=1;
+  msg->buf=realloc(msg->buf, msg->length);
   unsigned char* type=msg->buf+offset;
   type[0]='\x05';
 }

@@ -1,7 +1,7 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
-    Copyright (C) 2014  Jade Lea
+    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2014-2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -198,10 +198,10 @@ int main(int argc, char** argv)
   write(sock, handshake, 1536); // Send server's junk back
   b_read(sock, handshake, 1536); // Read our junk back, we don't bother checking that it's the same
   printf("Handshake complete\n");
-  // Handshake complete, send connect request
   struct rtmp rtmp={0,0,0};
-  struct amfmsg amf;
-  amfinit(&amf);
+  // Handshake complete, send connect request
+  struct rtmp amf;
+  amfinit(&amf, 3);
   amfstring(&amf, "connect");
   amfnum(&amf, 0);
   amfobjstart(&amf);
@@ -244,21 +244,11 @@ int main(int argc, char** argv)
   amfobjend(&amf);
   amfstring(&amf, channel);
   amfstring(&amf, "none");
-  amfstring(&amf, "show"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to
+  amfstring(&amf, "default"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to, but "default" seems to work fine too.
   amfstring(&amf, "tinychat");
   amfstring(&amf, "");
   amfsend(&amf, sock);
 
-  unsigned char buf[2048];
-  int len=read(sock, buf, 2048);
-//  printf("Received %i byte response\n", len);
-/* Debugging
-  int f=open("output", O_WRONLY|O_CREAT|O_TRUNC, 0644);
-  write(f, buf, len);
-  close(f);
-*/
-
-//  int outnum=2; (Debugging, number for output filenames)
   struct pollfd pfd[2];
   pfd[0].fd=0;
   pfd[0].events=POLLIN;
@@ -273,7 +263,8 @@ int main(int argc, char** argv)
     if(pfd[0].revents) // Got input, send a privmsg command
     {
       pfd[0].revents=0;
-      len=read(0, buf, 2047);
+      unsigned char buf[2048];
+      unsigned int len=read(0, buf, 2047);
       if(len<1){break;}
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       if(!len){continue;} // Don't send empty lines
@@ -308,13 +299,11 @@ int main(int argc, char** argv)
         }
         else if(!strncmp((char*)buf, "/nick ", 6))
         {
-          free(nickname);
-          nickname=strdup((char*)&buf[6]);
-          amfinit(&amf);
+          amfinit(&amf, 3);
           amfstring(&amf, "nick");
           amfnum(&amf, 0);
           amfnull(&amf);
-          amfstring(&amf, nickname);
+          amfstring(&amf, (char*)&buf[6]);
           amfsend(&amf, sock);
           continue;
         }
@@ -334,7 +323,7 @@ int main(int argc, char** argv)
       wchar_t wcsbuf[len+1];
       mbstowcs(wcsbuf, (char*)buf, len+1);
       char* msg=tonumlist(wcsbuf);
-      amfinit(&amf);
+      amfinit(&amf, 3);
       amfstring(&amf, "privmsg");
       amfnum(&amf, 0);
       amfnull(&amf);
@@ -371,7 +360,7 @@ int main(int argc, char** argv)
         printf("Guest ID: %s\n", id);
         char* key=getkey(id, channel);
 
-        amfinit(&amf);
+        amfinit(&amf, 3);
         amfstring(&amf, "cauth");
         amfnum(&amf, 0);
         amfnull(&amf); // Means nothing but is apparently critically important for cauth at least
@@ -379,7 +368,7 @@ int main(int argc, char** argv)
         amfsend(&amf, sock);
         free(key);
 
-        amfinit(&amf);
+        amfinit(&amf, 3);
         amfstring(&amf, "nick");
         amfnum(&amf, 0);
         amfnull(&amf);
@@ -433,6 +422,11 @@ int main(int argc, char** argv)
       // nick
       else if(amfin->itemcount==5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "nick") && amfin->items[2].type==AMF_STRING && amfin->items[3].type==AMF_STRING)
       {
+        if(!strcmp(amfin->items[2].string.string, nickname)) // Successfully changed our own nickname
+        {
+          free(nickname);
+          nickname=strdup(amfin->items[3].string.string);
+        }
         idlist_rename(amfin->items[2].string.string, amfin->items[3].string.string);
         printf("%s %s changed nickname to %s\n", timestamp(), amfin->items[2].string.string, amfin->items[3].string.string);
         fflush(stdout);
@@ -475,15 +469,27 @@ int main(int argc, char** argv)
       // oper, identifies mods
       else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "oper") && amfin->items[3].type==AMF_STRING)
       {
-        idlist_set_op(amfin->items[3].string.string);
+        idlist_set_op(amfin->items[3].string.string, 1);
         printf("%s is a moderator.\n", amfin->items[3].string.string);
+        fflush(stdout);
+      }
+      // deop, removes moderator privilege
+      else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "deop") && amfin->items[3].type==AMF_STRING)
+      {
+        idlist_set_op(amfin->items[3].string.string, 0);
+        printf("%s is no longer a moderator.\n", amfin->items[3].string.string);
+        fflush(stdout);
+      }
+      // nickinuse, the nick we wanted to change to is already taken
+      else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING &&  amf_comparestrings_c(&amfin->items[0].string, "nickinuse"))
+      {
+        printf("Nick %s is already in use.\n", nickname);
         fflush(stdout);
       }
       // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
       amf_free(amfin);
     }
     else{printf("Server disconnected\n"); break;}
-//    ++outnum; (Debugging)
   }
   free(rtmp.buf);
   close(sock);
