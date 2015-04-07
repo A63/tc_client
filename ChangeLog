@@ -1,3 +1,7 @@
+0.14:
+Use iconv to deal with tinychat's ISO-8859-1 instead of the wcs functions.
+irchack: only listen on 127.0.0.1 (localhost)
+Added -u/--user and -p/--pass options to log into tinychat accounts.
 0.13:
 Check the validity of nicknames before switching.
 Roll our own endianness conversion functions since the ones provided by libc are not standardized.

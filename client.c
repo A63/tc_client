@@ -62,7 +62,7 @@ size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
   return size;
 }
 
-char* http_get(char* url)
+char* http_get(const char* url, const char* post)
 {
   CURL* curl=curl_easy_init();
   if(!curl){return 0;}
@@ -70,6 +70,10 @@ char* http_get(char* url)
   struct writebuf writebuf={0, 0};
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writehttp);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &writebuf);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, "");
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla Firefox");
+  if(post){curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post);}
   char err[CURL_ERROR_SIZE];
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err);
   if(curl_easy_perform(curl)){curl_easy_cleanup(curl); printf(err); return 0;}
@@ -93,7 +97,7 @@ char* gethost(char *channel, char *password)
   }else{
     sprintf(url, "http://tinychat.com/api/find.room/%s?site=tinychat", channel);
   }
-  char *response=http_get(url);
+  char *response=http_get(url, 0);
   //response contains result='(OK|RES)|PW' (latter means a password is required)
   char* result=strstr(response, "result='");
   if(!result){printf("No result\n"); exit(-1); return 0;}
@@ -116,7 +120,7 @@ char* getkey(char* id, char* channel)
 {
   char url[strlen("http://tinychat.com/api/captcha/check.php?guest%5Fid=&room=tinychat%5E0")+strlen(id)+strlen(channel)];
   sprintf(url, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%s&room=tinychat%%5E%s", id, channel);
-  char* response=http_get(url);
+  char* response=http_get(url, 0);
   char* key=strstr(response, "\"key\":\"");
 
   if(!key){return 0;}
@@ -130,6 +134,28 @@ char* getkey(char* id, char* channel)
     --keyend;
   }
   key=strndup(key, keyend-key);
+  free(response);
+  return key;
+}
+
+char* getmodkey(const char* user, const char* pass, const char* channel)
+{
+  // TODO: if possible, do this in a neater way than digging the key out from an HTML page.
+  if(!user||!pass){return 0;}
+  char post[strlen("form_sent=1&username=&password=&next=http://tinychat.com/0")+strlen(user)+strlen(pass)+strlen(channel)];
+  sprintf(post, "form_sent=1&username=%s&password=%s&next=http://tinychat.com/%s", user, pass, channel);
+  char* response=http_get("http://tinychat.com/login", post);
+  char* key=strstr(response, "autoop: \"");
+  if(key)
+  {
+    key=&key[9];
+    char* end=strchr(key, '"');
+    if(end)
+    {
+      end[0]=0;
+      key=strdup(key);
+    }else{key=0;}
+  }
   free(response);
   return key;
 }
@@ -154,23 +180,50 @@ char checknick(const char* nick) // Returns zero if the nick is valid, otherwise
   return 0;
 }
 
+void usage(const char* me)
+{
+  printf("Usage: %s [options] <channelname> <nickname> [channelpassword]\n"
+         "Options include:\n"
+         "-h, --help           Show this help text and exit\n"
+         "-u, --user <user>    Username of tinychat account to use.\n"
+         "-p, --pass <pass>    Password of tinychat account to use.\n"
+         ,me);
+}
+
 int main(int argc, char** argv)
 {
-  setlocale(LC_ALL, "");
-  if(argc<3)
-   {
-    printf("Usage: %s <channelname> <nickname> [password]\n", argv[0]);
-    return 1;
+  char* channel=0;
+  char* nickname=0;
+  char* password=0;
+  char* account_user=0;
+  char* account_pass=0;
+  int i;
+  for(i=1; i<argc; ++i)
+  {
+    if(!strcmp(argv[i], "-h")||!strcmp(argv[i], "--help")){usage(argv[0]); return 0;}
+    else if(!strcmp(argv[i], "-u")||!strcmp(argv[i], "--user"))
+    {
+      ++i;
+      account_user=argv[i];
+    }
+    else if(!strcmp(argv[i], "-p")||!strcmp(argv[i], "--pass"))
+    {
+      ++i;
+      account_pass=argv[i];
+    }
+    else if(!channel){channel=argv[i];}
+    else if(!nickname){nickname=argv[i];}
+    else if(!password){password=argv[i];}
   }
+  // Check for required arguments
+  if(!channel||!nickname){usage(argv[0]); return 1;}
   char badchar;
   if((badchar=checknick(argv[2])))
   {
     printf("'%c' is not allowed in nicknames.\n", badchar);
     return 1;
   }
-  char* channel=argv[1];
-  char* nickname=strdup(argv[2]);
-  char* password=(argc>3?argv[3]:0);
+  setlocale(LC_ALL, "");
   char* server=gethost(channel, password);
   struct addrinfo* res;
   // Separate IP/domain and port
@@ -202,7 +255,9 @@ int main(int argc, char** argv)
   b_read(sock, handshake, 1536); // Read our junk back, we don't bother checking that it's the same
   printf("Handshake complete\n");
   struct rtmp rtmp={0,0,0};
-  // Handshake complete, send connect request
+  // Handshake complete, log in (if user account is specified)
+  char* modkey=getmodkey(account_user, account_pass, channel);
+  // Send connect request
   struct rtmp amf;
   amfinit(&amf, 3);
   amfstring(&amf, "connect");
@@ -246,11 +301,12 @@ int main(int argc, char** argv)
     amfnum(&amf, 0);
   amfobjend(&amf);
   amfstring(&amf, channel);
-  amfstring(&amf, "none");
+  amfstring(&amf, modkey?modkey:"none");
   amfstring(&amf, "default"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to, but "default" seems to work fine too.
   amfstring(&amf, "tinychat");
-  amfstring(&amf, "");
+  amfstring(&amf, modkey?account_user:"");
   amfsend(&amf, sock);
+  free(modkey);
 
   struct pollfd pfd[2];
   pfd[0].fd=0;
@@ -327,10 +383,7 @@ int main(int argc, char** argv)
           }
         }
       }
-      len=mbstowcs(0, (char*)buf, 0);
-      wchar_t wcsbuf[len+1];
-      mbstowcs(wcsbuf, (char*)buf, len+1);
-      char* msg=tonumlist(wcsbuf);
+      char* msg=tonumlist((char*)buf, len);
       amfinit(&amf, 3);
       amfstring(&amf, "privmsg");
       amfnum(&amf, 0);
@@ -386,13 +439,12 @@ int main(int argc, char** argv)
       // Items for privmsg: 0=cmd, 2=channel, 3=msg, 4=color/lang, 5=nick
       else if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[4].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
       {
-        wchar_t* msg=fromnumlist(amfin->items[3].string.string);
+        size_t len;
+        char* msg=fromnumlist(amfin->items[3].string.string, &len);
         const char* color=(showcolor?resolvecolor(amfin->items[4].string.string):"0");
-#ifndef __ANDROID__
-        printf("%s \x1b[%sm%s: %ls\x1b[0m\n", timestamp(), color, amfin->items[5].string.string, msg);
-#else // Wide characters are broken on android
-        printf("%s \x1b[%sm%s: %s\x1b[0m\n", timestamp(), color, amfin->items[5].string.string, msg);
-#endif
+        printf("%s \x1b[%sm%s: ", timestamp(), color, amfin->items[5].string.string);
+        fwrite(msg, len, 1, stdout);
+        printf("\x1b[0m\n");
         free(msg);
         fflush(stdout);
       }
@@ -491,7 +543,7 @@ int main(int argc, char** argv)
       // nickinuse, the nick we wanted to change to is already taken
       else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING &&  amf_comparestrings_c(&amfin->items[0].string, "nickinuse"))
       {
-        printf("Nick %s is already in use.\n", nickname);
+        printf("Nick is already in use.\n");
         fflush(stdout);
       }
       // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)

@@ -1,4 +1,4 @@
-VERSION=0.13
+VERSION=0.14
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
 

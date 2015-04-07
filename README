@@ -1,7 +1,6 @@
 Some notes about tc_client in its current state (things that should be fixed):
 *there is no real user interface, to send a message you just type it and it might get cut off by incoming messages, it'll be ugly. There is however the irchack program that lets you use an IRC client.
 *PMs can be sent by /msg <nickname> <message> and replies appear similarly.
-*you can't log in with an account and thus not do mod stuff, I don't know how this works protocol-wise
 
 Some things that will probably never change:
 *tc_client can't view people's webcams or listen to mics

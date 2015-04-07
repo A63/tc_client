@@ -1,6 +1,6 @@
 /*
     irchack, a simple application to reuse IRC clients as user interfaces for tc_client
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014-2015  alicia@ion.nu
     Copyright (C) 2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family=AF_INET;
-  addr.sin_addr.s_addr=0;
+  addr.sin_addr.s_addr=htonl(0x7f000001); // 127.0.0.1
   addr.sin_port=htons(port);
   int lsock=socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
   if(bind(lsock, (struct sockaddr*)&addr, sizeof(addr))){perror("bind"); return 1;}

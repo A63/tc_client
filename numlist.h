@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014-2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -14,12 +14,5 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifdef __ANDROID__ // Compatibility hacks for android
-  #define wchar_t char
-  #define mbstowcs(dst,src,len) ((dst)?(int)strncpy(dst,src,len):strlen(src))
-  #define wcstombs strncpy
-  #define wcslen strlen
-#endif
-
-extern wchar_t* fromnumlist(char* in);
-extern char* tonumlist(const wchar_t* in);
+extern char* fromnumlist(char* in, size_t* outlen);
+extern char* tonumlist(char* in_x, size_t len);

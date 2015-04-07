@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014-2015  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -17,22 +17,21 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <wchar.h>
-#include <locale.h>
+#include <iconv.h>
 #include "numlist.h"
 
 // Functions for converting to/from the comma-separated decimal character code format that tinychat uses for chat messages, e.g. "97,98,99" = "abc"
 
-wchar_t* fromnumlist(char* in)
+char* fromnumlist(char* in, size_t* outlen)
 {
-  int len=1;
+  size_t len=1;
   char* x=in;
   while((x=strchr(x, ',')))
   {
     ++len;
     x=&x[1];
   }
-  unsigned char string[len+1];
+  char string[len+1];
   int i;
   for(i=0; i<len; ++i)
   {
@@ -41,22 +40,30 @@ wchar_t* fromnumlist(char* in)
     in=&in[1];
   }
   string[len]=0;
-  wchar_t* wstring=malloc(sizeof(wchar_t)*(len+1));
-  setlocale(LC_ALL, "en_US.ISO-8859-1");
-  mbstowcs(wstring, (char*)string, len);
-  wstring[len]=0;
-  setlocale(LC_ALL, "");
-  return wstring;
+
+  iconv_t cd=iconv_open("", "iso-8859-1");
+  char* outbuf=malloc(len*4);
+  char* i_out=outbuf;
+  char* i_in=string;
+  size_t remaining=len*4;
+  *outlen=remaining;
+  while(outlen>0 && len>0 && iconv(cd, &i_in, &len, &i_out, &remaining)>0);
+  i_out[0]=0; // null-terminates 'outbuf'
+  iconv_close(cd);
+  *outlen-=remaining;
+  return outbuf;
 }
 
-char* tonumlist(const wchar_t* in_x)
+char* tonumlist(char* i_in, size_t len)
 {
-  int len=wcslen(in_x);
+  iconv_t cd=iconv_open("iso-8859-1", "");
   char in[len+1];
-  setlocale(LC_ALL, "en_US.ISO-8859-1");
-  wcstombs(in, in_x, len);
-  in[len]=0;
-  setlocale(LC_ALL, "");
+  char* i_out=in;
+  size_t outlen=len;
+  while(outlen>0 && len>0 && iconv(cd, &i_in, &len, &i_out, &outlen)>0);
+  i_out[0]=0; // null-terminates the 'in' buffer
+  iconv_close(cd);
+
   char* out=malloc(strlen(in)*strlen("255,"));
   out[0]=0;
   char* x=out;
