@@ -547,7 +547,7 @@ int main(int argc, char** argv)
             unsigned int num=((msg[5]&&msg[6])?strtoul(&msg[6], 0, 0):1);
             if(num<1){say(pm, "The given value evaluates to 0, please specify the number of videos you would like to skip (or if you do not specify it will default to 1)\n"); continue;}
             if(playing){free(playing); playing=0; --num; say(0, "/mbc youTube\n");}
-            while(num>0)
+            while(num>0&&queue.itemcount>0)
             {
               queue_del(&queue, queue.items[0].video);
               --num;
@@ -571,7 +571,7 @@ int main(int argc, char** argv)
             alarm(getduration(playing)-pos);
             started=time(0)-pos;
           }
-          else if(!strcmp(msg, "/mbc youTube")) // Video cancelled
+          else if(!strcmp(msg, "/mbc youTube") && playing) // Video cancelled
           {
             list_del(&goodvids, playing); // manual /mbc is often used when !badvid should be used, so at least remove it from the list of approved videos
             list_save(&goodvids, "goodvids.txt");

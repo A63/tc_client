@@ -1,3 +1,9 @@
+0.26:
+modbot: fixed a segfault when trying to skip more videos than what's in the queue.
+modbot: fixed a segfault when receiving a manual /mbc command but no video is playing.
+cursedchat: added PM buffers/windows which can be switched between with "/pm <name>", just "/pm" to return to the channel buffer.
+cursedchat: added /help output specific to cursedchat, in addition to tc_client's output.
+camviewer: added an experimental audio mixer.
 0.25:
 Handle short reads in the RTMP headers too.
 Added the option -c/--color <number> to pick color instead of getting a random color at startup (contributed by Pamela)

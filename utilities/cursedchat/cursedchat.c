@@ -22,12 +22,13 @@
 #include <locale.h>
 #include <curses.h>
 #include <readline/readline.h>
+#include "buffer.h"
 
 #define HALFSCREEN (LINES>4?(LINES-3)/2:1)
+
 WINDOW* topic;
-WINDOW* chat;
+char* channeltopic;
 WINDOW* input;
-int chatscroll=-1;
 int to_app;
 
 // Translate ANSI escape codes to curses commands and write the text to a window
@@ -75,18 +76,114 @@ void waddansi(WINDOW* w, char* str)
 
 void drawchat(void)
 {
-  prefresh(chat, (chatscroll>-1?chatscroll:getcury(chat)-LINES+4), 0, 1, 0, LINES-3, COLS);
+  WINDOW* w=buffers[currentbuf].pad;
+  int scroll=buffers[currentbuf].scroll;
+  prefresh(w, (scroll>-1?scroll:getcury(w)-LINES+4), 0, 1, 0, LINES-3, COLS);
+}
+
+void drawtopic(void)
+{
+  werase(topic);
+  unsigned int i;
+  for(i=1; i<buffercount && buffers[i].seen; ++i);
+  if(i<buffercount)
+  {
+    waddstr(topic, "Unread PMs from: ");
+    char first=1;
+    for(i=1; i<buffercount; ++i)
+    {
+      if(!buffers[i].seen)
+      {
+        if(first){first=0;}else{waddstr(topic, ", ");}
+        waddstr(topic, buffers[i].name);
+      }
+    }
+  }
+  else if(currentbuf)
+  {
+    waddstr(topic, "To return to public chat type: /pm");
+  }else{
+    waddstr(topic, channeltopic);
+  }
+  wrefresh(topic);
 }
 
 void gotline(char* line)
 {
   if(!line){close(to_app); return;} // TODO: handle EOF on stdin better?
-// TODO: handle commands (/pm, /help addition)
+  if(!strcmp(line, "/pm"))
+  {
+    currentbuf=0;
+    drawchat();
+    drawtopic();
+    return;
+  }
+  else if(!strncmp(line, "/pm ", 4))
+  {
+    currentbuf=findbuffer(&line[4]);
+    if(!currentbuf){currentbuf=createbuffer(&line[4]);}
+    buffers[currentbuf].seen=1;
+    drawchat();
+    drawtopic();
+    return;
+  }
+  else if(!strncmp(line, "/buffer ", 8))
+  {
+    unsigned int num=atoi(&line[8]);
+    if(num<0 || num>=buffercount)
+    {
+      wprintw(buffers[currentbuf].pad, "\nInvalid buffer number: %u", num);
+    }else{
+      currentbuf=num;
+      buffers[currentbuf].seen=1;
+      drawtopic();
+    }
+    drawchat();
+    return;
+  }
+  else if(!strcmp(line, "/bufferlist"))
+  {
+    unsigned int i;
+    for(i=0; i<buffercount; ++i)
+    {
+      wprintw(buffers[currentbuf].pad, "\n% 3i: %s", i, i?buffers[i].name:"");
+    }
+    drawchat();
+    return;
+  }
+  else if(!strncmp(line, "/msg ", 5))
+  {
+    char* name=&line[5];
+    char* msg=strchr(name, ' ');
+    if(!msg){return;}
+    msg[0]=0;
+    currentbuf=findbuffer(name);
+    if(!currentbuf){currentbuf=createbuffer(name);}
+    buffers[currentbuf].seen=1;
+    drawtopic();
+    memmove(line, &msg[1], strlen(&msg[1])+1);
+  }
+  else if(!strcmp(line, "/help"))
+  {
+    waddstr(buffers[0].pad, "\nFor cursedchat:\n"
+      "/pm <name>    = switch to the PM buffer for <name>\n"
+      "/pm           = return to the channel/public chat's buffer\n"
+      "/buffer <num> = switch to buffer by number\n"
+      "/bufferlist   = list open buffers, their numbers and associated names\n"
+      "\nFor tc_client (through cursedchat):");
+    write(to_app, line, strlen(line));
+    write(to_app, "\n", 1);
+    return;
+  }
 
+  if(currentbuf) // We're in a PM window, make the message a PM
+  {
+    dprintf(to_app, "/msg %s ", buffers[currentbuf].name);
+  }
   write(to_app, line, strlen(line));
   write(to_app, "\n", 1);
 // TODO: grab user's nick for this
-  wprintw(chat, "\n%s: %s", "You", line);
+  wprintw(buffers[currentbuf].pad, "\n%s: %s", "You", line);
   drawchat();
 }
 
@@ -127,22 +224,23 @@ int escinput(int a, int byte)
   if(!strcmp(buf, "[5")) // Page up
   {
     read(0, buf, 1);
-    if(chatscroll<0){chatscroll=getcury(chat)-LINES+4;}
-    chatscroll-=HALFSCREEN; // (LINES-3)/2;
-    if(chatscroll<0){chatscroll=0;}
+    struct buffer* b=&buffers[currentbuf];
+    if(b->scroll<0){b->scroll=getcury(b->pad)-LINES+4;}
+    b->scroll-=HALFSCREEN;
+    if(b->scroll<0){b->scroll=0;}
     drawchat();
     return 0;
   }
   if(!strcmp(buf, "[6")) // Page down
   {
     read(0, buf, 1);
-    if(chatscroll<0){return 0;} // Already at the bottom
-    chatscroll+=HALFSCREEN; // (LINES-3)/2;
-    if(chatscroll>getcury(chat)-LINES+3){chatscroll=-1;}
+    struct buffer* b=&buffers[currentbuf];
+    if(b->scroll<0){return 0;} // Already at the bottom
+    b->scroll+=HALFSCREEN;
+    if(b->scroll>getcury(b->pad)-LINES+3){b->scroll=-1;}
     drawchat();
     return 0;
   }
-//  wprintw(chat, "\nbuf: %s", buf);
   return 0;
 }
 
@@ -168,15 +266,21 @@ void resizechat(int sig)
   ioctl(0, TIOCGWINSZ, &size);
   if(size.ws_row<3){return;} // Too small, would result in negative numbers breaking the chat window
   resize_term(size.ws_row, size.ws_col);
+  clear();
+  refresh();
   wresize(topic, 1, COLS);
-  wresize(chat, chat->_maxy+1, COLS);
+  unsigned int i;
+  for(i=0; i<buffercount; ++i)
+  {
+    wresize(buffers[i].pad, buffers[i].pad->_maxy+1, COLS);
+  }
   wresize(input, 2, COLS);
   mvwin(input, LINES-2, 0);
-  redrawwin(chat);
+  redrawwin(buffers[currentbuf].pad);
   redrawwin(topic);
   redrawwin(input);
   drawchat();
-  wrefresh(topic);
+  drawtopic();
   drawinput();
 }
 
@@ -203,8 +307,7 @@ int main(int argc, char** argv)
   init_pair(7, COLOR_CYAN, -1);
 
   wbkgd(topic, COLOR_PAIR(1)|' ');
-  chat=newpad(2048, COLS);
-  scrollok(chat, 1);
+  createbuffer(0);
   input=newwin(2, COLS, LINES-2, 0);
   scrollok(input, 1);
   rl_initialize();
@@ -248,14 +351,61 @@ int main(int argc, char** argv)
       }
       if(len==-1){break;} // Bad read
       buf[len]=0;
+      unsigned int buffer=0;
       if(!strncmp(buf, "Room topic: ", 12))
       {
-        werase(topic);
-        waddstr(topic, &buf[12]);
-        wrefresh(topic);
+        free(channeltopic);
+        channeltopic=strdup(&buf[12]);
+        drawtopic();
       }
-      waddstr(chat, "\n");
-      waddansi(chat, buf);
+      else if(buf[0]=='['&&isdigit(buf[1])&&isdigit(buf[2])&&buf[3]==':'&&isdigit(buf[4])&&isdigit(buf[5])&&buf[6]==']'&&buf[7]==' ')
+      {
+        char* nick=&buf[8];
+        char* msg=strchr(nick, ' ');
+        if(msg[-1]==':')
+        {
+          nick=strchr(nick, 'm')+1;
+          char* nickend=&msg[-1];
+          msg=&msg[1];
+          if(!strncmp(msg, "/msg ", 5)) // message is a PM
+          {
+            char* pm=strchr(&msg[5], ' ');
+            if(!pm){waddstr(buffers[0].pad, "\npm is null!"); continue;}
+            pm=&pm[1];
+            nickend[0]=0;
+            buffer=findbuffer(nick);
+            if(!buffer){buffer=createbuffer(nick);}
+            nickend[0]=':';
+            memmove(msg, pm, strlen(pm)+1);
+            if(buffer!=currentbuf)
+            {
+              buffers[buffer].seen=0;
+              drawtopic();
+            }
+          }
+        }
+        else if(!strncmp(msg, " changed nickname to ", 21))
+        {
+          msg[0]=0;
+          unsigned int i;
+          // Prevent duplicate names for buffers, and all the issues that would bring
+          if((i=findbuffer(&msg[21])))
+          {
+            renamebufferunique(i);
+          }
+          for(i=1; i<buffercount; ++i)
+          {
+            if(!strcmp(buffers[i].name, nick))
+            {
+              free(buffers[i].name);
+              buffers[i].name=strdup(&msg[21]);
+            }
+          }
+          msg[0]=' ';
+        }
+      }
+      waddstr(buffers[buffer].pad, "\n");
+      waddansi(buffers[buffer].pad, buf);
       drawchat();
       wrefresh(input);
       continue;

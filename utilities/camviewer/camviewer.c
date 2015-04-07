@@ -45,6 +45,8 @@ struct camera
   GtkWidget* cam;
   AVCodecContext* vctx;
   AVCodecContext* actx;
+  short* samples;
+  unsigned int samplecount;
   char* id;
   char* nick;
   GtkWidget* box; // holds label and cam
@@ -59,11 +61,43 @@ struct viddata
   AVCodec* adecoder;
 #ifdef HAVE_SOUND
   int audiopipe;
+  SwrContext* swrctx;
 #endif
 };
 
 int tc_client[2];
 int tc_client_in[2];
+
+#ifdef HAVE_SOUND
+// Experimental mixer, not sure if it really works
+void camera_playsnd(struct viddata* data, struct camera* cam, short* samples, unsigned int samplecount)
+{
+  if(cam->samples)
+  {
+// int sources=1;
+    unsigned int i;
+    for(i=0; i<data->camcount; ++i)
+    {
+      if(!data->cams[i].samples){continue;}
+      if(cam==&data->cams[i]){continue;}
+      unsigned j;
+      for(j=0; j<cam->samplecount && j<data->cams[i].samplecount; ++j)
+      {
+        cam->samples[j]+=data->cams[i].samples[j];
+      }
+      free(data->cams[i].samples);
+      data->cams[i].samples=0;
+// ++sources;
+    }
+    write(data->audiopipe, cam->samples, cam->samplecount*sizeof(short));
+    free(cam->samples);
+// printf("Mixed sound from %i sources (cam: %p)\n", sources, cam);
+  }
+  cam->samples=malloc(samplecount*sizeof(short));
+  memcpy(cam->samples, samples, samplecount*sizeof(short));
+  cam->samplecount=samplecount;
+}
+#endif
 
 char buf[1024];
 gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
@@ -120,6 +154,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
 #ifdef HAVE_SOUND
     cam->actx=avcodec_alloc_context3(data->adecoder);
     avcodec_open2(cam->actx, data->adecoder, 0);
+    cam->samples=0;
 #endif
     cam->cam=gtk_image_new();
     cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -181,11 +216,8 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     int gotframe;
     avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
     if(!gotframe){return 1;}
-    SwrContext* swrctx=swr_alloc_set_opts(0, 1, AV_SAMPLE_FMT_S16, 22050, 1, cam->frame->format, 11025, 0, 0); // TODO: any way to get the sample rate from the frame/decoder? cam->frame->sample_rate seems to be 0
-    swr_init(swrctx);
-    int outlen=swr_convert(swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
-    swr_free(&swrctx);
-    write(data->audiopipe, cam->frame->data[0], outlen);
+    int outlen=swr_convert(data->swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+    camera_playsnd(data, cam, (short*)cam->frame->data[0], outlen);
 #endif
     return 1;
   }
@@ -253,7 +285,6 @@ void audiothread(int fd)
   samplefmt.matrix=0;
   ao_option clientname={.key="client_name", .value="tc_client/camviewer", .next=0};
   ao_device* dev=ao_open_live(ao_default_driver_id(), &samplefmt, &clientname);
-// TODO: mix sounds, somehow..
   char buf[2048];
   size_t len;
   while((len=read(fd, buf, 2048))>0)
@@ -272,6 +303,8 @@ int main(int argc, char** argv)
   data.adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
 
 #ifdef HAVE_SOUND
+  data.swrctx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0); // TODO: any way to get the sample rate from the frame/decoder? cam->frame->sample_rate seems to be 0
+  swr_init(data.swrctx);
   int audiopipe[2];
   pipe(audiopipe);
   data.audiopipe=audiopipe[1];
@@ -319,6 +352,7 @@ int main(int argc, char** argv)
     avcodec_free_context(&data.cams[i].vctx);
 #ifdef HAVE_SOUND
     avcodec_free_context(&data.cams[i].actx);
+    swr_free(&data.swrctx);
 #endif
     free(data.cams[i].id);
     free(data.cams[i].nick);

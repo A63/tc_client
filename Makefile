@@ -1,4 +1,4 @@
-VERSION=0.25
+VERSION=0.26
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
 ifneq ($(wildcard config.mk),)
@@ -8,7 +8,7 @@ OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endian.o
 IRCHACK_OBJ=utilities/irchack/irchack.o
 MODBOT_OBJ=utilities/modbot/modbot.o utilities/modbot/list.o utilities/modbot/queue.o
 CAMVIEWER_OBJ=utilities/camviewer/camviewer.o
-CURSEDCHAT_OBJ=utilities/cursedchat/cursedchat.o
+CURSEDCHAT_OBJ=utilities/cursedchat/cursedchat.o utilities/cursedchat/buffer.o
 UTILS=irchack modbot
 ifdef GTK_LIBS
 ifdef AVCODEC_LIBS
@@ -53,4 +53,4 @@ clean:
 	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) tc_client irchack modbot camviewer cursedchat
 
 tarball:
-	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh utilities/irchack/irchack.c utilities/modbot/modbot.c utilities/modbot/list.c utilities/modbot/list.h utilities/modbot/queue.c utilities/modbot/queue.h utilities/camviewer/camviewer.c utilities/cursedchat/cursedchat.c configure
+	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh utilities/irchack/irchack.c utilities/modbot/modbot.c utilities/modbot/list.c utilities/modbot/list.h utilities/modbot/queue.c utilities/modbot/queue.h utilities/camviewer/camviewer.c utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h configure
