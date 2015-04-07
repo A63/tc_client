@@ -233,11 +233,13 @@ char session(int sock, const char* nick, const char* channel, const char* pass, 
     {
       pfd[0].revents=0;
       len=0;
+      int r;
       while(len<2047)
       {
-        if(read(tc_out[0], &buf[len], 1)!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
+        if((r=read(tc_out[0], &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
         ++len;
       }
+      if(r!=1){break;}
       buf[len]=0;
 printf("Got from tc_client: '%s'\n", buf);
       if(!strncmp(buf, "Currently online: ", 18))

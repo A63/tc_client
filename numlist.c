@@ -31,7 +31,7 @@ char* fromnumlist(char* in, size_t* outlen)
     ++len;
     x=&x[1];
   }
-  char string[len+1];
+  unsigned short string[len+1];
   int i;
   for(i=0; i<len; ++i)
   {
@@ -41,12 +41,13 @@ char* fromnumlist(char* in, size_t* outlen)
   }
   string[len]=0;
 
-  iconv_t cd=iconv_open("", "iso-8859-1");
+  iconv_t cd=iconv_open("", "utf-16");
   char* outbuf=malloc(len*4);
   char* i_out=outbuf;
-  char* i_in=string;
+  char* i_in=(char*)string;
   size_t remaining=len*4;
   *outlen=remaining;
+  len*=2; // 2 bytes per number/character in utf-16
   while(outlen>0 && len>0 && iconv(cd, &i_in, &len, &i_out, &remaining)>0);
   i_out[0]=0; // null-terminates 'outbuf'
   iconv_close(cd);
@@ -56,21 +57,21 @@ char* fromnumlist(char* in, size_t* outlen)
 
 char* tonumlist(char* i_in, size_t len)
 {
-  iconv_t cd=iconv_open("iso-8859-1", "");
-  char in[len+1];
-  char* i_out=in;
-  size_t outlen=len;
+  iconv_t cd=iconv_open("utf-16le", "");
+  unsigned short in[len+1];
+  char* i_out=(char*)in;
+  size_t outlen=len*2; // 2 bytes per character in utf-16
   while(outlen>0 && len>0 && iconv(cd, &i_in, &len, &i_out, &outlen)>0);
-  i_out[0]=0; // null-terminates the 'in' buffer
   iconv_close(cd);
+  len=((void*)i_out-(void*)in)/2;
 
-  char* out=malloc(strlen(in)*strlen("255,"));
+  char* out=malloc(len*strlen("65535,"));
   out[0]=0;
   char* x=out;
   int i;
-  for(i=0; in[i]; ++i)
+  for(i=0; i<len; ++i)
   {
-    sprintf(x, "%s%i", x==out?"":",", (int)in[i]&0xff);
+    sprintf(x, "%s%u", x==out?"":",", (unsigned int)in[i]&0xffff);
     x=&x[strlen(x)];
   }
   return out;

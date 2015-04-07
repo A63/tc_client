@@ -1,3 +1,10 @@
+0.19:
+Got unicode characters working, as it turns out tinychat doesn't use ISO-8859-1 but UTF-16 (which shares character codes with ISO-8859-1 below 256)
+Enable keepalive on the TCP socket.
+irchack: end session upon bad reads from tc_client.
+modbot: handle playlist links properly (youtube-dl gives us a newline-separated list of IDs)
+modbot: added '!approve entire queue', mostly for playlists.
+modbot: allow searching for ID also in !badvid
 0.18:
 This release only affects modbot:
 Switched to using youtube-dl for getting IDs (including proper searching)

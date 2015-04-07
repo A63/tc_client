@@ -24,6 +24,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <poll.h>
+#include <sys/socket.h>
 #include <locale.h>
 #include <ctype.h>
 #include <curl/curl.h>
@@ -257,6 +258,8 @@ int main(int argc, char** argv)
     return 1;
   }
   freeaddrinfo(res);
+  i=1;
+  setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &i, sizeof(i));
   int random=open("/dev/urandom", O_RDONLY);
   // RTMP handshake
   unsigned char handshake[1536];

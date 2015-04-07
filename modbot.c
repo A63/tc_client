@@ -41,23 +41,37 @@ int tc_client;
 void list_del(struct list* list, const char* item)
 {
   unsigned int i;
-  for(i=0; i<list->itemcount; ++i)
+  unsigned int len;
+  while(item[0])
   {
-    if(!strcmp(list->items[i], item))
+    if(item[0]=='\r' || item[0]=='\n'){item=&item[1]; continue;} // Skip empty lines
+    for(len=0; item[len] && item[len]!='\r' && item[len]!='\n'; ++len);
+    for(i=0; i<list->itemcount; ++i)
     {
-      free(list->items[i]);
-      --list->itemcount;
-      memmove(&list->items[i], &list->items[i+1], sizeof(char*)*(list->itemcount-i));
+      if(!strncmp(list->items[i], item, len) && !list->items[i][len])
+      {
+        free(list->items[i]);
+        --list->itemcount;
+        memmove(&list->items[i], &list->items[i+1], sizeof(char*)*(list->itemcount-i));
+      }
     }
+    item=&item[len];
   }
 }
 
 void list_add(struct list* list, const char* item)
 {
   list_del(list, item);
-  ++list->itemcount;
-  list->items=realloc(list->items, sizeof(char*)*list->itemcount);
-  list->items[list->itemcount-1]=strdup(item);
+  unsigned int len;
+  while(item[0])
+  {
+    if(item[0]=='\r' || item[0]=='\n'){item=&item[1]; continue;} // Skip empty lines
+    for(len=0; item[len] && item[len]!='\r' && item[len]!='\n'; ++len);
+    ++list->itemcount;
+    list->items=realloc(list->items, sizeof(char*)*list->itemcount);
+    list->items[list->itemcount-1]=strndup(item, len);
+    item=&item[len];
+  }
 }
 
 void list_switch(struct list* list, char* olditem, char* newitem)
@@ -76,9 +90,16 @@ void list_switch(struct list* list, char* olditem, char* newitem)
 int list_getpos(struct list* list, char* item)
 {
   int i;
-  for(i=0; i<list->itemcount; ++i)
+  unsigned int len;
+  while(item[0])
   {
-    if(!strcmp(list->items[i], item)){return i;}
+    if(item[0]=='\r' || item[0]=='\n'){item=&item[1]; continue;} // Skip empty lines
+    for(len=0; item[len] && item[len]!='\r' && item[len]!='\n'; ++len);
+    for(i=0; i<list->itemcount; ++i)
+    {
+      if(!strncmp(list->items[i], item, len) && !list->items[i][len]){return i;}
+    }
+    item=&item[len];
   }
   return -1;
 }
@@ -307,12 +328,23 @@ int main(int argc, char** argv)
         if(!strncmp(msg, "!request ", 9))
         {
           char title[256];
-          char vid[256];
-          getvidinfo(&msg[9], "--get-id", vid, 256);
+          char vid[1024];
+          getvidinfo(&msg[9], "--get-id", vid, 1024);
           if(!vid[0]){say(pm, "No video found, sorry\n"); continue;} // Nothing found
-          getvidinfo(vid, "--get-title", title, 256);
+          char* plist;
+          for(plist=vid; plist[0] && plist[0]!='\r' && plist[0]!='\n'; plist=&plist[1]);
+          if(plist[0]) // Link was a playlist, do some trickery to get the title of the first video (instead of getting nothing)
+          {
+            strcpy(title, "Playlist, starting with ");
+            plist[0]=0;
+            getvidinfo(vid, "--get-title", &title[24], 256-24);
+            plist[0]='\n';
+          }else{
+            plist=0;
+            getvidinfo(vid, "--get-title", title, 256);
+          }
           printf("Requested ID '%s' by '%s'\n", vid, nick);
-          // Check if it's already queued and mention which spot it's in
+          // Check if it's already queued and mention which spot it's in, or if it's marked as bad and shouldn't be queued
           int pos;
           if((pos=list_getpos(&queue, vid))>-1)
           {
@@ -324,20 +356,23 @@ int main(int argc, char** argv)
             say(pm, "Video '%s' is marked as bad, won't add to queue\n", title);
             continue;
           }
-          if(list_contains(&mods, nick))
+          if(list_contains(&mods, nick)) // Auto-approve for mods
           {
-// printf("is mod, video auto-approved\n");
             list_add(&goodvids, vid);
             list_del(&badvids, vid);
             list_save(&goodvids, "goodvids.txt");
             list_save(&badvids, "badvids.txt");
-            list_add(&queue, vid);
-          }else{ // Not a mod
-            list_add(&queue, vid);
           }
+
+          list_add(&queue, vid);
           if(!list_contains(&goodvids, vid))
           {
-            say(pm, "Video '%s' (%s) is added to the queue but will need to be approved by mods\n", vid, title);
+            if(plist)
+            {
+              say(pm, "Playlist '%s' is added to the queue but will need to be approved by a mod\n", title);
+            }else{
+              say(pm, "Video '%s' (%s) is added to the queue but will need to be approved by a mod\n", vid, title);
+            }
           }
           else if(!playing){playnext(0);}
           else{say(pm, "Added to queue\n");}
@@ -390,6 +425,7 @@ int main(int argc, char** argv)
           usleep(100000);
           say(nick, "!approve <link> = mark the specified video as okay\n");
           say(nick, "!approve next   = mark the next not yet approved video as okay\n");
+          say(nick, "!approve entire queue = approve all videos in queue (for playlists)\n");
           usleep(100000);
           say(nick, "!badvid         = stop playing the current video and mark it as bad\n");
           usleep(100000);
@@ -435,6 +471,25 @@ int main(int argc, char** argv)
                 if(!list_contains(&goodvids, queue.items[i])){vid=queue.items[i]; break;}
               }
               if(i==queue.itemcount){say(pm, "Nothing more to approve :)\n"); continue;}
+            }
+            else if(!strcmp(vid, "entire queue"))
+            {
+              char approved=0;
+              unsigned int i;
+              for(i=0; i<queue.itemcount; ++i)
+              {
+                if(list_contains(&goodvids, queue.items[i])){continue;}
+                list_add(&goodvids, queue.items[i]);
+                approved=1;
+              }
+              if(approved)
+              {
+                list_save(&goodvids, "goodvids.txt");
+                if(!playing){playnext(0);} // Next in queue just got approved, so play it
+              }else{
+                say(0, "%s: there is nothing in the queue that isn't already approved, please do not overuse this function\n", nick);
+              }
+              continue;
             }else{
               getvidinfo(vid, "--get-id", vidbuf, 256);
               vid=vidbuf;
@@ -447,14 +502,19 @@ int main(int argc, char** argv)
           }
           else if(!strcmp(msg, "!badvid") || !strncmp(msg, "!badvid ", 8))
           {
-            char* vid=(msg[7]?&msg[8]:playing);
-            if(!vid){say(pm, "Nothing is playing, please use !badvid <URL/ID> instead\n"); continue;}
+            if(!msg[7] && !playing){say(pm, "Nothing is playing, please use !badvid <URL/ID> instead\n"); continue;}
+            char vid[1024];
+            if(msg[7])
+            {
+              getvidinfo(&msg[8], "--get-id", vid, 256);
+            }else{strncpy(vid, playing, 1023); vid[1023]=0;}
+            if(!vid[0]){say(pm, "Video not found, sorry\n");}
             list_del(&queue, vid);
             list_del(&goodvids, vid);
             list_add(&badvids, vid);
             list_save(&goodvids, "goodvids.txt");
             list_save(&badvids, "badvids.txt");
-            if(vid==playing){say(0, "/mbc youTube\n"); playnext(0);}
+            if(!strcmp(vid, playing)){say(0, "/mbc youTube\n"); playnext(0);}
           }
           else if(!strncmp(msg, "/mbs youTube ", 13))
           {
