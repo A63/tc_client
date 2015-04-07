@@ -94,7 +94,7 @@ struct amf* amf_parse(const unsigned char* buf, int len)
       else
         item=amf_newitem(amf);
       item->type=AMF_NUMBER;
-      item->number=*(double*)buf;
+      memcpy(&item->number, buf, sizeof(double));
       buf=&buf[sizeof(double)];
       break;
     case 1:

@@ -69,8 +69,7 @@ void amfnum(struct amfmsg* msg, double v)
   msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
   unsigned char* type=msg->buf+offset;
   type[0]='\x00';
-  double* value=(double*)(msg->buf+offset+1);
-  *value=v;
+  memcpy(msg->buf+offset+1, &v, sizeof(v));
 }
 
 void amfbool(struct amfmsg* msg, char v)

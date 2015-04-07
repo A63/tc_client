@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <netdb.h>
 #include <poll.h>
 #include <locale.h>
@@ -28,6 +29,12 @@
 #include "amfparser.h"
 #include "numlist.h"
 #include "amfwriter.h"
+
+struct writebuf
+{
+  char* buf;
+  int len;
+};
 
 unsigned int flip(unsigned int bits, int bytecount)
 {
@@ -52,28 +59,30 @@ void b_read(int sock, void* buf, size_t len)
   }
 }
 
+size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
+{
+  struct writebuf* data=x;
+  size*=nmemb;
+  data->buf=realloc(data->buf, data->len+size+1);
+  memcpy(&data->buf[data->len], ptr, size);
+  data->len+=size;
+  data->buf[data->len]=0;
+  return size;
+}
+
 char* http_get(char* url)
 {
   CURL* curl=curl_easy_init();
   if(!curl){return 0;}
   curl_easy_setopt(curl, CURLOPT_URL, url);
-  char* buf=0;
-  int len=0;
-  size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
-  {
-    size*=nmemb;
-    buf=realloc(buf, len+size+1);
-    memcpy(&buf[len], ptr, size);
-    len+=size;
-    buf[len]=0;
-    return size;
-  }
+  struct writebuf writebuf={0, 0};
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writehttp);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &writebuf);
   char err[CURL_ERROR_SIZE];
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err);
   if(curl_easy_perform(curl)){curl_easy_cleanup(curl); printf(err); return 0;}
   curl_easy_cleanup(curl);
-  return buf; // should be free()d when no longer needed
+  return writebuf.buf; // should be free()d when no longer needed
 }
 
 char* gethost(char *channel, char *password)
