@@ -82,7 +82,7 @@ void amfbool(struct amfmsg* msg, char v)
   x[1]=!!v;
 }
 
-void amfstring(struct amfmsg* msg, char* string)
+void amfstring(struct amfmsg* msg, const char* string)
 {
   int len=strlen(string);
   int offset=sizeof(struct rtmph)+msg->len;

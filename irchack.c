@@ -104,7 +104,6 @@ int main(int argc, char** argv)
   }
   close(tc_in[0]);
   close(tc_out[1]);
-  dprintf(sock, ":%s!user@host JOIN #%s\n", nick, channel);
   struct pollfd pfd[2];
   pfd[0].fd=tc_out[0];
   pfd[0].events=POLLIN;
@@ -126,6 +125,11 @@ int main(int argc, char** argv)
       }
       buf[len]=0;
 printf("Got from tc_client: '%s'\n", buf);
+      if(!strncmp(buf, "Guest ID: ", 10))
+      {
+        dprintf(sock, ":%s!user@host NICK :guest-%s\n", nick, &buf[10]);
+        continue;
+      }
       if(!strncmp(buf, "Currently online: ", 18))
       {
         dprintf(sock, ":irchack 353 %s = #%s :", nick, channel);
@@ -219,6 +223,12 @@ printf("Got from IRC client: '%s'\n", buf);
         }else{
           dprintf(tc_in[1], "/msg %s %s\n", target, msg);
         }
+      }
+      else if(!strncmp(buf, "NICK ", 5))
+      {
+        char* nick=&buf[5];
+        if(nick[0]==':'){nick=&nick[1];}
+        dprintf(tc_in[1], "/nick %s\n", nick);
       }
       else if(!strncmp(buf, "PING ", 5))
       {

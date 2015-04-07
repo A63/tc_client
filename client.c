@@ -164,7 +164,7 @@ int main(int argc, char** argv)
     return 1;
   }
   char* channel=argv[1];
-  char* nickname=argv[2];
+  char* nickname=strdup(argv[2]);
   char* password=(argc>3?argv[3]:0);
   char* server=gethost(channel, password);
   struct addrinfo* res;
@@ -187,6 +187,7 @@ int main(int argc, char** argv)
   // RTMP handshake
   unsigned char handshake[1536];
   read(random, handshake, 1536);
+  read(random, &currentcolor, sizeof(currentcolor));
   close(random);
   write(sock, "\x03", 1); // Send 0x03 and 1536 bytes of random junk
   write(sock, handshake, 1536);
@@ -273,6 +274,56 @@ int main(int argc, char** argv)
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       if(!len){continue;} // Don't send empty lines
       buf[len]=0;
+      int privfield=-1;
+      int privlen;
+      if(buf[0]=='/') // Got a command
+      {
+        if(!strncmp((char*)buf, "/color", 6) && (!buf[6]||buf[6]==' '))
+        {
+          if(buf[6]) // Color specified
+          {
+            currentcolor=atoi((char*)&buf[7]);
+            printf("\x1b[%smChanged color\x1b[0m\n", termcolors[currentcolor%16]);
+          }else{ // No color specified, state our current color
+            printf("\x1b[%smCurrent color: %i\x1b[0m\n", termcolors[currentcolor%16], currentcolor%16);
+          }
+          fflush(stdout);
+          continue;
+        }
+        else if(!strcmp((char*)buf, "/colors"))
+        {
+          int i;
+          for(i=0; i<16; ++i)
+          {
+            printf("\x1b[%smColor %i\x1b[0m\n", termcolors[i], i);
+          }
+          fflush(stdout);
+          continue;
+        }
+        else if(!strncmp((char*)buf, "/nick ", 6))
+        {
+          free(nickname);
+          nickname=strdup((char*)&buf[6]);
+          amfinit(&amf);
+          amfstring(&amf, "nick");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          amfstring(&amf, nickname);
+          amfsend(&amf, sock);
+          continue;
+        }
+        else if(!strncmp((char*)buf, "/msg ", 5))
+        {
+          for(privlen=0; buf[5+privlen]&&buf[5+privlen]!=' '; ++privlen);
+          privfield=idlist_get((char*)&buf[5]);
+          if(privfield<0)
+          {
+            printf("No such nick\n");
+            fflush(stdout);
+            continue;
+          }
+        }
+      }
       len=mbstowcs(0, (char*)buf, 0);
       wchar_t wcsbuf[len+1];
       mbstowcs(wcsbuf, (char*)buf, len+1);
@@ -282,11 +333,16 @@ int main(int argc, char** argv)
       amfnum(&amf, 0);
       amfnull(&amf);
       amfstring(&amf, msg);
-      // amfstring(&amf, colors[currentcolor%16]); // Alternating colors, fun but annoying in the long run
-      amfstring(&amf, "#000000,en");
-// TODO: for PMs, add a string like "n<numeric ID>-<nick>" to avoid broadcasting private messages to everyone connected (although the flash client ignores PMs sent to others)
+      amfstring(&amf, colors[currentcolor%16]);
+      // For PMs, add a string like "n<numeric ID>-<nick>" to make the server only send it to the intended recipient
+      if(privfield>-1)
+      {
+        char priv[snprintf(0, 0, "n%i-", privfield)+privlen+1];
+        sprintf(priv, "n%i-", privfield);
+        strncat(priv, (char*)&buf[5], privlen);
+        amfstring(&amf, priv);
+      }
       amfsend(&amf, sock);
-      // ++currentcolor;
       free(msg);
       continue;
     }

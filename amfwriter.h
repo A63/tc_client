@@ -25,7 +25,7 @@ extern void amfinit(struct amfmsg* msg);
 extern void amfsend(struct amfmsg* msg, int sock);
 extern void amfnum(struct amfmsg* msg, double v);
 extern void amfbool(struct amfmsg* msg, char v);
-extern void amfstring(struct amfmsg* msg, char* string);
+extern void amfstring(struct amfmsg* msg, const char* string);
 extern void amfobjstart(struct amfmsg* msg);
 extern void amfobjitem(struct amfmsg* msg, char* name);
 extern void amfobjend(struct amfmsg* msg);

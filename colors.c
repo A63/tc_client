@@ -56,6 +56,8 @@ const char* termcolors[]={
   "35;1"
 };
 
+unsigned int currentcolor;
+
 const char* resolvecolor(const char* tc_color)
 {
   int i;

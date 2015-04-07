@@ -16,5 +16,6 @@
 */
 extern const char* colors[];
 extern const char* termcolors[];
+extern unsigned int currentcolor;
 
 extern const char* resolvecolor(const char* tc_color);

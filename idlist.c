@@ -61,10 +61,12 @@ void idlist_rename(const char* oldname, const char* newname)
 
 int idlist_get(const char* name)
 {
+  int len;
+  for(len=0; name[len]&&name[len]!=' '; ++len);
   int i;
   for(i=0; i<idlistlen; ++i)
   {
-    if(!strcmp(name, idlist[i].name))
+    if(!strncmp(name, idlist[i].name, len) && !idlist[i].name[len])
     {
       return idlist[i].id;
     }
