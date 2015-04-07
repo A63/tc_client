@@ -1,3 +1,11 @@
+0.17:
+irchack: translate tc_client's "No such nick" to IRC's 401 (No such nick/channel)
+modbot: mark manually started videos as playing.
+modbot: fixed a memory error in list_del()
+Added a configure script to better handle platform differences (primarily that some systems need to link to libiconv, for others it is provided by libc)
+crossbuild.sh: build libiconv if necessary.
+modbot: added more responses to !approve to make it less confusing.
+modbot: pass -- to youtube-dl before the ID to avoid issues when IDs start with -
 0.16:
 Get and print the channel topic (contributed by Jade)
 irchack: fork and keep accepting connections.

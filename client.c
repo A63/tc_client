@@ -339,8 +339,15 @@ int main(int argc, char** argv)
     {
       pfd[0].revents=0;
       unsigned char buf[2048];
-      unsigned int len=read(0, buf, 2047);
-      if(len<1){break;}
+      unsigned int len=0;
+      int r;
+      while(len<2047)
+      {
+        if((r=read(0, &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
+        ++len;
+      }
+      if(r<1){break;}
+      if(len<1){continue;}
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       if(!len){continue;} // Don't send empty lines
       buf[len]=0;
@@ -404,7 +411,8 @@ int main(int argc, char** argv)
           privfield=idlist_get((char*)&buf[5]);
           if(privfield<0)
           {
-            printf("No such nick\n");
+            buf[5+privlen]=0;
+            printf("No such nick: %s\n", &buf[5]);
             fflush(stdout);
             continue;
           }

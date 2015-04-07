@@ -47,7 +47,7 @@ void list_del(struct list* list, const char* item)
     {
       free(list->items[i]);
       --list->itemcount;
-      memmove(&list->items[i], &list->items[i+1], sizeof(char*)*list->itemcount);
+      memmove(&list->items[i], &list->items[i+1], sizeof(char*)*(list->itemcount-i));
     }
   }
 }
@@ -165,9 +165,8 @@ unsigned int getduration(const char* vid)
   {
     close(out[0]);
     dup2(out[1], 1);
-    close(2); // Ignore youtube-dl errors/warnings
     write(1, ":", 1);
-    execlp("youtube-dl", "youtube-dl", "--get-duration", vid, (char*)0);
+    execlp("youtube-dl", "youtube-dl", "--get-duration", "--", vid, (char*)0);
     perror("execlp(youtube-dl)");
     _exit(1);
   }
@@ -175,7 +174,7 @@ unsigned int getduration(const char* vid)
   close(out[1]);
   char timebuf[128];
   int len=read(out[0], timebuf, 127);
-  if(len<1){return 60;} // If using youtube-dl fails, assume all videos are 1 minute long
+  if(len<2){printf("Failed to get video duration using youtube-dl, assuming 60s\n"); return 60;} // If using youtube-dl fails, assume all videos are 1 minute long
   timebuf[len]=0;
   close(out[0]);
   // youtube-dl prints it out in hh:mm:ss format, convert it to plain seconds
@@ -317,6 +316,7 @@ int main(int argc, char** argv)
           if((pos=list_getpos(&queue, vid))>-1)
           {
             say(pm, "That video is already in queue (number %i)\n", pos);
+            continue;
           }
           if(list_contains(&mods, nick))
           {
@@ -399,24 +399,28 @@ int main(int argc, char** argv)
           {
             if(playing)
             {
+              if(list_contains(&goodvids, playing) && !list_contains(&badvids, playing)){say(pm, "'%s' is already approved, use !approve <ID> to approve another video\n", playing); continue;}
               list_add(&goodvids, playing);
               list_del(&badvids, playing);
               list_save(&goodvids, "goodvids.txt");
               list_save(&badvids, "badvids.txt");
             }else if(queue.itemcount>0){
+              if(list_contains(&goodvids, queue.items[0]) && !list_contains(&badvids, queue.items[0])){say(pm, "'%s' is already approved, use !approve <ID> to approve another video\n", queue.items[0]); continue;}
               list_add(&goodvids, queue.items[0]);
               list_del(&badvids, queue.items[0]);
               list_save(&goodvids, "goodvids.txt");
               list_save(&badvids, "badvids.txt");
               playnext(0);
-            }else{write(tc_client, "Approve what? please specify a video\n", 37);}
+            }else{say(pm, "Approve what? please specify a video\n");}
           }
           else if(!strncmp(msg, "!approve ", 9))
           {
             char* vid=getyoutube(&msg[9]);
             if(!vid[0]){vid=playing; if(!vid){continue;}}
             list_add(&goodvids, vid);
+            list_del(&badvids, vid);
             list_save(&goodvids, "goodvids.txt");
+            list_save(&badvids, "badvids.txt");
             if(!playing && queue.itemcount>0 && !strcmp(vid, queue.items[0])){playnext(0);} // Next in queue just got approved, so play it
           }
           else if(!strcmp(msg, "!badvid") || !strncmp(msg, "!badvid ", 8))
@@ -439,6 +443,8 @@ int main(int argc, char** argv)
             list_del(&queue, vid);
             list_add(&goodvids, vid);
             list_save(&goodvids, "goodvids.txt");
+            free(playing);
+            playing=strdup(vid);
             alarm(getduration(vid));
           }
           else if(!strcmp(msg, "/mbc youTube")){playnext(0);} // TODO: handle /mbsk (seek) too?

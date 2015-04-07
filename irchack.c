@@ -277,6 +277,11 @@ printf("Got from tc_client: '%s'\n", buf);
         dprintf(sock, ":%s!user@host NICK :guest-%s\n", nick, &buf[10]);
         continue;
       }
+      if(!strncmp(buf, "No such nick: ", 14))
+      {
+        dprintf(sock, ":irchack 401 %s %s :No such nick/channel\n", nick, &buf[14]);
+        continue;
+      }
       char* space=strchr(buf, ' ');
       if(space && !strcmp(space, " is a moderator."))
       {
