@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2014  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -14,9 +14,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define COLORCOUNT 16
 extern const char* colors[];
 extern const char* termcolors[];
-extern unsigned int currentcolor;
 
 extern const char* resolvecolor(const char* tc_color);

@@ -31,6 +31,7 @@
 #include "numlist.h"
 #include "amfwriter.h"
 #include "idlist.h"
+#include "colors.h"
 
 struct writebuf
 {
@@ -253,28 +254,6 @@ int main(int argc, char** argv)
   close(f);
 */
 
-/* Disabled for now
-  char* colors[]={ // Sorted like a rainbow
-    "#821615,en",
-    "#c53332,en",
-    "#a08f23,en",
-    "#a78901,en",
-    "#919104,en",
-    "#7bb224,en",
-    "#7db257,en",
-    "#487d21,en",
-    "#00a990,en",
-    "#32a5d9,en",
-    "#1d82eb,en",
-    "#1965b6,en",
-    "#5c1a7a,en",
-    "#9d5bb5,en",
-    "#c356a3,en",
-    "#b9807f,en"
-  };
-  unsigned int currentcolor=0;
-*/
-
 //  int outnum=2; (Debugging, number for output filenames)
   struct pollfd pfd[2];
   pfd[0].fd=0;
@@ -359,10 +338,11 @@ int main(int argc, char** argv)
         amfsend(&amf, sock);
       }
       // Items for privmsg: 0=cmd, 2=channel, 3=msg, 4=color/lang, 5=nick
-      else if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
+      else if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[4].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
       {
         wchar_t* msg=fromnumlist(amfin->items[3].string.string);
-        printf("%s %s: %ls\n", timestamp(), amfin->items[5].string.string, msg);
+        const char* color=resolvecolor(amfin->items[4].string.string);
+        printf("%s \x1b[%sm%s: %ls\x1b[0m\n", timestamp(), color, amfin->items[5].string.string, msg);
         free(msg);
         fflush(stdout);
       }

@@ -22,16 +22,18 @@
 #include <stdio.h>
 #include <sys/socket.h>
 
-int main()
+int main(int argc, char** argv)
 {
+  int port=(argc>1?atoi(argv[1]):6667);
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family=AF_INET;
   addr.sin_addr.s_addr=0;
-  addr.sin_port=htons(6667);
+  addr.sin_port=htons(port);
   int lsock=socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
   if(bind(lsock, (struct sockaddr*)&addr, sizeof(addr))){perror("bind"); return 1;}
   listen(lsock, 1);
+  printf("Done! Open an IRC client and connect to localhost on port %i\n", port);
   int sock=accept(lsock, 0, 0);
   close(lsock);
   char buf[2048];
@@ -140,6 +142,16 @@ printf("Got from tc_client: '%s'\n", buf);
         continue;
       }
       if(buf[0]!='['){continue;} // Beyond this we only care about timestamped lines
+      // Strip out ANSI escape codes (TODO: translate them to IRC color codes instead)
+      char* ansi;
+      while((ansi=strstr(buf, "\x1b[")))
+      {
+        int len;
+        for(len=0; ansi[len]&&ansi[len]!='m'; ++len);
+        if(ansi[len]=='m'){++len;}
+        memmove(ansi, &ansi[len], strlen(&ansi[len])+1);
+      }
+
       char* name=strchr(buf, ' ');
       if(!name){continue;}
       name[0]=0;
@@ -159,7 +171,7 @@ printf("Got from tc_client: '%s'\n", buf);
         }else{ // Regular channel message
           dprintf(sock, ":%s!user@host PRIVMSG #%s :%s\n", name, channel, msg);
         }
-      }else{ // action, TODO: parse the actions and send them as JOINs, NICKs and QUITs etc. instead
+      }else{ // action, parse the actions and send them as JOINs, NICKs and QUITs etc. instead
         msg[0]=0;
         msg=&msg[1];
         if(!strcmp(msg, "entered the channel"))

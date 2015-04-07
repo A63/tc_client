@@ -39,7 +39,7 @@ void idlist_remove(const char* name)
     {
       free((void*)idlist[i].name);
       --idlistlen;
-      memmove(idlist, &idlist[i+1], sizeof(struct idmap)*(idlistlen-i));
+      memmove(&idlist[i], &idlist[i+1], sizeof(struct idmap)*(idlistlen-i));
       return;
     }
   }

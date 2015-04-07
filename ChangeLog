@@ -1,3 +1,6 @@
+0.6:
+Fixed a bug in the ID list that kept IDs from being removed correctly.
+Show colors using ANSI escape codes.
 0.5:
 Fixed a bug in irchack.c that sent the JOIN confirmation to the wrong file descriptor.
 Avoid sending empty lines.
