@@ -18,9 +18,21 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include "rtmp.h"
+#include <endian.h>
 #include "amfwriter.h"
+
+#pragma pack(push)
+#pragma pack(1)
+struct rtmph
+{
+  unsigned int streamid:6;
+  unsigned int fmt:2;
+  unsigned int timestamp:24;
+  unsigned int length:24;
+  unsigned char type;
+  unsigned int msgid;
+};
+#pragma pack(pop)
 
 extern unsigned int flip(unsigned int bits, int bytecount);
 
@@ -91,7 +103,7 @@ void amfstring(struct amfmsg* msg, const char* string)
   unsigned char* type=msg->buf+offset;
   type[0]='\x02';
   uint16_t* strlength=(uint16_t*)(msg->buf+offset+1);
-  *strlength=htons(len);
+  *strlength=htobe16(len);
   memcpy(msg->buf+offset+3, string, len);
 }
 
@@ -111,7 +123,7 @@ void amfobjitem(struct amfmsg* msg, char* name)
   msg->len+=2+len;
   msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
   uint16_t* strlength=(uint16_t*)(msg->buf+offset);
-  *strlength=htons(len);
+  *strlength=htobe16(len);
   memcpy(msg->buf+offset+2, name, len);
 }
 

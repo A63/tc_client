@@ -16,7 +16,7 @@
 */
 #include <string.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
+#include <endian.h>
 #include <stdio.h> // For debugging
 #include "amfparser.h"
 
@@ -71,9 +71,10 @@ struct amf* amf_parse(const unsigned char* buf, int len)
       obj=&amf->items[amf->itemcount-1].object;
       // TODO: recurse into unfinished member-objects (unimportant, I haven't seen any objects within objects so far)
       // Add member and set name
-      i=ntohs(*(short*)buf);
+      i=be16toh(*(short*)buf);
       buf=&buf[sizeof(short)];
-      if(buf[i]!=9) // 9=end-of-object
+      if(&buf[i]>=end){printf("Warning: skipping object item with name exceeding RTMP size (0x%x)\n", i);}
+      if(&buf[i]<end && buf[i]!=9) // 9=end-of-object
       {
         ++obj->membercount;
         obj->members=realloc(obj->members, sizeof(struct amfobjectmember)*obj->membercount);
@@ -83,6 +84,7 @@ struct amf* amf_parse(const unsigned char* buf, int len)
         obj->ended=1;
         obj=0;
         buf=&buf[1]; // Skip object-end
+        continue;
       }
     }
     switch(buf[0])
@@ -113,7 +115,7 @@ struct amf* amf_parse(const unsigned char* buf, int len)
         item=&obj->members[obj->membercount-1].value;
       else
         item=amf_newitem(amf);
-      i=ntohs(*(short*)buf);
+      i=be16toh(*(short*)buf);
       buf=&buf[sizeof(short)];
       item->type=AMF_STRING;
       item->string.length=i;

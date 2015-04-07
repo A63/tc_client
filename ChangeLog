@@ -1,3 +1,5 @@
+0.11:
+Rewrote the RTMP code to read from the socket instead of from a buffer, this will prevent messages from being dropped when they are larger than the buffer.
 0.10:
 irchack: stay connected if joining a channel fails and tell the IRC client if a channel password is required.
 irchack: keep listening for connections and accept the next after a session ends.

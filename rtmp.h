@@ -14,17 +14,22 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#pragma pack(push)
-#pragma pack(1)
-struct rtmph
-{
-  unsigned int streamid:6;
-  unsigned int fmt:2;
-  unsigned int timestamp:24;
-  unsigned int length:24;
-  unsigned char type;
-  unsigned int msgid;
-};
-#pragma pack(pop)
+#define RTMP_SET_PACKET_SIZE 0x01
+#define RTMP_PING            0x04
+#define RTMP_SERVER_BW       0x05
+#define RTMP_CLIENT_BW       0x06
+#define RTMP_AUDIO           0x08
+#define RTMP_VIDEO           0x09
+#define RTMP_AMF3            0x11
+#define RTMP_INVOKE          0x12
+#define RTMP_AMF0            0x14
 
-extern unsigned char* rtmp_getamf(unsigned char** msg, int* length, int* amflen);
+struct rtmp
+{
+  unsigned char type;
+  unsigned int streamid;
+  unsigned int length;
+  void* buf;
+};
+
+extern char rtmp_get(int sock, struct rtmp* rtmp);

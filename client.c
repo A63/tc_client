@@ -199,6 +199,7 @@ int main(int argc, char** argv)
   b_read(sock, handshake, 1536); // Read our junk back, we don't bother checking that it's the same
   printf("Handshake complete\n");
   // Handshake complete, send connect request
+  struct rtmp rtmp={0,0,0};
   struct amfmsg amf;
   amfinit(&amf);
   amfstring(&amf, "connect");
@@ -353,24 +354,11 @@ int main(int argc, char** argv)
     }
     // Got data from server
     pfd[1].revents=0;
-// TODO: This should be done differently, first reading one byte to get the size of the header, then read the rest of the header and thus get the length of the content
-    len=read(sock, buf, 2048);
-//  printf("Received %i byte response\n", len);
-    if(len<=0){printf("Server disconnected\n"); break;}
-/* Debugging
-  char name[128];
-  sprintf(name, "output%i", outnum);
-  f=open(name, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-  write(f, buf, len);
-  close(f);
-*/
-    // Separate and handle all AMF0 buffers in the RTMP stream
-    unsigned char* rtmp_pos=buf;
-    int rtmp_len;
-    unsigned char* amfbuf;
-    while((amfbuf=rtmp_getamf(&rtmp_pos, &len, &rtmp_len)))
+    // Read the RTMP stream and handle AMF0 packets
+    if(rtmp_get(sock, &rtmp))
     {
-      struct amf* amfin=amf_parse(amfbuf, rtmp_len);
+      if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); continue;}
+      struct amf* amfin=amf_parse(rtmp.buf, rtmp.length);
       if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING)
       {
 //        printf("Got command: '%s'\n", amfin->items[0].string.string);
@@ -494,8 +482,10 @@ int main(int argc, char** argv)
       // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
       amf_free(amfin);
     }
+    else{printf("Server disconnected\n"); break;}
 //    ++outnum; (Debugging)
   }
+  free(rtmp.buf);
   close(sock);
   return 0;
 }

@@ -14,68 +14,69 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
+#include <endian.h>
 #include "rtmp.h"
 
-extern unsigned int flip(unsigned int bits, int bytecount);
-
-int rtmp_lastlen=0;
-int rtmp_lasttype=0;
-unsigned char* rtmp_getamf(unsigned char** msg, int* length, int* amflen)
+char rtmp_get(int sock, struct rtmp* rtmp)
 {
-  int headsize;
-  struct rtmph* head=(struct rtmph*)*msg;
-  while((void*)head<((void*)*msg)+*length)
+  static unsigned int length;
+  static unsigned char type;
+  static unsigned int timestamp;
+  // Header format and stream ID
+  unsigned int x=0;
+  if(read(sock, &x, 1)<1){return 0;}
+  unsigned int streamid=x&0x3f;
+  unsigned int fmt=(x&0xc0)>>6;
+  // Handle extended stream IDs
+  if(streamid<2) // (0=1 extra byte, 1=2 extra bytes)
   {
-    int len=flip(head->length, 3);
-    int type;
-    switch(head->fmt)
-    {
-      case 0: headsize=12; break;
-      case 1: headsize=8; break;
-      case 2: headsize=4; break;
-      case 3: headsize=1; break;
-    }
-//  printf("fmt: %u\n", (unsigned int)head->fmt);
-//  printf("streamid: %u\n", (unsigned int)head->streamid);
-//  printf("timestamp: %u\n", (unsigned int)head->timestamp);
-    if(headsize>=8){
-//    printf("length: %u\n", flip(head->length, 3));
-//    printf("type: %u\n", (unsigned int)head->type);
-      type=head->type;
-//    if(head->fmt==0){printf("msgid: %u\n", (unsigned int)head->msgid);}
-      rtmp_lasttype=head->type;
-      rtmp_lastlen=len;
-    }else{
-      type=rtmp_lasttype;
-      len=rtmp_lastlen;
-    }
-
-    int skip=headsize+len+(len/128);
-//      printf("Skipping %i bytes to next message (%i + %i + %i)\n\n", skip, headsize, len, len/128);
-    *msg+=skip;
-    *length-=skip;
-    if(type==0x14)
-    {
-      unsigned char* data=((void*)head)+headsize;
-      // Cut out every 128th byte (0xc3 garbage required by RTMP)
-      int i;
-      skip=0;
-      for(i=128; i<len; i+=128)
-      {
-        ++skip;
-// printf("Skipping garbage byte '%x' at offset %i\n", (int)data[i]&0xff, i);
-        if(i+128<len)
-        {
-          memmove(&data[i], &data[i+skip], 128);
-        }else{
-          memmove(&data[i], &data[i+skip], len-i);
-        }
-      }
-      *amflen=len;
-      return data;
-    }
-    head=((void*)head)+skip;
+    read(sock, &x, streamid+1);
+    streamid=64+x;
   }
-  return 0;
+  if(fmt<3)
+  {
+    // Timestamp
+    read(sock, &x, 3);
+    timestamp=x;
+    if(fmt<2)
+    {
+      // Length
+      x=0;
+      read(sock, ((void*)&x)+1, 3);
+      length=be32toh(x);
+      // Type
+      read(sock, &type, sizeof(type));
+      if(fmt<1)
+      {
+        // Message ID (is this ever used?)
+        unsigned int msgid;
+        read(sock, &msgid, sizeof(msgid));
+      }
+    }
+  }
+  // Extended timestamp
+  if(timestamp==0xffffff)
+  {
+    read(sock, &x, sizeof(x));
+    timestamp=be32toh(x);
+  }
+
+  rtmp->type=type;
+  rtmp->streamid=streamid;
+  rtmp->length=length+length/128;
+  free(rtmp->buf);
+  rtmp->buf=malloc(rtmp->length);
+  read(sock, rtmp->buf, rtmp->length);
+  int i;
+  for(i=128; i<rtmp->length; i+=128)
+  {
+    --rtmp->length;
+    // printf("Dropping garbage byte %x\n", (unsigned int)((unsigned char*)rtmp->buf)[i]&0xff);
+    memmove(rtmp->buf+i, rtmp->buf+i+1, rtmp->length-i);
+  }
+  return 1;
 }
