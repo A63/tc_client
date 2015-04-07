@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <ctype.h>
+#include <signal.h>
 
 #ifdef __ANDROID__
 // Android has no dprintf, so we make our own
@@ -97,7 +98,7 @@ int findcolor_ansi(char* irc, char** end)
   return -1;
 }
 
-extern char session(int sock, const char* nick, const char* channel, const char* pass);
+extern char session(int sock, const char* nick, const char* channel, const char* pass, const char* acc_user, const char* acc_pass);
 
 int main(int argc, char** argv)
 {
@@ -111,24 +112,43 @@ int main(int argc, char** argv)
   if(bind(lsock, (struct sockaddr*)&addr, sizeof(addr))){perror("bind"); return 1;}
   listen(lsock, 1);
   printf("Done! Open an IRC client and connect to localhost on port %i\n", port);
+  signal(SIGCHLD, SIG_IGN);
   int sock;
   while((sock=accept(lsock, 0, 0))>-1)
   {
+    if(fork()){continue;}
     char buf[2048];
     char* nick=0;
     char* channel=0;
     char* pass=0;
+    char* acc_user=0;
+    char* acc_pass=0;
     int len;
     while(1)
     {
       len=0;
+      int r;
       while(len<2047)
       {
-        if(read(sock, &buf[len], 1)!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
+        if((r=read(sock, &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
         ++len;
       }
+      if(r!=1){break;}
       buf[len]=0;
-      if(!strncmp(buf, "NICK ", 5))
+      if(!strncmp(buf, "USER ", 5))
+      {
+        acc_user=&buf[5];
+        char* end=strchr(acc_user, ' ');
+        if(end){end[0]=0;}
+        acc_user=strdup(acc_user);
+      }
+      else if(!strncmp(buf, "PASS ", 5))
+      {
+        acc_pass=&buf[5];
+        if(acc_pass[0]==':'){acc_pass=&acc_pass[1];}
+        acc_pass=strdup(acc_pass);
+      }
+      else if(!strncmp(buf, "NICK ", 5))
       {
         char* newnick=&buf[5];
         if(newnick[0]==':'){newnick=&nick[1];}
@@ -156,7 +176,7 @@ int main(int argc, char** argv)
         }
         if(channel[0]=='#'){channel=&channel[1];}
         channel=strdup(channel);
-        if(!session(sock, nick, channel, pass)){break;}
+        if(!session(sock, nick, channel, pass, acc_user, acc_pass)){break;}
       }
       else if(!strncmp(buf, "PING ", 5))
       {
@@ -164,12 +184,13 @@ int main(int argc, char** argv)
       }
     }
     shutdown(sock, SHUT_RDWR);
+    _exit(0);
   }
   close(lsock);
   return 0;
 }
 
-char session(int sock, const char* nick, const char* channel, const char* pass)
+char session(int sock, const char* nick, const char* channel, const char* pass, const char* acc_user, const char* acc_pass)
 {
   printf("Nick: %s\n", nick);
   printf("Channel: %s\n", channel);
@@ -184,7 +205,12 @@ char session(int sock, const char* nick, const char* channel, const char* pass)
     close(tc_out[0]);
     dup2(tc_in[0], 0);
     dup2(tc_out[1], 1);
-    execl("./tc_client", "./tc_client", channel, nick, pass, (char*)0);
+    if(acc_user && acc_pass)
+    {
+      execl("./tc_client", "./tc_client", "-u", acc_user, "-p", acc_pass, channel, nick, pass, (char*)0);
+    }else{
+      execl("./tc_client", "./tc_client", channel, nick, pass, (char*)0);
+    }
     perror("Failed to exec tc_client");
     _exit(1);
   }
@@ -233,6 +259,11 @@ printf("Got from tc_client: '%s'\n", buf);
       {
         dprintf(sock, ":irchack 366 %s #%s :End of /NAMES list.\n", nick, channel);
         joins=0;
+      }
+      if(!strncmp(buf, "Room topic: ", 12))
+      {
+        dprintf(sock, ":irchack 332 %s #%s :%s\n", nick, channel, &buf[12]);
+        continue;
       }
       if(!strcmp(buf, "Password required"))
       {
@@ -317,12 +348,13 @@ printf("Got from tc_client: '%s'\n", buf);
     {
       pfd[1].revents=0;
       len=0;
+      int r;
       while(len<2047)
       {
-        if(read(sock, &buf[len], 1)!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
+        if((r=read(sock, &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
         ++len;
       }
-      if(len<=0){continue;}
+      if(r!=1){break;}
       buf[len]=0;
 printf("Got from IRC client: '%s'\n", buf);
       if(!strncmp(buf, "PRIVMSG ", 8))
@@ -340,6 +372,13 @@ printf("Got from IRC client: '%s'\n", buf);
           int c=findcolor_ansi(color, &end);
           if(c!=-1){dprintf(tc_in[1], "/color %i\n", c);}
           memmove(color, end, strlen(end)+1);
+        }
+        if(!strncmp(msg, "\x01""ACTION ", 8)) // Translate '/me'
+        {
+          msg=&msg[7];
+          msg[0]='*';
+          char* end=strchr(msg, '\x01');
+          if(end){end[0]='*';}
         }
         if(target[0]=='#' && !strcmp(&target[1], channel))
         {

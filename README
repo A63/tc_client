@@ -1,16 +1,25 @@
-Some notes about tc_client in its current state (things that should be fixed):
-*there is no real user interface, to send a message you just type it and it might get cut off by incoming messages, it'll be ugly. There is however the irchack program that lets you use an IRC client.
-*PMs can be sent by /msg <nickname> <message> and replies appear similarly.
+tc_client is a very primitive application, it doesn't implement a user interface on its own,
+you could use it stand-alone but it will be ugly and if someone says something while you are typing a message your input-line will get cut off.
+Better interfaces can be implemented as wrappers that launch tc_client with stdin and stdout as pipes.
+
+Commands supported by tc_client:
+/msg <nickname> <message> = send a PM, incoming PMs look similar
+/color <on/off>           = enable/disable showing colors with ANSI escapes
+/color <0-15>             = set the color of your outgoing messages
+/colors                   = list the available colors
+/nick <newnick>           = change nickname
 
 Some things that will probably never change:
 *tc_client can't view people's webcams or listen to mics
 *tc_client can't stream/broadcast your webcam/mic
-*tc_client probably won't ever play youtube videos (although you can see when one is launched and get the video ID because it is sent as a message and can then open it yourself)
+*tc_client itself won't play youtube videos, but applications that rely on tc_client can interpret the /mbs, /mbsk and /mbc commands
 
 Current commands sent by the TC servers that tc_client doesn't know how to handle:
 notice
-topic
 joinsdone
 avons (list of people currently on cam)
 pros
-oper
+
+Included applications that rely on tc_client (type 'make utils' to build):
+*irchack = a minimal IRC server that translates between IRC and tc_client's commands
+*modbot  = a bot that handles youtube video requests with a queue and an approval system to keep inappropriate videos from being played. Supports the following commands: !help, !request, !queue (show queue status), for mods only: !playnext (try playing next in queue without marking it yet), !approve, !badvid (Note: modbot depends on youtube-dl to find out the length of videos)

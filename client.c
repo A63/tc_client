@@ -348,7 +348,18 @@ int main(int argc, char** argv)
       int privlen;
       if(buf[0]=='/') // Got a command
       {
-        if(!strncmp((char*)buf, "/color", 6) && (!buf[6]||buf[6]==' '))
+        if(!strcmp((char*)buf, "/help"))
+        {
+          printf("/help           = print this help text\n"
+                 "/color <0-15>   = pick color of your messages\n"
+                 "/color <on/off> = turn on/off showing others' colors with ANSI codes\n"
+                 "/color          = see your current color\n"
+                 "/colors         = list the available colors and their numbers\n"
+                 "/nick <newnick> = changes your nickname\n"
+                 "/msg <to> <msg> = send a private message\n");
+          fflush(stdout);
+        }
+        else if(!strncmp((char*)buf, "/color", 6) && (!buf[6]||buf[6]==' '))
         {
           if(buf[6]) // Color specified
           {
@@ -560,6 +571,12 @@ int main(int argc, char** argv)
       else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING &&  amf_comparestrings_c(&amfin->items[0].string, "nickinuse"))
       {
         printf("Nick is already in use.\n");
+        fflush(stdout);
+      }
+      // Room topic
+      else if(amfin->itemcount>2 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "topic") && amfin->items[2].type==AMF_STRING && strlen(amfin->items[2].string.string) > 0)
+      {
+        printf("Room topic: %s\n", amfin->items[2].string.string);
         fflush(stdout);
       }
       // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)

@@ -18,7 +18,7 @@
 #include "colors.h"
 
 // Sorted like rainbows
-const char* colors[]={
+const char* colors[]={ // The 16 colors accepted by the flash client
   "#821615,en",
   "#c53332,en",
   "#a08f23,en",
@@ -37,7 +37,7 @@ const char* colors[]={
   "#b9807f,en"
 };
 
-const char* termcolors[]={
+const char* termcolors[]={ // Equivalent color codes for ANSI escape sequences
   "31",
   "31;1",
   "33",

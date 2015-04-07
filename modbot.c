@@ -157,13 +157,8 @@ void say(const char* pm, const char* fmt, ...)
   write(tc_client, buf, strlen(buf));
 }
 
-void playnextvid()
+unsigned int getduration(const char* vid)
 {
-  playing=queue.items[0];
-  --queue.itemcount;
-  memmove(queue.items, &queue.items[1], sizeof(char*)*queue.itemcount);
-  say(0, "/mbs youTube %s 0\n", playing);
-  // Find out the video's length and schedule an alarm for then
   int out[2];
   pipe(out);
   if(!fork())
@@ -172,15 +167,15 @@ void playnextvid()
     dup2(out[1], 1);
     close(2); // Ignore youtube-dl errors/warnings
     write(1, ":", 1);
-    execlp("youtube-dl", "youtube-dl", "--get-duration", playing, (char*)0);
+    execlp("youtube-dl", "youtube-dl", "--get-duration", vid, (char*)0);
     perror("execlp(youtube-dl)");
     _exit(1);
   }
-  close(out[1]);
   wait(0);
+  close(out[1]);
   char timebuf[128];
   int len=read(out[0], timebuf, 127);
-  if(len<1){alarm(60); return;}
+  if(len<1){return 60;} // If using youtube-dl fails, assume all videos are 1 minute long
   timebuf[len]=0;
   close(out[0]);
   // youtube-dl prints it out in hh:mm:ss format, convert it to plain seconds
@@ -196,11 +191,21 @@ void playnextvid()
   // Days
   sep=strrchr(timebuf, ':');
   if(sep){sep[0]=0; len+=atoi(&sep[1])*24;}
-//  printf("Estimated video length to %u sec\n", len);
-  alarm(len);
+  return len;
 }
 
 char waitskip=0;
+void playnextvid()
+{
+  waitskip=0;
+  playing=queue.items[0];
+  --queue.itemcount;
+  memmove(queue.items, &queue.items[1], sizeof(char*)*queue.itemcount);
+  say(0, "/mbs youTube %s 0\n", playing);
+  // Find out the video's length and schedule an alarm for then
+  alarm(getduration(playing));
+}
+
 void playnext(int x)
 {
   free(playing);
@@ -365,13 +370,21 @@ int main(int argc, char** argv)
         else if(!strcmp(msg, "!help"))
         {
           say(nick, "The following commands can be used:\n");
+          usleep(100000);
           say(nick, "!request <link> = request a video to be played\n");
+          usleep(100000);
           say(nick, "!queue          = get the number of songs in queue and which (if any) need to  be approved\n");
+          usleep(100000);
           say(nick, "Mod commands:\n"); // TODO: don't bother filling non-mods' chats with these?
+          usleep(100000);
           say(nick, "!playnext       = play the next video in queue without approving it (to see if it's ok)\n");
+          usleep(100000);
           say(nick, "!approve        = mark the currently playing video, or if none is playing the next in queue\n");
+          usleep(100000);
           say(nick, "!approve <link> = mark the specified video as okay \n");
+          usleep(100000);
           say(nick, "!badvid         = stop playing the current video and mark it as bad\n");
+          usleep(100000);
           say(nick, "!badvid <link>  = mark the specified video as bad, preventing it from ever being queued again\n");
         }
         else if(list_contains(&mods, nick)) // Mods-only commands
@@ -417,6 +430,18 @@ int main(int argc, char** argv)
             list_save(&badvids, "badvids.txt");
             if(vid==playing){say(0, "/mbc youTube\n"); playnext(0);}
           }
+          else if(!strncmp(msg, "/mbs youTube ", 13))
+          {
+            // Someone manually started a video, mark that video as good, remove it from queue, and set an alarm for when it's modbot's turn to play stuff again
+            char* vid=&msg[13];
+            char* end=strchr(vid, ' ');
+            if(end){end[0]=0;}
+            list_del(&queue, vid);
+            list_add(&goodvids, vid);
+            list_save(&goodvids, "goodvids.txt");
+            alarm(getduration(vid));
+          }
+          else if(!strcmp(msg, "/mbc youTube")){playnext(0);} // TODO: handle /mbsk (seek) too?
         }
       }else{ // Actions
         if(!strncmp(space, " changed nickname to ", 21))

@@ -1,3 +1,11 @@
+0.16:
+Get and print the channel topic (contributed by Jade)
+irchack: fork and keep accepting connections.
+irchack: translate IRC's "\x01ACTION stuff\x01" (/me) into "*stuff*" for tc_client.
+modbot: add a 100ms delay between the lines of !help to prevent throttling.
+modbot: handle manual /mbs and /mbc commands (remove from queue, mark as good)
+Added a /help command to list commands handled by tc_client at runtime.
+irchack: use USER and PASS IRC commands to get the tinychat account to login as.
 0.15:
 Fixed a bug introduced with the new argument handling in 0.14
 Prompt for password if a username is given with -u/--user but no password (-p/--pass) is given.
