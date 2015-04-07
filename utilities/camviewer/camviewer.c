@@ -24,11 +24,15 @@
 #include <libavutil/imgutils.h>
 #ifdef HAVE_SOUND
 // TODO: use libavresample instead if available
-  #include <libswresample/swresample.h>
+  #if HAVE_SOUND==avresample
+    #include <libavutil/opt.h>
+    #include <libavresample/avresample.h>
+  #else
+    #include <libswresample/swresample.h>
+  #endif
   #include <ao/ao.h>
 #endif
 #include <gtk/gtk.h>
-#undef HAVE_V4L2 // Not working yet, something is wrong with the frames making the encoding break (for keyframes in particular and I don't know why)
 #ifdef HAVE_V4L2
   #include <libv4l2.h>
   #include <linux/videodev2.h>
@@ -68,11 +72,15 @@ struct viddata
   unsigned int camcount;
   GtkWidget* box;
   AVCodec* vdecoder;
-//  AVCodec* vencoder;
+  AVCodec* vencoder;
   AVCodec* adecoder;
 #ifdef HAVE_SOUND
   int audiopipe;
-  SwrContext* swrctx;
+  #if HAVE_SOUND==avresample
+    AVAudioResampleContext* resamplectx;
+  #else
+    SwrContext* swrctx;
+  #endif
 #endif
 };
 
@@ -175,7 +183,6 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     gtk_widget_show_all(cam->box);
     return 1;
   }
-/*
   if(!strcmp(buf, "Starting outgoing media stream"))
   {
     ++data->camcount;
@@ -195,7 +202,6 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     gtk_widget_show_all(cam->box);
     return 1;
   }
-*/
   if(!strncmp(buf, "VideoEnd: ", 10))
   {
     for(i=0; i<data->camcount; ++i)
@@ -248,7 +254,11 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     int gotframe;
     avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
     if(!gotframe){return 1;}
-    int outlen=swr_convert(data->swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+  #if HAVE_SOUND==avresample
+    int outlen=avresample_convert(data->resamplectx, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
+  #else
+    int outlen=swr_convert(data->resamplectx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+  #endif
     camera_playsnd(data, cam, (short*)cam->frame->data[0], outlen);
 #endif
     return 1;
@@ -328,12 +338,23 @@ void audiothread(int fd)
 #endif
 
 #ifdef HAVE_V4L2
-void camup(GtkWidget* button, struct viddata* data)
+pid_t camproc=0;
+void togglecam(GtkButton* button, struct viddata* data)
 {
+  if(camproc)
+  {
+    kill(camproc, SIGINT);
+    camproc=0;
+    gtk_button_set_label(button, "Broadcast cam");
+    dprintf(tc_client_in[1], "/camdown\n");
+    dprintf(tc_client[1], "VideoEnd: out\n"); // Close our local display
+    return;
+  }
   dprintf(tc_client_in[1], "/camup\n");
-  gtk_widget_destroy(button); // Only once
+  gtk_button_set_label(button, "Stop broadcasting");
 // printf("Camming up!\n");
-  if(!fork())
+  camproc=fork();
+  if(!camproc)
   {
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     unsigned int delay=500000;
@@ -387,9 +408,7 @@ void camup(GtkWidget* button, struct viddata* data)
       packet.data=0;
 packet.size=0;
       avcodec_encode_video2(ctx, &packet, dstframe, &gotpacket);
-      unsigned char frameinfo=0x20;
-// if(packet.flags&AV_PKT_FLAG_KEY){printf("Sending keyframe!\n");}
-      if(packet.flags&AV_PKT_FLAG_KEY){frameinfo|=0x01;}else{frameinfo|=0x02;}
+      unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
       dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
       write(tc_client_in[1], &frameinfo, 1);
       write(tc_client_in[1], packet.data, packet.size);
@@ -414,8 +433,20 @@ int main(int argc, char** argv)
   data.adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
 
 #ifdef HAVE_SOUND
-  data.swrctx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0); // TODO: any way to get the sample rate from the frame/decoder? cam->frame->sample_rate seems to be 0
+  #if HAVE_SOUND==avresample
+  data.resamplectx=avresample_alloc_context();
+  av_opt_set_int(data.resamplectx, "in_channel_layout", AV_CH_FRONT_CENTER, 0);
+  av_opt_set_int(data.resamplectx, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
+  // TODO: any way to get the sample rate from the frame/decoder? cam->frame->sample_rate seems to be 0
+  av_opt_set_int(data.resamplectx, "in_sample_rate", 11025, 0);
+  av_opt_set_int(data.resamplectx, "out_channel_layout", AV_CH_FRONT_CENTER, 0);
+  av_opt_set_int(data.resamplectx, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+  av_opt_set_int(data.resamplectx, "out_sample_rate", 22050, 0);
+  avresample_open(data.resamplectx);
+  #else
+  data.resamplectx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0);
   swr_init(data.swrctx);
+  #endif
   int audiopipe[2];
   pipe(audiopipe);
   data.audiopipe=audiopipe[1];
@@ -437,7 +468,7 @@ int main(int argc, char** argv)
 #ifdef HAVE_V4L2
   data.vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
   GtkWidget* cambutton=gtk_button_new_with_label("Broadcast cam");
-  g_signal_connect(cambutton, "clicked", G_CALLBACK(camup), &data);
+  g_signal_connect(cambutton, "clicked", G_CALLBACK(togglecam), &data);
   gtk_box_pack_start(GTK_BOX(data.box), cambutton, 0, 0, 0);
 #endif
   gtk_widget_show_all(w);
@@ -470,7 +501,11 @@ int main(int argc, char** argv)
     avcodec_free_context(&data.cams[i].vctx);
 #ifdef HAVE_SOUND
     avcodec_free_context(&data.cams[i].actx);
+  #if HAVE_SOUND==avresample
+    avresample_free(&data.resamplectx);
+  #else
     swr_free(&data.swrctx);
+  #endif
 #endif
     free(data.cams[i].id);
     free(data.cams[i].nick);

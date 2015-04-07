@@ -16,6 +16,7 @@ Commands supported by tc_client:
 /forgive <nick/ID> = unban someone
 /camup          = open an audio/video stream for broadcasting your video
 /video <length> = send a <length> bytes long encoded frame, send the frame data after this line
+/camdown        = close the audio/video stream
 /help           = list these commands at runtime
 
 Current commands sent by the TC servers that tc_client doesn't know how to handle:

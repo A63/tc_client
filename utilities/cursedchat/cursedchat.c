@@ -23,6 +23,7 @@
 #include <locale.h>
 #include <curses.h>
 #include <readline/readline.h>
+#include <readline/history.h>
 #include "../compat.h"
 #include "../list.h"
 #include "buffer.h"
@@ -115,6 +116,7 @@ void drawtopic(void)
 void gotline(char* line)
 {
   if(!line){close(to_app); return;} // TODO: handle EOF on stdin better?
+  add_history(line);
   if(!strcmp(line, "/pm"))
   {
     currentbuf=0;
@@ -218,8 +220,8 @@ int escinput(int a, int byte)
   char buf[4];
   read(0, buf, 2);
   buf[2]=0;
-  if(!strcmp(buf, "[A")||!strcmp(buf, "OA")){return 0;} // TODO: history?
-  if(!strcmp(buf, "[B")||!strcmp(buf, "OB")){return 0;} // TODO: history?
+  if(!strcmp(buf, "[A")||!strcmp(buf, "OA")){rl_get_previous_history(1,27);return 0;}
+  if(!strcmp(buf, "[B")||!strcmp(buf, "OB")){rl_get_next_history(1,27);return 0;}
   if(!strcmp(buf, "[C")||!strcmp(buf, "OC")){rl_forward(1,27);return 0;}
   if(!strcmp(buf, "[D")||!strcmp(buf, "OD")){rl_backward(1,27);return 0;}
   if(!strcmp(buf, "[H")||!strcmp(buf, "OH")){rl_beg_of_line(1,27);return 0;}

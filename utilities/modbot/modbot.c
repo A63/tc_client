@@ -38,6 +38,20 @@ char* requester=0;
 time_t started=0;
 int tc_client;
 
+time_t time_with_mods=0;
+time_t time_modcount;
+char havemods=0;
+void timemods(void)
+{
+  time_t now=time(0);
+  if(havemods)
+  {
+    time_with_mods+=now-time_modcount;
+  }
+  time_modcount=now;
+  havemods=(mods.itemcount>1); // Not counting modbot as a mod
+}
+
 void say(const char* pm, const char* fmt, ...)
 {
   va_list va;
@@ -57,32 +71,51 @@ void say(const char* pm, const char* fmt, ...)
   write(tc_client, buf, strlen(buf));
 }
 
-void getvidinfo(const char* vid, const char* type, char* buf, unsigned int len)
+void getvidinfo(const char* vid, const char* type, char* buf, char* errbuf, unsigned int len)
 {
   int out[2];
+  int err[2];
   pipe(out);
+  pipe(err);
   if(!fork())
   {
     close(out[0]);
+    close(err[0]);
     dup2(out[1], 1);
+    dup2(err[1], 2);
     execlp("youtube-dl", "youtube-dl", "--default-search", "auto", type, "--", vid, (char*)0);
     perror("execlp(youtube-dl)");
     _exit(1);
   }
   wait(0);
   close(out[1]);
-  len=read(out[0], buf, len-1);
-  if(len<0){len=0;}
-  while(len>0 && (buf[len-1]=='\r' || buf[len-1]=='\n')){--len;} // Strip newlines
-  buf[len]=0;
+  close(err[1]);
+  size_t r;
+  // Read output
+  r=read(out[0], buf, len-1);
+  if(r<0){r=0;}
+  while(r>0 && (buf[r-1]=='\r' || buf[r-1]=='\n')){--r;} // Strip newlines
+  buf[r]=0;
   close(out[0]);
+  // Read any error messages
+  if(errbuf)
+  {
+    r=read(err[0], errbuf, len-1);
+    if(r<0){r=0;}
+    while(r>0 && (errbuf[r-1]=='\r' || errbuf[r-1]=='\n')){--r;} // Strip newlines
+    errbuf[r]=0;
+    char* newline; // No need for newlines in error messages
+    while((newline=strchr(errbuf, '\n'))){newline[0]=' ';}
+    while((newline=strchr(errbuf, '\r'))){newline[0]=' ';}
+  }
+  close(err[0]);
 }
 
 unsigned int getduration(const char* vid)
 {
   char timebuf[128];
   timebuf[0]=':'; // Sacrifice 1 byte to avoid having to deal with a special case later on, where no ':' is found and we go from the start of the string, but only once
-  getvidinfo(vid, "--get-duration", &timebuf[1], 127);
+  getvidinfo(vid, "--get-duration", &timebuf[1], 0, 127);
   if(!timebuf[1]){printf("Failed to get video duration using youtube-dl, assuming 60s\n"); return 60;} // If using youtube-dl fails, assume videos are 1 minute long
   // youtube-dl prints it out in hh:mm:ss format, convert it to plain seconds
   unsigned int len;
@@ -153,6 +186,7 @@ int main(int argc, char** argv)
   // Handle arguments (-d, -l, -h additions, the rest are handled by tc_client)
   char daemon=0;
   char* logfile=0;
+  char verbose=0;
   unsigned int i;
   for(i=1; i<argc; ++i)
   {
@@ -174,11 +208,21 @@ int main(int argc, char** argv)
       argv[argc]=0;
       --i;
     }
+    else if(!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
+    {
+      verbose=1;
+      // Remove non-tc_client argument
+      --argc;
+      memmove(&argv[i], &argv[i+1], sizeof(char*)*(argc-i));
+      argv[argc]=0;
+      --i;
+    }
     else if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
     {
       printf("Additional options for modbot:\n"
              "-d/--daemon     = daemonize after startup\n"
              "-l/--log <file> = log output into <file>\n"
+             "-v/--verbose    = print/log all incoming messages\n"
              "\n");
       execv("./tc_client", argv);
       return 1;
@@ -205,6 +249,8 @@ int main(int argc, char** argv)
   list_load(&badvids, "badvids.txt");
   char buf[1024];
   int len=0;
+  time_t sessionstart=time(0);
+  time_modcount=sessionstart;
   while(1)
   {
     if(read(out[0], &buf[len], 1)<1){break;}
@@ -237,7 +283,6 @@ int main(int argc, char** argv)
       memmove(esc, &esc[len+1], strlen(&esc[len]));
     }
     len=0;
-    // printf("Got line '%s'\n", buf);
     // Note: daemonizing and setting up logging here to avoid interfering with account password entry
     if(daemon)
     {
@@ -253,6 +298,7 @@ int main(int argc, char** argv)
       close(f);
       logfile=0;
     }
+    if(verbose){printf("Got line '%s'\n", buf); fflush(stdout);}
     char* space=strchr(buf, ' ');
     if(!space){continue;}
     if(!strcmp(space, " is a moderator."))
@@ -260,12 +306,14 @@ int main(int argc, char** argv)
       // If there are not-yet-approved videos in the queue when a mod joins, ask them to review them
       space[0]=0;
       list_add(&mods, buf);
+      timemods();
       continue;
     }
     if(!strcmp(space, " is no longer a moderator."))
     {
       space[0]=0;
       list_del(&mods, buf);
+      timemods();
       continue;
     }
     space[0]=0;
@@ -291,19 +339,24 @@ int main(int argc, char** argv)
         {
           char title[256];
           char vid[1024];
-          getvidinfo(&msg[9], "--get-id", vid, 1024);
-          if(!vid[0]){say(pm, "No video found, sorry\n"); continue;} // Nothing found
+          char viderr[1024];
+          getvidinfo(&msg[9], "--get-id", vid, viderr, 1024);
+          if(!vid[0]) // Nothing found
+          {
+            say(pm, "No video found, sorry (%s)\n", viderr);
+            continue;
+          }
           char* plist;
           for(plist=vid; plist[0] && plist[0]!='\r' && plist[0]!='\n'; plist=&plist[1]);
           if(plist[0]) // Link was a playlist, do some trickery to get the title of the first video (instead of getting nothing)
           {
             strcpy(title, "Playlist, starting with ");
             plist[0]=0;
-            getvidinfo(vid, "--get-title", &title[24], 256-24);
+            getvidinfo(vid, "--get-title", &title[24], 0, 256-24);
             plist[0]='\n';
           }else{
             plist=0;
-            getvidinfo(vid, "--get-title", title, 256);
+            getvidinfo(vid, "--get-title", title, 0, 256);
           }
           printf("Requested ID '%s' by '%s'\n", vid, nick);
           // Check if it's already queued and mention which spot it's in, or if it's marked as bad and shouldn't be queued
@@ -362,7 +415,7 @@ int main(int argc, char** argv)
         else if(!strncmp(msg, "!wrongrequest ", 14))
         {
           char vid[1024];
-          getvidinfo(&msg[14], "--get-id", vid, 1024);
+          getvidinfo(&msg[14], "--get-id", vid, 0, 1024);
           unsigned int i;
           for(i=0; i<queue.itemcount; ++i)
           {
@@ -421,33 +474,30 @@ int main(int argc, char** argv)
         }
         else if(!strcmp(msg, "!help"))
         {
-          say(nick, "The following commands can be used:\n");
-          usleep(500000);
-          say(nick, "!request <link> = request a video to be played\n");
-          usleep(500000);
-          say(nick, "!queue          = get the number of songs in queue and which (if any) need to  be approved\n");
-          usleep(500000);
-          say(nick, "Mod commands:\n"); // TODO: don't bother filling non-mods' chats with these?
-          usleep(500000);
-          say(nick, "!playnext       = play the next video in queue without approving it (to see if it's ok)\n");
-          usleep(500000);
-          say(nick, "!approve        = mark the currently playing video as good, or if none is playing the next in queue\n");
-          usleep(500000);
-          say(nick, "!approve <link> = mark the specified video as okay\n");
-          usleep(500000);
-          say(nick, "!approve next   = mark the next not yet approved video as okay\n");
-          usleep(500000);
-          say(nick, "!approve entire queue = approve all videos in queue (for playlists)\n");
-          usleep(500000);
-          say(nick, "!badvid         = stop playing the current video and mark it as bad\n");
-          usleep(500000);
-          say(nick, "!badvid <link>  = mark the specified video as bad, preventing it from ever being queued again\n");
-          usleep(500000);
-          say(nick, "!wrongrequest   = undo the last request you made\n");
-          usleep(500000);
-          say(nick, "!requestedby    = see who requested the current video\n");
-          usleep(500000);
-          say(nick, "You can also just play videos manually/the good old way and they will be marked as good.\n");
+          say(pm, "http://tc_client.ion.nu/misc/modbotcommands.html\n");
+        }
+        else if(!strcmp(msg, "!modstats"))
+        {
+          unsigned int session=time(0)-sessionstart;
+          timemods();
+          unsigned int hasmods=time_with_mods*100/session;
+          const char* timeformat="seconds";
+          if(session>=120)
+          {
+            session/=60;
+            timeformat="minutes";
+            if(session>=120)
+            {
+              session/=60;
+              timeformat="hours";
+              if(session>=48)
+              {
+                session/=24;
+                timeformat="days";
+              }
+            }
+          }
+          say(pm, "The channel has had mods %u%% of the time for the past %u %s\n", hasmods, session, timeformat);
         }
         else if(list_contains(&mods, nick)) // Mods-only commands
         {
@@ -514,7 +564,7 @@ int main(int argc, char** argv)
               }
               continue;
             }else{
-              getvidinfo(vid, "--get-id", vidbuf, 256);
+              getvidinfo(vid, "--get-id", vidbuf, 0, 256);
               vid=vidbuf;
             }
             list_add(&goodvids, vid);
@@ -530,7 +580,7 @@ int main(int argc, char** argv)
             char vid[1024];
             if(space && space[1])
             {
-              getvidinfo(&space[1], "--get-id", vid, 256);
+              getvidinfo(&space[1], "--get-id", vid, 0, 256);
             }else{strncpy(vid, playing, 1023); vid[1023]=0;}
             if(!vid[0]){say(pm, "Video not found, sorry\n"); continue;}
             queue_del(&queue, vid);
@@ -612,6 +662,12 @@ int main(int argc, char** argv)
             space[0]=0;
             say(0, "/priv %s /mbs youTube %s %u\n", nick, playing, (time(0)-started)*1000);
           }
+        }
+        else if(!strcmp(space, " left the channel"))
+        {
+          space[0]=0;
+          list_del(&mods, nick); // Absent people can't be mods
+          timemods();
         }
       }
     }

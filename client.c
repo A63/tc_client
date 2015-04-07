@@ -434,6 +434,7 @@ int main(int argc, char** argv)
                  "/mute           = temporarily mutes all non-moderator broadcasts\n"
                  "/push2talk      = puts all non-operators in push2talk mode\n"
                  "/camup          = open an audio/video stream for broadcasting your video\n"
+                 "/camdown        = close the broadcasting stream\n"
                  "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n");
           fflush(stdout);
         }
@@ -588,6 +589,11 @@ int main(int argc, char** argv)
           free(key);
           // Initiate stream
           streamout_start(idlist_get(nickname), sock);
+          continue;
+        }
+        else if(!strcmp(buf, "/camdown"))
+        {
+          stream_stopvideo(sock);
           continue;
         }
         else if(!strncmp(buf, "/video ", 7)) // Send video data
@@ -875,7 +881,7 @@ int main(int argc, char** argv)
     }
     else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "onStatus"))
     {
-      stream_handlestatus(amfin);
+      stream_handlestatus(amfin, sock);
     }
     // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
     amf_free(amfin);

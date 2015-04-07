@@ -1,3 +1,13 @@
+0.28:
+Delete streams when they stop, to allow reusing stream IDs.
+Added a /camdown command.
+camviewer: worked around the cam streaming issue.
+camviewer: switched to libavresample instead of libswresample (when available)
+modbot: added a !modstats command to see how often there are moderators present.
+modbot: moved the help-text into an HTML document.
+modbot: added a -v/--verbose option to print/log all incoming messages.
+modbot: pass on error messages from youtube-dl when requesting a video fails.
+cursedchat: added history (up/down arrows)
 0.27:
 Added some more compatibility hacks for android.
 Added support for video broadcasting (adding /camup and /video <length> followed by the encoded data for each frame)

@@ -70,6 +70,7 @@ void streamout_start(unsigned int id, int sock) // called upon privmsg "/camup"
   amfnull(&amf);
   amfsend(&amf, sock);
   printf("Starting outgoing media stream\n");
+  fflush(stdout);
 }
 
 void stream_play(struct amf* amf, int sock) // called upon _result
@@ -115,7 +116,7 @@ void stream_handledata(struct rtmp* rtmp)
   printf("Received media data to unknown stream ID %u\n", rtmp->msgid);
 }
 
-void stream_handlestatus(struct amf* amf)
+void stream_handlestatus(struct amf* amf, int sock)
 {
   if(amf->itemcount<3 || amf->items[2].type!=AMF_OBJECT){return;}
   struct amfobject* obj=&amf->items[2].object;
@@ -132,7 +133,17 @@ void stream_handlestatus(struct amf* amf)
       if(streams[i].userid==id)
       {
         printf("VideoEnd: %u\n", streams[i].userid);
-        // Note: not removing it from the list because tinychat doesn't seem to handle reusing stream IDs
+        // Delete the stream
+        struct rtmp amf;
+        amfinit(&amf, 3);
+        amfstring(&amf, "deleteStream");
+        amfnum(&amf, 0);
+        amfnull(&amf);
+        amfnum(&amf, streams[i].streamid);
+        amfsend(&amf, sock);
+        // Remove from list of streams
+        --streamcount;
+        memmove(&streams[i], &streams[i+1], sizeof(struct stream)*(streamcount-i));
         return;
       }
     }
@@ -153,6 +164,36 @@ void stream_sendvideo(int sock, void* buf, size_t len)
       msg.msgid=streams[i].streamid;
       msg.buf=buf;
       rtmp_send(sock, &msg);
+      return;
+    }
+  }
+}
+
+void stream_stopvideo(int sock)
+{
+  unsigned int i;
+  for(i=0; i<streamcount; ++i)
+  {
+    if(streams[i].outgoing)
+    {
+      struct rtmp amf;
+      // Close the stream
+      amfinit(&amf, 8);
+      amfstring(&amf, "closeStream");
+      amfnum(&amf, 0);
+      amfnull(&amf);
+      amf.msgid=le32(streams[i].streamid);
+      amfsend(&amf, sock);
+      // Delete the stream
+      amfinit(&amf, 3);
+      amfstring(&amf, "deleteStream");
+      amfnum(&amf, 0);
+      amfnull(&amf);
+      amfnum(&amf, streams[i].streamid);
+      amfsend(&amf, sock);
+      // Remove from list of streams
+      --streamcount;
+      memmove(&streams[i], &streams[i+1], sizeof(struct stream)*(streamcount-i));
       return;
     }
   }

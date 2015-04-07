@@ -30,5 +30,6 @@ extern void stream_start(const char* nick, int sock); // called upon privmsg "/o
 extern void streamout_start(unsigned int id, int sock); // called upon privmsg "/camup"
 extern void stream_play(struct amf* amf, int sock); // called upon _result
 extern void stream_handledata(struct rtmp* rtmp);
-extern void stream_handlestatus(struct amf* amf);
+extern void stream_handlestatus(struct amf* amf, int sock);
 extern void stream_sendvideo(int sock, void* buf, size_t len);
+extern void stream_stopvideo(int sock);

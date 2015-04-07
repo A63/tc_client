@@ -1,4 +1,4 @@
-VERSION=0.27
+VERSION=0.28
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
 ifneq ($(wildcard config.mk),)
@@ -16,10 +16,13 @@ ifdef AVUTIL_LIBS
 ifdef SWSCALE_LIBS
   UTILS+=camviewer
   CFLAGS+=$(GTK_CFLAGS) $(AVCODEC_CFLAGS) $(AVUTIL_CFLAGS) $(SWSCALE_CFLAGS)
-  ifdef SWRESAMPLE_LIBS
   ifdef AO_LIBS
-    CFLAGS+=-DHAVE_SOUND $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
-  endif
+    ifdef AVRESAMPLE_LIBS
+      CFLAGS+=-DHAVE_SOUND=avresample $(AVRESAMPLE_CFLAGS) $(AO_CFLAGS)
+    endif
+    ifdef SWRESAMPLE_LIBS
+      CFLAGS+=-DHAVE_SOUND=swresample $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
+    endif
   endif
   ifdef LIBV4L2_LIBS
     CFLAGS+=-DHAVE_V4L2 $(LIBV4L2_CFLAGS)
@@ -47,7 +50,7 @@ modbot: $(MODBOT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
 
 camviewer: $(CAMVIEWER_OBJ)
-	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
+	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
 
 cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
@@ -56,4 +59,4 @@ clean:
 	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) tc_client irchack modbot camviewer cursedchat
 
 tarball:
-	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh utilities/irchack/irchack.c utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/queue.h utilities/camviewer/camviewer.c utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h configure
+	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh utilities/irchack/irchack.c utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/queue.h utilities/modbot/commands.html utilities/camviewer/camviewer.c utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h configure
