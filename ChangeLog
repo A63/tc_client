@@ -1,3 +1,9 @@
+0.15:
+Fixed a bug introduced with the new argument handling in 0.14
+Prompt for password if a username is given with -u/--user but no password (-p/--pass) is given.
+Turn account names lowercase to comply with tinychat's quirks.
+Handle networking being down at startup more graciously.
+Added modbot.c, a bot that deals with playing videos.
 0.14:
 Use iconv to deal with tinychat's ISO-8859-1 instead of the wcs functions.
 irchack: only listen on 127.0.0.1 (localhost)

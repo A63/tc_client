@@ -7,9 +7,9 @@ if [ "$host" = "" ]; then
 fi
 here="`pwd`"
 if [ ! -e curlprefix ]; then
-  wget -c http://curl.haxx.se/download/curl-7.39.0.tar.bz2
-  tar -xjf curl-7.39.0.tar.bz2
-  cd curl-7.39.0
+  wget -c http://curl.haxx.se/download/curl-7.40.0.tar.bz2
+  tar -xjf curl-7.40.0.tar.bz2
+  cd curl-7.40.0
   mkdir -p build
   cd build
   ../configure --prefix="${here}/curlprefix" --host="$host" --enable-static --disable-shared --disable-gopher --disable-ftp --disable-tftp --disable-ssh --disable-telnet --disable-dict --disable-file --disable-imap --disable-pop3 --disable-smtp --disable-ldap --without-librtmp --disable-rtsp --without-ssl --disable-sspi --without-nss --without-gnutls --without-libidn
@@ -27,4 +27,4 @@ elif which "${host}-cc" > /dev/null 2> /dev/null && [ "`which "${host}-cc" 2> /d
   export CC="${host}-cc"
 fi
 make
-make irchack
+make utils

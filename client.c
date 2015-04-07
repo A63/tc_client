@@ -25,6 +25,7 @@
 #include <netdb.h>
 #include <poll.h>
 #include <locale.h>
+#include <ctype.h>
 #include <curl/curl.h>
 #include "rtmp.h"
 #include "amfparser.h"
@@ -76,7 +77,7 @@ char* http_get(const char* url, const char* post)
   if(post){curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post);}
   char err[CURL_ERROR_SIZE];
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err);
-  if(curl_easy_perform(curl)){curl_easy_cleanup(curl); printf(err); return 0;}
+  if(curl_easy_perform(curl)){curl_easy_cleanup(curl); printf("%s\n", err); return 0;}
   curl_easy_cleanup(curl);
   return writebuf.buf; // should be free()d when no longer needed
 }
@@ -97,17 +98,18 @@ char* gethost(char *channel, char *password)
   }else{
     sprintf(url, "http://tinychat.com/api/find.room/%s?site=tinychat", channel);
   }
-  char *response=http_get(url, 0);
+  char* response=http_get(url, 0);
+  if(!response){exit(-1);}
   //response contains result='(OK|RES)|PW' (latter means a password is required)
   char* result=strstr(response, "result='");
-  if(!result){printf("No result\n"); exit(-1); return 0;}
+  if(!result){printf("No result\n"); exit(-1);}
   result+=strlen("result='");
   // Handle the result value
-  if(!strncmp(result, "PW", 2)){printf("Password required\n"); exit(-1); return 0;}
-  if(strncmp(result, "OK", 2) && strncmp(result, "RES", 3)){printf("Result not OK\n"); exit(-1); return 0;}
+  if(!strncmp(result, "PW", 2)){printf("Password required\n"); exit(-1);}
+  if(strncmp(result, "OK", 2) && strncmp(result, "RES", 3)){printf("Result not OK\n"); exit(-1);}
   // Find and extract the server responsible for this channel
   char* rtmp=strstr(response, "rtmp='rtmp://");
-  if(!rtmp){printf("No rtmp found.\n"); exit(-1); return 0;}
+  if(!rtmp){printf("No rtmp found.\n"); exit(-1);}
   rtmp+=strlen("rtmp='rtmp://");
   int len;
   for(len=0; rtmp[len] && rtmp[len]!='/'; ++len);
@@ -205,6 +207,8 @@ int main(int argc, char** argv)
     {
       ++i;
       account_user=argv[i];
+      unsigned int j;
+      for(j=0; account_user[j]; ++j){account_user[j]=tolower(account_user[j]);}
     }
     else if(!strcmp(argv[i], "-p")||!strcmp(argv[i], "--pass"))
     {
@@ -212,7 +216,7 @@ int main(int argc, char** argv)
       account_pass=argv[i];
     }
     else if(!channel){channel=argv[i];}
-    else if(!nickname){nickname=argv[i];}
+    else if(!nickname){nickname=strdup(argv[i]);}
     else if(!password){password=argv[i];}
   }
   // Check for required arguments
@@ -224,6 +228,18 @@ int main(int argc, char** argv)
     return 1;
   }
   setlocale(LC_ALL, "");
+  if(account_user && !account_pass) // Only username given, prompt for password
+  {
+    fprintf(stderr, "Account password: ");
+    fflush(stderr);
+    account_pass=malloc(128);
+    fgets(account_pass, 128, stdin);
+    unsigned int i;
+    for(i=0; account_pass[i]; ++i)
+    {
+      if(account_pass[i]=='\n'||account_pass[i]=='\r'){account_pass[i]=0; break;}
+    }
+  }
   char* server=gethost(channel, password);
   struct addrinfo* res;
   // Separate IP/domain and port
