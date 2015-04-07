@@ -1,2 +1,6 @@
+0.3:
+Handle 'joins', 'join', 'nick' and 'quit' messages from the server (contributed by Jade)
+Moved the AMF message writing functions into a separate source file.
+Added irchack.c, a simple application that acts as an IRC server mirroring a tinychat channel using tc_client.
 0.2:
 Added support for non-ascii characters (sent as ISO-8859-1 to/from the server)

@@ -27,12 +27,7 @@
 #include "rtmp.h"
 #include "amfparser.h"
 #include "numlist.h"
-
-struct amfmsg
-{
-  unsigned int len;
-  unsigned char* buf;
-};
+#include "amfwriter.h"
 
 unsigned int flip(unsigned int bits, int bytecount)
 {
@@ -45,117 +40,6 @@ unsigned int flip(unsigned int bits, int bytecount)
     retb[i]=bytes[bytecount-1-i];
   }
   return ret;
-}
-
-void amfinit(struct amfmsg* msg)
-{
-  msg->len=0;
-  msg->buf=malloc(sizeof(struct rtmph));
-}
-
-void amfsend(struct amfmsg* msg, int sock)
-{
-  struct rtmph* head=(struct rtmph*)msg->buf;
-  head->streamid=3;
-  head->fmt=0;
-  head->timestamp=0; // Time is irrelevant
-  head->length=flip(msg->len, 3);
-  head->type=20;
-  head->msgid=0;
-  // Send 128 bytes at a time separated by 0xc3 (because apparently that's something RTMP requires)
-// printf("Writing %i-byte message\n", msg->len);
-  write(sock, msg->buf, sizeof(struct rtmph));
-  unsigned char* pos=msg->buf+sizeof(struct rtmph);
-  while(msg->len>0)
-  {
-    int w;
-    if(msg->len>128)
-    {
-      w=write(sock, pos, 128);
-      w+=write(sock, "\xc3", 1);
-      msg->len-=128;
-    }else{
-      w=write(sock, pos, msg->len);
-      msg->len=0;
-    }
-// printf("Wrote %i bytes\n", w);
-    pos+=128;
-  }
-  free(msg->buf);
-  msg->buf=0;
-}
-
-void amfnum(struct amfmsg* msg, double v)
-{
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1+sizeof(double);
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
-  unsigned char* type=msg->buf+offset;
-  type[0]='\x00';
-  double* value=(double*)(msg->buf+offset+1);
-  *value=v;
-}
-
-void amfbool(struct amfmsg* msg, char v)
-{
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=2;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
-  unsigned char* x=msg->buf+offset;
-  x[0]='\x01';
-  x[1]=!!v;
-}
-
-void amfstring(struct amfmsg* msg, char* string)
-{
-  int len=strlen(string);
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=3+len;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
-  unsigned char* type=msg->buf+offset;
-  type[0]='\x02';
-  uint16_t* strlength=(uint16_t*)(msg->buf+offset+1);
-  *strlength=htons(len);
-  memcpy(msg->buf+offset+3, string, len);
-}
-
-void amfobjstart(struct amfmsg* msg)
-{
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
-  unsigned char* type=msg->buf+offset;
-  type[0]='\x03';
-}
-
-void amfobjitem(struct amfmsg* msg, char* name)
-{
-  int len=strlen(name);
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=2+len;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
-  uint16_t* strlength=(uint16_t*)(msg->buf+offset);
-  *strlength=htons(len);
-  memcpy(msg->buf+offset+2, name, len);
-}
-
-void amfobjend(struct amfmsg* msg)
-{
-  amfobjitem(msg, "");
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
-  unsigned char* type=msg->buf+offset;
-  type[0]='\x09';
-}
-
-void amfnull(struct amfmsg* msg)
-{
-  int offset=sizeof(struct rtmph)+msg->len;
-  msg->len+=1;
-  msg->buf=realloc(msg->buf, sizeof(struct rtmph)+msg->len);
-  unsigned char* type=msg->buf+offset;
-  type[0]='\x05';
 }
 
 void b_read(int sock, void* buf, size_t len)
@@ -254,7 +138,7 @@ int main(int argc, char** argv)
   setlocale(LC_ALL, "");
   if(argc<3)
    {
-    printf("Usage: %s <roomname> <nickname> [password]\n", argv[0]);
+    printf("Usage: %s <channelname> <nickname> [password]\n", argv[0]);
     return 1;
   }
   char* channel=argv[1];
@@ -299,10 +183,10 @@ int main(int argc, char** argv)
     amfstring(&amf, "tinyconf");
 
     amfobjitem(&amf, "flashVer");
-    amfstring(&amf, "LNX 11,2,202,424");
+    amfstring(&amf, "no flash");
 
     amfobjitem(&amf, "swfUrl");
-    amfstring(&amf, "http://tinychat.com/embed/Tinychat-11.1-1.0.0.0602.swf?version=1.0.0.0602/[[DYNAMIC]]/8");
+    amfstring(&amf, "no flash");
 
     amfobjitem(&amf, "tcUrl");
     char str[strlen("rtmp://:/tinyconf0")+strlen(server)+strlen(port)];
@@ -331,16 +215,16 @@ int main(int argc, char** argv)
 
     amfobjitem(&amf, "objectEncoding");
     amfnum(&amf, 0);
-    amfobjend(&amf);
-    amfstring(&amf, channel);
-    amfstring(&amf, "none");
-    amfstring(&amf, "show"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to
-    amfstring(&amf, "tinychat");
-    amfstring(&amf, "");
-    amfsend(&amf, sock);
+  amfobjend(&amf);
+  amfstring(&amf, channel);
+  amfstring(&amf, "none");
+  amfstring(&amf, "show"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to
+  amfstring(&amf, "tinychat");
+  amfstring(&amf, "");
+  amfsend(&amf, sock);
 
-    unsigned char buf[2048];
-    int len=read(sock, buf, 2048);
+  unsigned char buf[2048];
+  int len=read(sock, buf, 2048);
 //  printf("Received %i byte response\n", len);
 /* Debugging
   int f=open("output", O_WRONLY|O_CREAT|O_TRUNC, 0644);
@@ -348,56 +232,38 @@ int main(int argc, char** argv)
   close(f);
 */
 
-/* As they appear in the flash client:
-    char* colors[]={
-      "#1965b6,en",
-      "#32a5d9,en",
-      "#7db257,en",
-      "#a78901,en",
-      "#9d5bb5,en",
-      "#5c1a7a,en",
-      "#c53332,en",
-      "#821615,en",
-      "#a08f23,en",
-      "#487d21,en",
-      "#c356a3,en",
-      "#1d82eb,en",
-      "#919104,en",
-      "#00a990,en",
-      "#b9807f,en",
-      "#7bb224,en"
-    };
+/* Disabled for now
+  char* colors[]={ // Sorted like a rainbow
+    "#821615,en",
+    "#c53332,en",
+    "#a08f23,en",
+    "#a78901,en",
+    "#919104,en",
+    "#7bb224,en",
+    "#7db257,en",
+    "#487d21,en",
+    "#00a990,en",
+    "#32a5d9,en",
+    "#1d82eb,en",
+    "#1965b6,en",
+    "#5c1a7a,en",
+    "#9d5bb5,en",
+    "#c356a3,en",
+    "#b9807f,en"
+  };
+  unsigned int currentcolor=0;
 */
-    char* colors[]={ // Sorted like a rainbow
-      "#821615,en",
-      "#c53332,en",
-      "#a08f23,en",
-      "#a78901,en",
-      "#919104,en",
-      "#7bb224,en",
-      "#7db257,en",
-      "#487d21,en",
-      "#00a990,en",
-      "#32a5d9,en",
-      "#1d82eb,en",
-      "#1965b6,en",
-      "#5c1a7a,en",
-      "#9d5bb5,en",
-      "#c356a3,en",
-      "#b9807f,en"
-    };
-    unsigned int currentcolor=0;
 
 //  int outnum=2; (Debugging, number for output filenames)
-    struct pollfd pfd[2];
-    pfd[0].fd=0;
-    pfd[0].events=POLLIN;
-    pfd[0].revents=0;
-    pfd[1].fd=sock;
-    pfd[1].events=POLLIN;
-    pfd[1].revents=0;
-    while(1)
-    {
+  struct pollfd pfd[2];
+  pfd[0].fd=0;
+  pfd[0].events=POLLIN;
+  pfd[0].revents=0;
+  pfd[1].fd=sock;
+  pfd[1].events=POLLIN;
+  pfd[1].revents=0;
+  while(1)
+  {
     // Poll for input, very crude chat UI
     poll(pfd, 2, -1);
     if(pfd[0].revents) // Got input, send a privmsg command
@@ -415,10 +281,11 @@ int main(int argc, char** argv)
       amfnum(&amf, 0);
       amfnull(&amf);
       amfstring(&amf, msg);
-      // The alternating color thing is an unnecessary but fun feature
-      amfstring(&amf, colors[currentcolor%16]);
+      // amfstring(&amf, colors[currentcolor%16]); // Alternating colors, fun but annoying in the long run
+      amfstring(&amf, "#000000,en");
+// TODO: for PMs, add a string like "n<numeric ID>-<nick>" to avoid broadcasting private messages to everyone connected (although the flash client ignores PMs sent to others)
       amfsend(&amf, sock);
-      ++currentcolor;
+      // ++currentcolor;
       free(msg);
       continue;
     }
@@ -470,7 +337,7 @@ int main(int argc, char** argv)
         amfsend(&amf, sock);
       }
       // Items for privmsg: 0=cmd, 2=channel, 3=msg, 4=color/lang, 5=nick
-      if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
+      else if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
       {
         wchar_t* msg=fromnumlist(amfin->items[3].string.string);
         // Timestamps, e.g. "[hh:mm] name: message"
@@ -478,7 +345,52 @@ int main(int argc, char** argv)
         struct tm* t=localtime(&timestamp);
         printf("[%02i:%02i] %s: %ls\n", t->tm_hour, t->tm_min, amfin->items[5].string.string, msg);
         free(msg);
+        fflush(stdout);
       }
+      // users on channel entry.  there's also a "joinsdone" command for some reason...
+      else if(amfin->itemcount>3 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "joins"))
+      {
+        printf("Currently online: ");
+        int i;
+        for(i = 3; i < amfin->itemcount-1; i+=2)
+        {
+          // a "numeric" id precedes each nick, i.e. i is the id, i+1 is the nick
+          if(amfin->items[i+1].type==AMF_STRING)
+          {
+            printf("%s%s", (i==3?"":", "), amfin->items[i+1].string.string);
+          }
+        }
+        printf("\n");
+        fflush(stdout);
+      }
+      // join
+      else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "join") && amfin->items[3].type==AMF_STRING)
+      {
+        // Timestamps, e.g. "[hh:mm] name: message"
+        time_t timestamp=time(0);
+        struct tm* t=localtime(&timestamp);
+        printf("[%02i:%02i] %s entered the channel\n", t->tm_hour, t->tm_min, amfin->items[3].string.string);
+        fflush(stdout);
+      }
+      // part
+      else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "quit") && amfin->items[3].type==AMF_STRING)
+      {
+        // Timestamps, e.g. "[hh:mm] name: message"
+        time_t timestamp=time(0);
+        struct tm* t=localtime(&timestamp);
+        printf("[%02i:%02i] %s left the channel\n", t->tm_hour, t->tm_min, amfin->items[2].string.string);
+        fflush(stdout);
+      }
+      // nick
+      else if(amfin->itemcount==5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "nick") && amfin->items[2].type==AMF_STRING && amfin->items[3].type==AMF_STRING)
+      {
+        // Timestamps, e.g. "[hh:mm] name: message"
+        time_t timestamp=time(0);
+        struct tm* t=localtime(&timestamp);
+        printf("[%02i:%02i] %s changed nickname to %s\n", t->tm_hour, t->tm_min, amfin->items[2].string.string, amfin->items[3].string.string);
+        fflush(stdout);
+      }
+      // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
       amf_free(amfin);
     }
 //    ++outnum; (Debugging)

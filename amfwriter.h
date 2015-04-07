@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2014  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -15,13 +15,18 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-extern void amfinit(struct rtmp* msg, unsigned int streamid);
-extern void amfnum(struct rtmp* msg, double v);
-extern void amfbool(struct rtmp* msg, char v);
-extern void amfstring(struct rtmp* msg, const char* string);
-extern void amfobjstart(struct rtmp* msg);
-extern void amfobjitem(struct rtmp* msg, char* name);
-extern void amfobjend(struct rtmp* msg);
-extern void amfnull(struct rtmp* msg);
+struct amfmsg
+{
+  unsigned int len;
+  unsigned char* buf;
+};
 
-#define amfsend(rtmp,sock) rtmp_send(sock,rtmp); free((rtmp)->buf); (rtmp)->buf=0
+extern void amfinit(struct amfmsg* msg);
+extern void amfsend(struct amfmsg* msg, int sock);
+extern void amfnum(struct amfmsg* msg, double v);
+extern void amfbool(struct amfmsg* msg, char v);
+extern void amfstring(struct amfmsg* msg, char* string);
+extern void amfobjstart(struct amfmsg* msg);
+extern void amfobjitem(struct amfmsg* msg, char* name);
+extern void amfobjend(struct amfmsg* msg);
+extern void amfnull(struct amfmsg* msg);

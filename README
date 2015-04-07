@@ -1,11 +1,17 @@
-This is a pre-release of tc_client, it's still not ready for a release beyond sharing it with a small group, most significantly because the channel is hardcoded.
-
-Some other notes about tc_client in its current state (things that should be fixed):
+Some notes about tc_client in its current state (things that should be fixed):
 *there is no real user interface, to send a message you just type it and it might get cut off by incoming messages, it'll be ugly.
-*PMs can be sent by /msg <nickname> <message> and replies appear similarly 
-*you can't log in with an account and thus not to mod stuff, I don't know how this works protocol-wise
+*PMs can be sent by /msg <nickname> <message> and replies appear similarly. Note however that PMs sent this way are currently sent to everyone in the channel, but the flash client ignores them.
+*you can't log in with an account and thus not do mod stuff, I don't know how this works protocol-wise
 
 Some things that will probably never change:
 *tc_client can't view people's webcams or listen to mics
 *tc_client can't stream/broadcast your webcam/mic
 *tc_client probably won't ever play youtube videos (although you can see when one is launched and get the video ID because it is sent as a message and can then open it yourself)
+
+Current commands sent by the TC servers that tc_client doesn't know how to handle:
+notice
+topic
+joinsdone
+avons (list of people currently on cam)
+pros
+oper
