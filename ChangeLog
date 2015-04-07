@@ -1,3 +1,15 @@
+0.23:
+Added the moderator commands /mute and /push2talk (contributed by Jade)
+Set tc_client as a dependency of utils.
+Implemented RTMP message type 1 (set chunk size)
+Writing audio data the same way video data is written.
+camviewer: fixed a bug where joining a channel where no one is on cam resulted in trying to view the cam for "", leading to an empty GtkImage in the row of cams. 
+camviewer: added labels under each image with people's nicknames.
+Added a basic ncurses utility called cursedchat.
+modbot: for manual /mbc, remove the video from goodvids.
+modbot: fixed a bug that caused a segfault when using !badvid if nothing was playing.
+modbot: added a response for !wrongrequest without an argument when no request is found.
+modbot: renamed !whorequested to !requestedby for the sake of immature minds.
 0.22:
 Cleaned up media.c/h which I forgot to clean up before releasing 0.21.
 Detect when someone cams down.
@@ -53,7 +65,7 @@ Get and print the channel topic (contributed by Jade)
 irchack: fork and keep accepting connections.
 irchack: translate IRC's "\x01ACTION stuff\x01" (/me) into "*stuff*" for tc_client.
 modbot: add a 100ms delay between the lines of !help to prevent throttling.
-modbot: handle manual /mbs and /mbc commands (remove from queue, mark as good)
+modbot: handle manual /mbs and /mbc commands (remove from queue, mark as good for /mbs)
 Added a /help command to list commands handled by tc_client at runtime.
 irchack: use USER and PASS IRC commands to get the tinychat account to login as.
 0.15:

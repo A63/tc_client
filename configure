@@ -87,4 +87,26 @@ else
   echo no
 fi
 
+printf 'Checking for ncurses... '
+libs="`ncursesw5-config --libs 2> /dev/null || ncurses5-config --libs 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "CURSES_LIBS=${libs}" >> config.mk
+  echo "CURSES_CFLAGS=`ncursesw5-config --cflags 2> /dev/null || ncurses5-config --cflags 2> /dev/null`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for readline... '
+echo '#include <stdio.h>' > readlinetest.c
+echo '#include <readline/readline.h>' >> readlinetest.c
+echo 'int main(){rl_initialize();return 0;}' >> readlinetest.c
+if "$CC" readlinetest.c -lreadline ${libs} -o readlinetest > /dev/null 2> /dev/null; then
+  echo "READLINE_LIBS=-lreadline" >> config.mk
+  echo yes
+else
+  echo no
+fi
+rm -f readlinetest.c readlinetest
+
 echo Done

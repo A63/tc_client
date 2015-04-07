@@ -127,7 +127,7 @@ void playnext(int x)
   {
     if(!waitskip)
     {
-      say(0, "Next video (http://youtube.com/watch?v=%s) is not yet approved by mods\n", queue.items[0].video);
+      say(0, "Next video (%s, %s) is not yet approved by mods\n", queue.items[0].video, queue.items[0].title);
       unsigned int i;
       for(i=1; i<queue.itemcount; ++i)
       {
@@ -304,6 +304,10 @@ int main(int argc, char** argv)
               break;
             }
           }
+          if(i==queue.itemcount)
+          {
+            say(pm, "I can't find any request by you, sorry\n");
+          }
         }
         else if(!strncmp(msg, "!wrongrequest ", 14))
         {
@@ -354,7 +358,7 @@ int main(int argc, char** argv)
             say(pm, "%u videos in queue\n", queue.itemcount);
           }
         }
-        else if(!strcmp(msg, "!whorequested"))
+        else if(!strcmp(msg, "!requestedby"))
         {
           if(!playing){say(pm, "Nothing is playing\n");}
           else{say(pm, "%s requested %s\n", requester, playing);}
@@ -390,6 +394,8 @@ int main(int argc, char** argv)
           say(nick, "!badvid <link>  = mark the specified video as bad, preventing it from ever being queued again\n");
           usleep(500000);
           say(nick, "!wrongrequest   = undo the last request you made\n");
+          usleep(500000);
+          say(nick, "!requestedby    = see who requested the current video\n");
           usleep(500000);
           say(nick, "You can also just play videos manually/the good old way and they will be marked as good.\n");
         }
@@ -476,13 +482,15 @@ int main(int argc, char** argv)
             {
               getvidinfo(&space[1], "--get-id", vid, 256);
             }else{strncpy(vid, playing, 1023); vid[1023]=0;}
-            if(!vid[0]){say(pm, "Video not found, sorry\n");}
+            if(!vid[0]){say(pm, "Video not found, sorry\n"); continue;}
             queue_del(&queue, vid);
             list_del(&goodvids, vid);
             list_add(&badvids, vid);
             list_save(&goodvids, "goodvids.txt");
             list_save(&badvids, "badvids.txt");
-            if(!strcmp(vid, playing)){say(0, "/mbc youTube\n"); playnext(0);}
+            if(playing && !strcmp(vid, playing)){say(0, "/mbc youTube\n");}
+            say(pm, "Marked '%s' as bad, it will not be allowed into the queue again. You can reverse this by !approve'ing the video by ID/link/name\n", vid);
+            playnext(0);
           }
           else if(!strcmp(msg, "!skip") || !strncmp(msg, "!skip ", 6))
           {
@@ -511,7 +519,12 @@ int main(int argc, char** argv)
             alarm(getduration(playing)-pos);
             started=time(0)-pos;
           }
-          else if(!strcmp(msg, "/mbc youTube")){playnext(0);} // Video cancelled
+          else if(!strcmp(msg, "/mbc youTube")) // Video cancelled
+          {
+            list_del(&goodvids, playing); // manual /mbc is often used when !badvid should be used, so at least remove it from the list of approved videos
+            list_save(&goodvids, "goodvids.txt");
+            playnext(0);
+          }
           else if(!strncmp(msg, "/mbsk youTube ", 14)) // Seeking
           {
             unsigned int pos=strtol(&msg[14], 0, 0)/1000;

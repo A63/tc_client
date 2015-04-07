@@ -82,7 +82,12 @@ void stream_handledata(struct rtmp* rtmp)
   {
     if(streams[i].streamid!=rtmp->msgid){continue;}
 // fprintf(stderr, "Chunk: chunkid: %u, streamid: %u, userid: %u\n", rtmp->chunkid, rtmp->msgid, streams[i].userid);
-    printf("Video: %u %u\n", streams[i].userid, rtmp->length);
+    if(rtmp->type==RTMP_VIDEO)
+    {
+      printf("Video: %u %u\n", streams[i].userid, rtmp->length);
+    }else if(rtmp->type==RTMP_AUDIO){
+      printf("Audio: %u %u\n", streams[i].userid, rtmp->length);
+    }
     fwrite(rtmp->buf, rtmp->length, 1, stdout);
     fflush(stdout);
     return;
@@ -107,8 +112,7 @@ void stream_handlestatus(struct amf* amf)
       if(streams[i].userid==id)
       {
         printf("VideoEnd: %u\n", streams[i].userid);
-// TODO: remove stream from array
-// TODO: destroyStream or something?
+        // Note: not removing it from the list because tinychat doesn't seem to handle reusing stream IDs
         return;
       }
     }

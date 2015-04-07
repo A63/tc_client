@@ -33,6 +33,7 @@ struct chunk
 };
 struct chunk* chunks=0;
 unsigned int chunkcount=0;
+unsigned int chunksize_in=128;
 
 struct chunk* chunk_get(unsigned int id)
 {
@@ -99,7 +100,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
     chunk->buf=malloc(chunk->length);
     chunk->pos=0;
   }
-  unsigned int rsize=((chunk->length-chunk->pos>127)?128:(chunk->length-chunk->pos));
+  unsigned int rsize=((chunk->length-chunk->pos>=chunksize_in)?chunksize_in:(chunk->length-chunk->pos));
   while(rsize>0)
   {
     size_t r=read(sock, chunk->buf+chunk->pos, rsize);
@@ -110,6 +111,11 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   }
   if(chunk->pos==chunk->length)
   {
+    if(chunk->type==RTMP_SET_PACKET_SIZE)
+    {
+      memcpy(&chunksize_in, chunk->buf, sizeof(unsigned int));
+//      printf("Server set chunk size to %u (packet size: %u)\n", chunksize_in, chunk->length);
+    }
 // printf("Got chunk: chunkid=%u, type=%u, length=%u, streamid=%u\n", chunk->id, chunk->type, chunk->length, chunk->streamid);
     rtmp->type=chunk->type;
     rtmp->chunkid=chunk->id;

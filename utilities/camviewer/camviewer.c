@@ -21,7 +21,17 @@
 #include <gtk/gtk.h>
 
 #if GTK_MAJOR_VERSION==2
-  #define gtk_box_new(orientation, spacing) gtk_hbox_new(1, spacing)
+  #define GTK_ORIENTATION_HORIZONTAL 0
+  #define GTK_ORIENTATION_VERTICAL 1
+  GtkWidget* gtk_box_new(int vertical, int spacing)
+  {
+    if(vertical)
+    {
+      return gtk_vbox_new(1, spacing);
+    }else{
+      return gtk_hbox_new(1, spacing);
+    }
+  }
 #endif
 
 struct camera
@@ -32,6 +42,7 @@ struct camera
   AVCodecContext* ctx;
   char* id;
   char* nick;
+  GtkWidget* box; // holds label and cam
 };
 
 struct viddata
@@ -64,6 +75,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     {
       char* user=&next[2];
       next=strstr(user, ", ");
+      if(!user[0]){continue;}
       if(next){next[0]=0;}
       dprintf(tc_client_in[1], "/opencam %s\n", user);
     }
@@ -97,8 +109,11 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     cam->ctx=avcodec_alloc_context3(data->decoder);
     avcodec_open2(cam->ctx, data->decoder, 0);
     cam->cam=gtk_image_new();
-    gtk_box_pack_start(GTK_BOX(data->box), cam->cam, 0, 0, 0);
-    gtk_widget_show(cam->cam);
+    cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_box_pack_start(GTK_BOX(cam->box), cam->cam, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(cam->box), gtk_label_new(cam->nick), 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(data->box), cam->box, 0, 0, 0);
+    gtk_widget_show_all(cam->box);
     return 1;
   }
   if(!strncmp(buf, "VideoEnd: ", 10))
@@ -107,7 +122,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     {
       if(!strcmp(data->cams[i].id, &buf[10]))
       {
-        gtk_widget_destroy(data->cams[i].cam);
+        gtk_widget_destroy(data->cams[i].box);
         av_frame_free(&data->cams[i].frame);
         avcodec_free_context(&data->cams[i].ctx);
         free(data->cams[i].id);
@@ -118,6 +133,21 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
       }
     }
     return 1;
+  }
+  if(!strncmp(buf, "Audio: ", 7))
+  {
+    char* sizestr=strchr(&buf[7], ' ');
+    if(!sizestr){return 1;}
+    unsigned int size=strtoul(&sizestr[1], 0, 0);
+    unsigned char frameinfo;
+    read(tc_client[0], &frameinfo, 1);
+    unsigned char buf[size];
+    unsigned int pos=0;
+    while(pos<size)
+    {
+      pos+=read(tc_client[0], &buf[pos], size-pos);
+    }
+// TODO: decode and send to a sound lib (libao)
   }
   if(strncmp(buf, "Video: ", 7)){printf("Got '%s'\n", buf); return 1;} // Ignore anything else that isn't video
   char* sizestr=strchr(&buf[7], ' ');

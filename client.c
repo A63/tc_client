@@ -226,6 +226,7 @@ int main(int argc, char** argv)
     if(!strcmp(argv[i], "-h")||!strcmp(argv[i], "--help")){usage(argv[0]); return 0;}
     else if(!strcmp(argv[i], "-u")||!strcmp(argv[i], "--user"))
     {
+      if(i+1==argc){continue;}
       ++i;
       account_user=argv[i];
       unsigned int j;
@@ -233,6 +234,7 @@ int main(int argc, char** argv)
     }
     else if(!strcmp(argv[i], "-p")||!strcmp(argv[i], "--pass"))
     {
+      if(i+1==argc){continue;}
       ++i;
       account_pass=strdup(argv[i]);
     }
@@ -401,7 +403,9 @@ int main(int argc, char** argv)
                  "/ban <nick>     = ban someone\n"
                  "/banlist        = list who is banned\n"
                  "/forgive <nick/ID> = unban someone\n"
-                 "/names          = list everyone that is online\n");
+                 "/names          = list everyone that is online\n"
+                 "/mute           = temporarily mutes all non-moderator broadcasts\n"
+                 "/push2talk      = puts all non-operators in push2talk mode\n");
           fflush(stdout);
         }
         else if(!strncmp(buf, "/color", 6) && (!buf[6]||buf[6]==' '))
@@ -522,6 +526,26 @@ int main(int argc, char** argv)
           fflush(stdout);
           continue;
         }
+        else if(!strcmp(buf, "/mute"))
+        {
+          amfinit(&amf, 3);
+          amfstring(&amf, "owner_run");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          amfstring(&amf, "mute");
+          amfsend(&amf, sock);
+          continue;
+        }
+        else if(!strcmp(buf, "/push2talk"))
+        {
+          amfinit(&amf, 3);
+          amfstring(&amf, "owner_run");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          amfstring(&amf, "push2talk");
+          amfsend(&amf, sock);
+          continue;
+        }
       }
       char* msg=tonumlist(buf, len);
       amfinit(&amf, 3);
@@ -546,7 +570,7 @@ int main(int argc, char** argv)
     char rtmpres=rtmp_get(sock, &rtmp);
     if(!rtmpres){printf("Server disconnected\n"); break;}
     if(rtmpres==2){continue;} // Not disconnected, but we didn't get a complete chunk yet either
-    if(rtmp.type==RTMP_VIDEO){stream_handledata(&rtmp); continue;}
+    if(rtmp.type==RTMP_VIDEO || rtmp.type==RTMP_AUDIO){stream_handledata(&rtmp); continue;}
     if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); continue;}
     struct amf* amfin=amf_parse(rtmp.buf, rtmp.length);
     if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING)
@@ -688,6 +712,16 @@ int main(int argc, char** argv)
           space[0]=' ';
         }
         printf("%s %s\n", timestamp(), notice);
+        fflush(stdout);
+      }
+      else if(!strncmp("mute", amfin->items[2].string.string, 4))
+      {
+        printf("%s Non-moderators have been temporarily muted.\n", timestamp());
+        fflush(stdout);
+      }
+      else if(!strncmp("push2talk", amfin->items[2].string.string, 9))
+      {
+        printf("%s Push to talk request has been sent to non-moderators.\n", timestamp());
         fflush(stdout);
       }
     }
