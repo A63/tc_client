@@ -403,7 +403,11 @@ int main(int argc, char** argv)
       {
         wchar_t* msg=fromnumlist(amfin->items[3].string.string);
         const char* color=(showcolor?resolvecolor(amfin->items[4].string.string):"0");
+#ifndef __ANDROID__
         printf("%s \x1b[%sm%s: %ls\x1b[0m\n", timestamp(), color, amfin->items[5].string.string, msg);
+#else // Wide characters are broken on android
+        printf("%s \x1b[%sm%s: %s\x1b[0m\n", timestamp(), color, amfin->items[5].string.string, msg);
+#endif
         free(msg);
         fflush(stdout);
       }
@@ -479,6 +483,13 @@ int main(int argc, char** argv)
           printf("%s %s\n", timestamp(), notice);
           fflush(stdout);
         }
+      }
+      // oper, identifies mods
+      else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "oper") && amfin->items[3].type==AMF_STRING)
+      {
+        idlist_set_op(amfin->items[3].string.string);
+        printf("%s is a moderator.\n", amfin->items[3].string.string);
+        fflush(stdout);
       }
       // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
       amf_free(amfin);

@@ -23,6 +23,25 @@
 #include <sys/socket.h>
 #include <ctype.h>
 
+#ifdef __ANDROID__
+// Android has no dprintf, so we make our own
+#include <stdarg.h>
+size_t dprintf(int fd, const char* fmt, ...)
+{
+  va_list va;
+  va_start(va, fmt);
+  int len=vsnprintf(0, 0, fmt, va);
+  va_end(va);
+  char buf[len+1];
+  va_start(va, fmt);
+  vsnprintf(buf, len+1, fmt, va);
+  va_end(va);
+  buf[len]=0;
+  write(fd, buf, len);
+  return len;
+}
+#endif
+
 // ANSI colors and their IRC equivalents
 struct color{const char* ansi; const char* irc;};
 struct color colortable[]={
@@ -198,6 +217,13 @@ printf("Got from tc_client: '%s'\n", buf);
         }
         write(sock, "\n", 1);
         dprintf(sock, ":irchack 366 %s #%s :End of /NAMES list.\n", nick, channel);
+        continue;
+      }
+      char* space=strchr(buf, ' ');
+      if(space && !strcmp(space, " is a moderator."))
+      {
+        space[0]=0;
+        dprintf(sock, ":irchack MODE #%s +o %s\n", channel, buf);
         continue;
       }
       if(buf[0]!='['){continue;} // Beyond this we only care about timestamped lines

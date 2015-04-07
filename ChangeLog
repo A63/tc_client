@@ -1,3 +1,7 @@
+0.9:
+Added compatibility workarounds for android.
+Keep track of who is a moderator. (contributed by Jade)
+Added crossbuild.sh script to automatically cross-compile tc_client and curl (dependency) for the given host-triplet.
 0.8:
 irchack: convert tc_client's ANSI codes to IRC color codes.
 irchack: convert IRC color codes to '/color <number>' commands for tc_client.

@@ -16,8 +16,9 @@
 */
 struct idmap
 {
-  int id;
   const char* name;
+  int id;
+  char op;
 };
 
 extern struct idmap* idlist;
@@ -27,3 +28,5 @@ extern void idlist_add(int id, const char* name);
 extern void idlist_remove(const char* name);
 extern void idlist_rename(const char* oldname, const char* newname);
 extern int idlist_get(const char* name);
+extern void idlist_set_op(const char* name);
+extern char idlist_is_op(const char* name);

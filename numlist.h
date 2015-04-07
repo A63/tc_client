@@ -14,5 +14,12 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#ifdef __ANDROID__ // Compatibility hacks for android
+  #define wchar_t char
+  #define mbstowcs(dst,src,len) ((dst)?(int)strncpy(dst,src,len):strlen(src))
+  #define wcstombs strncpy
+  #define wcslen strlen
+#endif
+
 extern wchar_t* fromnumlist(char* in);
 extern char* tonumlist(const wchar_t* in);

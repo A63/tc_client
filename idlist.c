@@ -73,3 +73,29 @@ int idlist_get(const char* name)
   }
   return -1;
 }
+
+void idlist_set_op(const char* name)
+{
+  int i;
+  for(i=0; i<idlistlen; ++i)
+  {
+    if(!strcmp(name, idlist[i].name))
+    {
+      idlist[i].op=1;
+      return;
+    }
+  }
+}
+
+char idlist_is_op(const char* name)
+{
+  int i;
+  for(i=0; i<idlistlen; ++i)
+  {
+    if(!strcmp(name, idlist[i].name))
+    {
+      return idlist[i].op;
+    }
+  }
+  return 0;
+}
