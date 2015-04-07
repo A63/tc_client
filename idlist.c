@@ -1,7 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
     Copyright (C) 2014  alicia@ion.nu
-    Copyright (C) 2014-2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -40,7 +39,7 @@ void idlist_remove(const char* name)
     {
       free((void*)idlist[i].name);
       --idlistlen;
-      memmove(&idlist[i], &idlist[i+1], sizeof(struct idmap)*(idlistlen-i));
+      memmove(idlist, &idlist[i+1], sizeof(struct idmap)*(idlistlen-i));
       return;
     }
   }
@@ -62,41 +61,13 @@ void idlist_rename(const char* oldname, const char* newname)
 
 int idlist_get(const char* name)
 {
-  int len;
-  for(len=0; name[len]&&name[len]!=' '; ++len);
   int i;
   for(i=0; i<idlistlen; ++i)
   {
-    if(!strncmp(name, idlist[i].name, len) && !idlist[i].name[len])
+    if(!strcmp(name, idlist[i].name))
     {
       return idlist[i].id;
     }
   }
   return -1;
-}
-
-void idlist_set_op(const char* name, char op)
-{
-  int i;
-  for(i=0; i<idlistlen; ++i)
-  {
-    if(!strcmp(name, idlist[i].name))
-    {
-      idlist[i].op=op;
-      return;
-    }
-  }
-}
-
-char idlist_is_op(const char* name)
-{
-  int i;
-  for(i=0; i<idlistlen; ++i)
-  {
-    if(!strcmp(name, idlist[i].name))
-    {
-      return idlist[i].op;
-    }
-  }
-  return 0;
 }

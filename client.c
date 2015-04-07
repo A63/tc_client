@@ -1,6 +1,7 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
     Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -29,6 +30,7 @@
 #include "amfparser.h"
 #include "numlist.h"
 #include "amfwriter.h"
+#include "idlist.h"
 
 struct writebuf
 {
@@ -124,7 +126,7 @@ char* getkey(char* id, char* channel)
 {
   char url[strlen("http://tinychat.com/api/captcha/check.php?guest%5Fid=&room=tinychat%5E0")+strlen(id)+strlen(channel)];
   sprintf(url, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%s&room=tinychat%%5E%s", id, channel);
-  char *response=http_get(url);
+  char* response=http_get(url);
   char* key=strstr(response, "\"key\":\"");
 
   if(!key){return 0;}
@@ -140,6 +142,16 @@ char* getkey(char* id, char* channel)
   key=strndup(key, keyend-key);
   free(response);
   return key;
+}
+
+char timestampbuf[8];
+char* timestamp()
+{
+  // Timestamps, e.g. "[hh:mm] name: message"
+  time_t timestamp=time(0);
+  struct tm* t=localtime(&timestamp);
+  sprintf(timestampbuf, "[%02i:%02i]", t->tm_hour, t->tm_min);
+  return timestampbuf;
 }
 
 int main(int argc, char** argv)
@@ -280,6 +292,7 @@ int main(int argc, char** argv)
       pfd[0].revents=0;
       len=read(0, buf, 2047);
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
+      if(!len){continue;} // Don't send empty lines
       buf[len]=0;
       len=mbstowcs(0, (char*)buf, 0);
       wchar_t wcsbuf[len+1];
@@ -303,7 +316,7 @@ int main(int argc, char** argv)
 // TODO: This should be done differently, first reading one byte to get the size of the header, then read the rest of the header and thus get the length of the content
     len=read(sock, buf, 2048);
 //  printf("Received %i byte response\n", len);
-    if(!len){printf("Server disconnected\n"); break;}
+    if(len<=0){printf("Server disconnected\n"); break;}
 /* Debugging
   char name[128];
   sprintf(name, "output%i", outnum);
@@ -349,10 +362,7 @@ int main(int argc, char** argv)
       else if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
       {
         wchar_t* msg=fromnumlist(amfin->items[3].string.string);
-        // Timestamps, e.g. "[hh:mm] name: message"
-        time_t timestamp=time(0);
-        struct tm* t=localtime(&timestamp);
-        printf("[%02i:%02i] %s: %ls\n", t->tm_hour, t->tm_min, amfin->items[5].string.string, msg);
+        printf("%s %s: %ls\n", timestamp(), amfin->items[5].string.string, msg);
         free(msg);
         fflush(stdout);
       }
@@ -364,40 +374,70 @@ int main(int argc, char** argv)
         for(i = 3; i < amfin->itemcount-1; i+=2)
         {
           // a "numeric" id precedes each nick, i.e. i is the id, i+1 is the nick
-          if(amfin->items[i+1].type==AMF_STRING)
+          if(amfin->items[i].type==AMF_STRING && amfin->items[i+1].type==AMF_STRING)
           {
+            idlist_add(atoi(amfin->items[i].string.string), amfin->items[i+1].string.string);
             printf("%s%s", (i==3?"":", "), amfin->items[i+1].string.string);
           }
         }
         printf("\n");
         fflush(stdout);
       }
-      // join
-      else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "join") && amfin->items[3].type==AMF_STRING)
+      // join ("join", 0, "<ID>", "guest-<ID>")
+      else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "join") && amfin->items[2].type==AMF_STRING && amfin->items[3].type==AMF_STRING)
       {
-        // Timestamps, e.g. "[hh:mm] name: message"
-        time_t timestamp=time(0);
-        struct tm* t=localtime(&timestamp);
-        printf("[%02i:%02i] %s entered the channel\n", t->tm_hour, t->tm_min, amfin->items[3].string.string);
+        idlist_add(atoi(amfin->items[2].string.string), amfin->items[3].string.string);
+        printf("%s %s entered the channel\n", timestamp(), amfin->items[3].string.string);
         fflush(stdout);
       }
       // part
       else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "quit") && amfin->items[3].type==AMF_STRING)
       {
-        // Timestamps, e.g. "[hh:mm] name: message"
-        time_t timestamp=time(0);
-        struct tm* t=localtime(&timestamp);
-        printf("[%02i:%02i] %s left the channel\n", t->tm_hour, t->tm_min, amfin->items[2].string.string);
+        idlist_remove(amfin->items[2].string.string);
+        printf("%s %s left the channel\n", timestamp(), amfin->items[2].string.string);
         fflush(stdout);
       }
       // nick
       else if(amfin->itemcount==5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "nick") && amfin->items[2].type==AMF_STRING && amfin->items[3].type==AMF_STRING)
       {
-        // Timestamps, e.g. "[hh:mm] name: message"
-        time_t timestamp=time(0);
-        struct tm* t=localtime(&timestamp);
-        printf("[%02i:%02i] %s changed nickname to %s\n", t->tm_hour, t->tm_min, amfin->items[2].string.string, amfin->items[3].string.string);
+        idlist_rename(amfin->items[2].string.string, amfin->items[3].string.string);
+        printf("%s %s changed nickname to %s\n", timestamp(), amfin->items[2].string.string, amfin->items[3].string.string);
         fflush(stdout);
+      }
+      // kick
+      else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "kick") && amfin->items[2].type==AMF_STRING)
+      {
+        if(atoi(amfin->items[2].string.string) == idlist_get(nickname))
+        {
+          printf("%s You have been kicked out\n", timestamp());
+          fflush(stdout);
+        }
+      }
+      // banned
+      else if(amfin->itemcount==2 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "banned"))
+      {
+        printf("%s You are banned from %s\n", timestamp(), channel);
+        fflush(stdout);
+        // When banned and reconnecting, tinychat doesn't disconnect us itself, we need to disconnect
+        close(sock);
+        return 1; // Getting banned is a failure, right?
+      }
+      // from_owner: notices
+      else if(amfin->itemcount==3 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "from_owner") && amfin->items[2].type==AMF_STRING)
+      {
+        if(!strncmp("notice", amfin->items[2].string.string, 6))
+        {
+          char* notice=strdup(&amfin->items[2].string.string[6]);
+          // replace "%20" with spaces
+          char* space;
+          while((space=strstr(notice, "%20")))
+          {
+            memmove(space, &space[2], strlen(&space[2])+1);
+            space[0]=' ';
+          }
+          printf("%s %s\n", timestamp(), notice);
+          fflush(stdout);
+        }
       }
       // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
       amf_free(amfin);

@@ -102,7 +102,7 @@ int main()
   }
   close(tc_in[0]);
   close(tc_out[1]);
-  dprintf(tc_in[1], ":%s!user@host JOIN %s\n", nick, channel);
+  dprintf(sock, ":%s!user@host JOIN #%s\n", nick, channel);
   struct pollfd pfd[2];
   pfd[0].fd=tc_out[0];
   pfd[0].events=POLLIN;

@@ -1,3 +1,7 @@
+0.5:
+Fixed a bug in irchack.c that sent the JOIN confirmation to the wrong file descriptor.
+Avoid sending empty lines.
+Handle messages related to getting kicked out/banned from a channel.
 0.4:
 Adjustments for portability: nested functions are a GCC extension and should not be used, include headers needed on other systems.
 Use memcpy in some places instead of *x=y and x=*y to avoid alignment issues.
