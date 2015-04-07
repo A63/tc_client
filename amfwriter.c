@@ -27,11 +27,14 @@ void amfinit(struct rtmp* msg, unsigned int streamid)
   msg->type=RTMP_AMF0;
   msg->streamid=streamid;
   msg->length=0;
+  msg->msgid=0;
   msg->buf=0;
 }
 
 void amfnum(struct rtmp* msg, double v)
 {
+  unsigned long long* endian=(void*)&v;
+  *endian=be64(*endian);
   int offset=msg->length;
   msg->length+=1+sizeof(double);
   msg->buf=realloc(msg->buf, msg->length);

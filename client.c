@@ -141,7 +141,7 @@ char* getkey(char* id, char* channel)
   return key;
 }
 
-char* getmodkey(const char* user, const char* pass, const char* channel)
+char* getmodkey(const char* user, const char* pass, const char* channel, char* loggedin)
 {
   // TODO: if possible, do this in a neater way than digging the key out from an HTML page.
   if(!user||!pass){return 0;}
@@ -159,6 +159,7 @@ char* getmodkey(const char* user, const char* pass, const char* channel)
       key=strdup(key);
     }else{key=0;}
   }
+  if(strstr(response, "<div class='name'")){*loggedin=1;}
   free(response);
   return key;
 }
@@ -181,6 +182,25 @@ char checknick(const char* nick) // Returns zero if the nick is valid, otherwise
     if(!strchr("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-^[]{}`\\|", nick[i])){return nick[i];}
   }
   return 0;
+}
+
+char* getprivfield(char* nick)
+{
+  unsigned int id;
+  unsigned int privlen;
+  for(privlen=0; nick[privlen]&&nick[privlen]!=' '; ++privlen);
+  id=idlist_get((char*)nick);
+  if(id<0)
+  {
+    nick[privlen]=0;
+    printf("No such nick: %s\n", nick);
+    fflush(stdout);
+    return 0;
+  }
+  char* priv=malloc(snprintf(0, 0, "n%i-", id)+privlen+1);
+  sprintf(priv, "n%i-", id);
+  strncat(priv, nick, privlen);
+  return priv;
 }
 
 void usage(const char* me)
@@ -214,7 +234,7 @@ int main(int argc, char** argv)
     else if(!strcmp(argv[i], "-p")||!strcmp(argv[i], "--pass"))
     {
       ++i;
-      account_pass=argv[i];
+      account_pass=strdup(argv[i]);
     }
     else if(!channel){channel=argv[i];}
     else if(!nickname){nickname=strdup(argv[i]);}
@@ -273,9 +293,11 @@ int main(int argc, char** argv)
   write(sock, handshake, 1536); // Send server's junk back
   b_read(sock, handshake, 1536); // Read our junk back, we don't bother checking that it's the same
   printf("Handshake complete\n");
-  struct rtmp rtmp={0,0,0};
+  struct rtmp rtmp={0,0,0,0,0};
   // Handshake complete, log in (if user account is specified)
-  char* modkey=getmodkey(account_user, account_pass, channel);
+  char loggedin=0;
+  char* modkey=getmodkey(account_user, account_pass, channel, &loggedin);
+  if(!loggedin){free(account_pass); account_user=0; account_pass=0;}
   // Send connect request
   struct rtmp amf;
   amfinit(&amf, 3);
@@ -354,8 +376,7 @@ int main(int argc, char** argv)
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       if(!len){continue;} // Don't send empty lines
       buf[len]=0;
-      int privfield=-1;
-      int privlen;
+      char* privfield=0;
       if(buf[0]=='/') // Got a command
       {
         if(!strcmp((char*)buf, "/help"))
@@ -410,16 +431,32 @@ int main(int argc, char** argv)
         }
         else if(!strncmp((char*)buf, "/msg ", 5))
         {
-          for(privlen=0; buf[5+privlen]&&buf[5+privlen]!=' '; ++privlen);
-          privfield=idlist_get((char*)&buf[5]);
-          if(privfield<0)
-          {
-            buf[5+privlen]=0;
-            printf("No such nick: %s\n", &buf[5]);
-            fflush(stdout);
-            continue;
-          }
+          privfield=getprivfield((char*)&buf[5]);
+          if(!privfield){continue;}
         }
+        else if(!strncmp((char*)buf, "/priv ", 6))
+        {
+          char* end=strchr((char*)&buf[6], ' ');
+          if(!end){continue;}
+          privfield=getprivfield((char*)&buf[6]);
+          if(!privfield){continue;}
+          len=strlen(&end[1]);
+          memmove(buf, &end[1], len+1);
+        }
+/* While we can get the server to send us video data, we don't know how to handle the data yet.
+        else if(!strncmp((char*)buf, "/cam ", 5))
+        {
+          unsigned int id=idlist_get((char*)&buf[5]);
+          camid=malloc(128);
+          sprintf(camid, "%u", id);
+          amfinit(&amf, 3);
+          amfstring(&amf, "createStream");
+          amfnum(&amf, 2);
+          amfnull(&amf);
+          amfsend(&amf, sock);
+          continue;
+        }
+*/
       }
       char* msg=tonumlist((char*)buf, len);
       amfinit(&amf, 3);
@@ -429,12 +466,10 @@ int main(int argc, char** argv)
       amfstring(&amf, msg);
       amfstring(&amf, colors[currentcolor%16]);
       // For PMs, add a string like "n<numeric ID>-<nick>" to make the server only send it to the intended recipient
-      if(privfield>-1)
+      if(privfield)
       {
-        char priv[snprintf(0, 0, "n%i-", privfield)+privlen+1];
-        sprintf(priv, "n%i-", privfield);
-        strncat(priv, (char*)&buf[5], privlen);
-        amfstring(&amf, priv);
+        amfstring(&amf, privfield);
+        free(privfield);
       }
       amfsend(&amf, sock);
       free(msg);
@@ -445,6 +480,13 @@ int main(int argc, char** argv)
     // Read the RTMP stream and handle AMF0 packets
     if(rtmp_get(sock, &rtmp))
     {
+/* Getting video/cam data, but we don't know how to make use of it yet
+      if(rtmp.type==RTMP_VIDEO)
+      {
+        write(vidf, rtmp.buf, rtmp.length);
+        continue;
+      }
+*/
       if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); continue;}
       struct amf* amfin=amf_parse(rtmp.buf, rtmp.length);
       if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING)
@@ -483,6 +525,31 @@ int main(int argc, char** argv)
         printf("%s \x1b[%sm%s: ", timestamp(), color, amfin->items[5].string.string);
         fwrite(msg, len, 1, stdout);
         printf("\x1b[0m\n");
+        if(len==18 && !strncmp(msg, "/userinfo $request", 18))
+        {
+          char* msg;
+          if(account_user)
+          {
+            unsigned int len=strlen("/userinfo \n0")+strlen(account_user);
+            char buf[len+1];
+            sprintf(buf, "/userinfo %s\n", account_user);
+            msg=tonumlist(buf, len);
+          }else{
+            msg=tonumlist("/userinfo tc_client\n", 20); // TODO: include version number?
+          }
+          amfinit(&amf, 3);
+          amfstring(&amf, "privmsg");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          amfstring(&amf, msg);
+          amfstring(&amf, "#0,en");
+          int id=idlist_get(amfin->items[5].string.string);
+          char priv[snprintf(0, 0, "n%i-%s", id, amfin->items[5].string.string)+1];
+          sprintf(priv, "n%i-%s", id, amfin->items[5].string.string);
+          amfstring(&amf, priv);
+          amfsend(&amf, sock);
+          free(msg);
+        }
         free(msg);
         fflush(stdout);
       }
@@ -590,6 +657,22 @@ int main(int argc, char** argv)
         printf("Room topic: %s\n", amfin->items[2].string.string);
         fflush(stdout);
       }
+/* More not yet usable cam code, response to trying to open a new stream
+      else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "_result"))
+      {
+        printamf(amfin);
+        if(camid)
+        {
+          amfinit(&amf, 8);
+          amfstring(&amf, "play");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          amfstring(&amf, camid);
+          amf.msgid=le32(1);
+          amfsend(&amf, sock);
+        }
+      }
+*/
       // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
       amf_free(amfin);
     }

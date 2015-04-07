@@ -16,6 +16,22 @@
 */
 #include "endian.h"
 
+unsigned long long be64(unsigned long long in)
+{
+#if(__BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__)
+  return ((in&0xff)<<56) |
+         ((in&0xff00)<<40) |
+         ((in&0xff0000)<<24) |
+         ((in&0xff000000)<<8) |
+         ((in&0xff00000000)>>8) |
+         ((in&0xff0000000000)>>24) |
+         ((in&0xff000000000000)>>40) |
+         ((in&0xff00000000000000)>>56);
+#else
+  return in;
+#endif
+}
+
 unsigned long be32(unsigned long in)
 {
 #if(__BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__)

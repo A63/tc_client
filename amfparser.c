@@ -97,6 +97,8 @@ struct amf* amf_parse(const unsigned char* buf, int len)
         item=amf_newitem(amf);
       item->type=AMF_NUMBER;
       memcpy(&item->number, buf, sizeof(double));
+      unsigned long long* endian=(void*)&item->number;
+      *endian=be64(*endian);
       buf=&buf[sizeof(double)];
       break;
     case 1:

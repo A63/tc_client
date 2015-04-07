@@ -31,6 +31,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   if(read(sock, &x, 1)<1){return 0;}
   unsigned int streamid=x&0x3f;
   unsigned int fmt=(x&0xc0)>>6;
+  unsigned int msgid=0;
   // Handle extended stream IDs
   if(streamid<2) // (0=1 extra byte, 1=2 extra bytes)
   {
@@ -52,8 +53,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
       read(sock, &type, sizeof(type));
       if(fmt<1)
       {
-        // Message ID (is this ever used?)
-        unsigned int msgid;
+        // Message ID
         read(sock, &msgid, sizeof(msgid));
       }
     }
@@ -67,16 +67,19 @@ char rtmp_get(int sock, struct rtmp* rtmp)
 
   rtmp->type=type;
   rtmp->streamid=streamid;
-  rtmp->length=length+length/128;
+  rtmp->length=length;
+  rtmp->msgid=le32(msgid);
   free(rtmp->buf);
   rtmp->buf=malloc(rtmp->length);
-  read(sock, rtmp->buf, rtmp->length);
-  int i;
-  for(i=128; i<rtmp->length; i+=128)
+  size_t pos=0;
+  size_t w;
+  // Only read up to 128 bytes at a time and discard the (garbage/RTMP continuation header) bytes in between
+  while(pos<length)
   {
-    --rtmp->length;
-    // printf("Dropping garbage byte %x\n", (unsigned int)((unsigned char*)rtmp->buf)[i]&0xff);
-    memmove(rtmp->buf+i, rtmp->buf+i+1, rtmp->length-i);
+    w=read(sock, rtmp->buf+pos, ((length-pos>127)?128:(length-pos)));
+    if(w<1){break;}
+    pos+=w;
+    if(length-pos>0){read(sock, &w, 1);} // Skip junk once every 128 bytes
   }
   return 1;
 }
@@ -84,7 +87,8 @@ char rtmp_get(int sock, struct rtmp* rtmp)
 void rtmp_send(int sock, struct rtmp* rtmp)
 {
   // Header format and stream ID
-  unsigned char basicheader=(rtmp->streamid<64?rtmp->streamid:(rtmp->streamid<256?0:1)) | (1<<6);
+  unsigned int fmt=(rtmp->msgid?0:1);
+  unsigned char basicheader=(rtmp->streamid<64?rtmp->streamid:(rtmp->streamid<256?0:1)) | (fmt<<6);
   write(sock, &basicheader, sizeof(basicheader));
   if(rtmp->streamid>=64) // Handle large stream IDs
   {
@@ -105,7 +109,10 @@ void rtmp_send(int sock, struct rtmp* rtmp)
   write(sock, ((void*)&x)+1, 3);
   // Type
   write(sock, &rtmp->type, sizeof(rtmp->type));
-  // TODO: is there a situation where message IDs are needed? (format 0 header)
+  if(fmt<1) // Send message ID if there is one (that isn't 0)
+  {
+    write(sock, &rtmp->msgid, sizeof(rtmp->msgid));
+  }
   // Send 128 bytes at a time separated by 0xc3 (because apparently that's something RTMP requires)
   void* pos=rtmp->buf;
   unsigned int len=rtmp->length;

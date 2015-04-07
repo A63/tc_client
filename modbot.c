@@ -24,6 +24,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <stdarg.h>
+#include <time.h>
 
 struct list
 {
@@ -36,6 +37,7 @@ struct list queue={0,0};
 struct list goodvids={0,0}; // pre-approved videos
 struct list badvids={0,0}; // not allowed, essentially banned
 char* playing=0;
+time_t started=0;
 int tc_client;
 
 void list_del(struct list* list, const char* item)
@@ -222,6 +224,7 @@ void playnextvid()
   say(0, "/mbs youTube %s 0\n", playing);
   // Find out the video's length and schedule an alarm for then
   alarm(getduration(playing));
+  started=time(0);
 }
 
 void playnext(int x)
@@ -444,7 +447,7 @@ int main(int argc, char** argv)
           {
             if(playing)
             {
-              if(list_contains(&goodvids, playing) && !list_contains(&badvids, playing)){say(pm, "'%s' is already approved, use !approve <ID> to approve another video\n", playing); continue;}
+              if(list_contains(&goodvids, playing) && !list_contains(&badvids, playing)){say(pm, "'%s' is already approved, use !approve <ID> to approve another video (or 'next' instead of an ID to approve the next not-yet-approved video in queue)\n", playing); continue;}
               list_add(&goodvids, playing);
               list_del(&badvids, playing);
               list_save(&goodvids, "goodvids.txt");
@@ -527,14 +530,18 @@ int main(int argc, char** argv)
             list_save(&goodvids, "goodvids.txt");
             free(playing);
             playing=strdup(vid);
-            alarm(getduration(vid));
+            unsigned int pos=(end?(strtol(&end[1], 0, 0)/1000):0);
+            alarm(getduration(playing)-pos);
+            started=time(0)-pos;
           }
           else if(!strcmp(msg, "/mbc youTube")){playnext(0);} // Video cancelled
           else if(!strncmp(msg, "/mbsk youTube ", 14)) // Seeking
           {
             unsigned int pos=strtol(&msg[14], 0, 0)/1000;
             alarm(getduration(playing)-pos);
+            started=time(0)-pos;
           }
+          // TODO: handle /mbpa (pause) and /mbpl (resume play)
         }
       }else{ // Actions
         if(!strncmp(space, " changed nickname to ", 21))
@@ -555,6 +562,14 @@ int main(int argc, char** argv)
             }
           }
           continue;
+        }
+        else if(!strcmp(space, " entered the channel")) // Newcomer, inform about the currently playing video
+        {
+          if(playing)
+          {
+            space[0]=0;
+            say(0, "/priv %s /mbs youTube %s %u\n", nick, playing, (time(0)-started)*1000);
+          }
         }
       }
     }

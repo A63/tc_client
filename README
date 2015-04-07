@@ -8,6 +8,7 @@ Commands supported by tc_client:
 /color <0-15>             = set the color of your outgoing messages
 /colors                   = list the available colors
 /nick <newnick>           = change nickname
+/help                     = list these commands at runtime
 
 Some things that will probably never change:
 *tc_client can't view people's webcams or listen to mics
