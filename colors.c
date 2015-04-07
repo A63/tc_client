@@ -1,6 +1,7 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2015  Pamela Hiatt
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -18,7 +19,7 @@
 #include "colors.h"
 
 // Sorted like rainbows
-const char* colors[]={ // The 16 colors accepted by the flash client
+const char* colors[COLORCOUNT]={ // The 16 colors accepted by the flash client
   "#821615,en",
   "#c53332,en",
   "#a08f23,en",
@@ -37,7 +38,7 @@ const char* colors[]={ // The 16 colors accepted by the flash client
   "#b9807f,en"
 };
 
-const char* termcolors[]={ // Equivalent color codes for ANSI escape sequences
+const char* termcolors[COLORCOUNT]={ // Equivalent color codes for ANSI escape sequences
   "31",
   "31;1",
   "33",
@@ -56,12 +57,12 @@ const char* termcolors[]={ // Equivalent color codes for ANSI escape sequences
   "35;1"
 };
 
-unsigned int currentcolor;
+unsigned int currentcolor=COLORCOUNT;
 
 const char* resolvecolor(const char* tc_color)
 {
   int i;
-  for(i=0; i<16; ++i)
+  for(i=0; i<COLORCOUNT; ++i)
   {
     if(!strcmp(colors[i], tc_color)){return termcolors[i];}
   }

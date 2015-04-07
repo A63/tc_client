@@ -23,9 +23,11 @@
 #include <curses.h>
 #include <readline/readline.h>
 
+#define HALFSCREEN (LINES>4?(LINES-3)/2:1)
 WINDOW* topic;
 WINDOW* chat;
 WINDOW* input;
+int chatscroll=-1;
 int to_app;
 
 // Translate ANSI escape codes to curses commands and write the text to a window
@@ -71,6 +73,11 @@ void waddansi(WINDOW* w, char* str)
   }
 }
 
+void drawchat(void)
+{
+  prefresh(chat, (chatscroll>-1?chatscroll:getcury(chat)-LINES+4), 0, 1, 0, LINES-3, COLS);
+}
+
 void gotline(char* line)
 {
   if(!line){close(to_app); return;} // TODO: handle EOF on stdin better?
@@ -80,7 +87,7 @@ void gotline(char* line)
   write(to_app, "\n", 1);
 // TODO: grab user's nick for this
   wprintw(chat, "\n%s: %s", "You", line);
-  wrefresh(chat);
+  drawchat();
 }
 
 unsigned int bytestochars(const char* buf, unsigned int buflen, unsigned int bytes)
@@ -117,27 +124,29 @@ int escinput(int a, int byte)
   if(!strcmp(buf, "[H")||!strcmp(buf, "OH")){rl_beg_of_line(1,27);return 0;}
   if(!strcmp(buf, "[F")||!strcmp(buf, "OF")){rl_end_of_line(1,27);return 0;}
   if(!strcmp(buf, "[3")&&read(0, buf, 1)&&buf[0]=='~'){rl_delete(1,27);return 0;}
-  if(!strcmp(buf, "[5"))
+  if(!strcmp(buf, "[5")) // Page up
   {
     read(0, buf, 1);
-    wprintw(chat, "\nTODO: handle Page up");
-// wscrl(chat, chat->_maxy/2);
-    wrefresh(chat);
+    if(chatscroll<0){chatscroll=getcury(chat)-LINES+4;}
+    chatscroll-=HALFSCREEN; // (LINES-3)/2;
+    if(chatscroll<0){chatscroll=0;}
+    drawchat();
     return 0;
   }
-  if(!strcmp(buf, "[6"))
+  if(!strcmp(buf, "[6")) // Page down
   {
     read(0, buf, 1);
-    wprintw(chat, "\nTODO: handle Page down");
-// wscrl(chat, -chat->_maxy/2);
-    wrefresh(chat);
+    if(chatscroll<0){return 0;} // Already at the bottom
+    chatscroll+=HALFSCREEN; // (LINES-3)/2;
+    if(chatscroll>getcury(chat)-LINES+3){chatscroll=-1;}
+    drawchat();
     return 0;
   }
 //  wprintw(chat, "\nbuf: %s", buf);
   return 0;
 }
 
-void drawinput()
+void drawinput(void)
 {
   werase(input);
   unsigned int pos=bytestochars(rl_line_buffer, rl_end, rl_point);
@@ -160,15 +169,14 @@ void resizechat(int sig)
   if(size.ws_row<3){return;} // Too small, would result in negative numbers breaking the chat window
   resize_term(size.ws_row, size.ws_col);
   wresize(topic, 1, COLS);
-  wresize(chat, LINES-3, COLS);
+  wresize(chat, chat->_maxy+1, COLS);
   wresize(input, 2, COLS);
   mvwin(input, LINES-2, 0);
   redrawwin(chat);
   redrawwin(topic);
   redrawwin(input);
-  wrefresh(chat);
+  drawchat();
   wrefresh(topic);
-//  wrefresh(input);
   drawinput();
 }
 
@@ -182,19 +190,20 @@ int main(int argc, char** argv)
   cbreak();
   noecho();
   keypad(w, 1);
+  use_default_colors();
   topic=newwin(1, COLS, 0, 0);
   init_pair(1, COLOR_WHITE, COLOR_BLUE);
 
   // Define colors mapped to ANSI color codes (at least the ones tc_client uses)
-  init_pair(2, COLOR_RED, 0);
-  init_pair(3, COLOR_GREEN, 0);
-  init_pair(4, COLOR_YELLOW, 0);
-  init_pair(5, COLOR_BLUE, 0);
-  init_pair(6, COLOR_MAGENTA, 0);
-  init_pair(7, COLOR_CYAN, 0);
+  init_pair(2, COLOR_RED, -1);
+  init_pair(3, COLOR_GREEN, -1);
+  init_pair(4, COLOR_YELLOW, -1);
+  init_pair(5, COLOR_BLUE, -1);
+  init_pair(6, COLOR_MAGENTA, -1);
+  init_pair(7, COLOR_CYAN, -1);
 
   wbkgd(topic, COLOR_PAIR(1)|' ');
-  chat=newwin(LINES-3, COLS, 1, 0);
+  chat=newpad(2048, COLS);
   scrollok(chat, 1);
   input=newwin(2, COLS, LINES-2, 0);
   scrollok(input, 1);
@@ -247,7 +256,7 @@ int main(int argc, char** argv)
       }
       waddstr(chat, "\n");
       waddansi(chat, buf);
-      wrefresh(chat);
+      drawchat();
       wrefresh(input);
       continue;
     }
@@ -255,22 +264,6 @@ int main(int argc, char** argv)
     p[0].revents=0;
     rl_callback_read_char();
     drawinput();
-#if 0
-// TODO: move this into a function and also call it when the terminal is resized
-    werase(input);
-    unsigned int pos=bytestochars(rl_line_buffer, rl_end, rl_point);
-
-    waddstr(input, "> ");
-    int cursor_row=(pos+2)/COLS;
-    int end_row=(rl_end+2)/COLS;
-    // Figure out how much of the buffer to print to not scroll past the cursor
-//    unsigned int eol=cursor_row;// (pos+2)/COLS;
-    unsigned int eol=charstobytes(rl_line_buffer, rl_end, (cursor_row+2)*COLS-3); // -2 for cursor, -1 to avoid wrapping
-    waddnstr(input, rl_line_buffer, eol);
-
-    wmove(input, cursor_row==end_row && cursor_row>0, (pos+2)%COLS); // +2 for prompt
-    wrefresh(input);
-#endif
   }
   rl_callback_handler_remove();
   endwin();

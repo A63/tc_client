@@ -1,3 +1,11 @@
+0.25:
+Handle short reads in the RTMP headers too.
+Added the option -c/--color <number> to pick color instead of getting a random color at startup (contributed by Pamela)
+cursedchat: use default colors (for background in particular)
+cursedchat: added scrolling.
+modbot: fixed singular form of 'videos' in !queue response.
+modbot: update 'requested' (for !requestedby) also when a video is played manually.
+camviewer: added basic mic code (mixing is still missing so it is disabled by default, to enable, configure with environment variable ENABLE_MIC set to 1)
 0.24:
 Fixed endianness of RTMP set-chunk-size handling.
 modbot: fixed a bug where '!wrongrequest' would claim no request was found when (and only when) the request was last in queue.

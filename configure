@@ -87,6 +87,29 @@ else
   echo no
 fi
 
+# TODO: Figure out how to mix sound sources so that this doesn't sound horrible with more than one person on mic, having it disabled by default until then
+if [ "x${ENABLE_MIC}" != "x" ]; then
+printf 'Checking for libswresample... '
+libs="`pkg-config --libs libswresample 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "SWRESAMPLE_LIBS=${libs}" >> config.mk
+  echo "SWRESAMPLE_CFLAGS=`pkg-config --cflags libswresample`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
+printf 'Checking for libao... '
+libs="`pkg-config --libs ao 2> /dev/null`"
+if [ "x$libs" != "x" ]; then
+  echo "AO_LIBS=${libs}" >> config.mk
+  echo "AO_CFLAGS=`pkg-config --cflags ao`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+fi
+
 printf 'Checking for ncurses... '
 libs="`ncursesw5-config --libs 2> /dev/null || ncurses5-config --libs 2> /dev/null`"
 if [ "x$libs" != "x" ]; then

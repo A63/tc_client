@@ -18,6 +18,10 @@
 #include <fcntl.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+#ifdef HAVE_SOUND
+#include <libswresample/swresample.h>
+#include <ao/ao.h>
+#endif
 #include <gtk/gtk.h>
 
 #if GTK_MAJOR_VERSION==2
@@ -39,7 +43,8 @@ struct camera
   AVFrame* frame;
   AVFrame* dstframe;
   GtkWidget* cam;
-  AVCodecContext* ctx;
+  AVCodecContext* vctx;
+  AVCodecContext* actx;
   char* id;
   char* nick;
   GtkWidget* box; // holds label and cam
@@ -50,7 +55,11 @@ struct viddata
   struct camera* cams;
   unsigned int camcount;
   GtkWidget* box;
-  AVCodec* decoder;
+  AVCodec* vdecoder;
+  AVCodec* adecoder;
+#ifdef HAVE_SOUND
+  int audiopipe;
+#endif
 };
 
 int tc_client[2];
@@ -106,8 +115,12 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     cam->dstframe=av_frame_alloc();
     cam->nick=strdup(nick);
     cam->id=strdup(id);
-    cam->ctx=avcodec_alloc_context3(data->decoder);
-    avcodec_open2(cam->ctx, data->decoder, 0);
+    cam->vctx=avcodec_alloc_context3(data->vdecoder);
+    avcodec_open2(cam->vctx, data->vdecoder, 0);
+#ifdef HAVE_SOUND
+    cam->actx=avcodec_alloc_context3(data->adecoder);
+    avcodec_open2(cam->actx, data->adecoder, 0);
+#endif
     cam->cam=gtk_image_new();
     cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_box_pack_start(GTK_BOX(cam->box), cam->cam, 0, 0, 0);
@@ -124,7 +137,10 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
       {
         gtk_widget_destroy(data->cams[i].box);
         av_frame_free(&data->cams[i].frame);
-        avcodec_free_context(&data->cams[i].ctx);
+        avcodec_free_context(&data->cams[i].vctx);
+#ifdef HAVE_SOUND
+        avcodec_free_context(&data->cams[i].actx);
+#endif
         free(data->cams[i].id);
         free(data->cams[i].nick);
         --data->camcount;
@@ -138,20 +154,42 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   {
     char* sizestr=strchr(&buf[7], ' ');
     if(!sizestr){return 1;}
+    sizestr[0]=0;
     unsigned int size=strtoul(&sizestr[1], 0, 0);
     if(!size){return 1;}
     unsigned char frameinfo;
     read(tc_client[0], &frameinfo, 1);
     --size; // For the byte we read above
-    unsigned char buf[size];
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    unsigned char databuf[size];
+    pkt.data=databuf;
+    pkt.size=size;
     unsigned int pos=0;
     while(pos<size)
     {
-      pos+=read(tc_client[0], &buf[pos], size-pos);
+      pos+=read(tc_client[0], pkt.data+pos, size-pos);
     }
-// TODO: decode and send to a sound lib (libao)
+#ifdef HAVE_SOUND
+    // Find the camera representation for the given ID (for decoder context)
+    struct camera* cam=0;
+    for(i=0; i<data->camcount; ++i)
+    {
+      if(!strcmp(data->cams[i].id, &buf[7])){cam=&data->cams[i]; break;}
+    }
+    if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); free(pkt.data); return 1;}
+    int gotframe;
+    avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
+    if(!gotframe){return 1;}
+    SwrContext* swrctx=swr_alloc_set_opts(0, 1, AV_SAMPLE_FMT_S16, 22050, 1, cam->frame->format, 11025, 0, 0); // TODO: any way to get the sample rate from the frame/decoder? cam->frame->sample_rate seems to be 0
+    swr_init(swrctx);
+    int outlen=swr_convert(swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+    swr_free(&swrctx);
+    write(data->audiopipe, cam->frame->data[0], outlen);
+#endif
+    return 1;
   }
-  if(strncmp(buf, "Video: ", 7)){printf("Got '%s'\n", buf); return 1;} // Ignore anything else that isn't video
+  if(strncmp(buf, "Video: ", 7)){printf("Got '%s'\n", buf); fflush(stdout); return 1;} // Ignore anything else that isn't video
   char* sizestr=strchr(&buf[7], ' ');
   if(!sizestr){return 1;}
   sizestr[0]=0;
@@ -182,7 +220,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); free(pkt.data); return 1;}
   pkt.size=size;
   int gotframe;
-  avcodec_decode_video2(cam->ctx, cam->frame, &gotframe, &pkt);
+  avcodec_decode_video2(cam->vctx, cam->frame, &gotframe, &pkt);
   if(!gotframe){return 1;}
 
   // Convert to RGB24 format
@@ -203,11 +241,48 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   return 1;
 }
 
+#ifdef HAVE_SOUND
+void audiothread(int fd)
+{
+  ao_initialize();
+  ao_sample_format samplefmt;
+  samplefmt.bits=16;
+  samplefmt.rate=22050;
+  samplefmt.channels=1;
+  samplefmt.byte_format=AO_FMT_NATIVE; // I'm guessing libavcodec decodes it to native
+  samplefmt.matrix=0;
+  ao_option clientname={.key="client_name", .value="tc_client/camviewer", .next=0};
+  ao_device* dev=ao_open_live(ao_default_driver_id(), &samplefmt, &clientname);
+// TODO: mix sounds, somehow..
+  char buf[2048];
+  size_t len;
+  while((len=read(fd, buf, 2048))>0)
+  {
+    ao_play(dev, buf, len);
+  }
+  ao_close(dev);
+}
+#endif
+
 int main(int argc, char** argv)
 {
-  struct viddata data={0,0,0,0};
+  struct viddata data={0,0,0,0,0};
   avcodec_register_all();
-  data.decoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
+  data.vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
+  data.adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
+
+#ifdef HAVE_SOUND
+  int audiopipe[2];
+  pipe(audiopipe);
+  data.audiopipe=audiopipe[1];
+  if(!fork())
+  {
+    close(audiopipe[1]);
+    audiothread(audiopipe[0]);
+    _exit(0);
+  }
+  close(audiopipe[0]);
+#endif
 
   gtk_init(&argc, &argv);
   GtkWidget* w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -234,14 +309,17 @@ int main(int argc, char** argv)
   unsigned int channel_id=g_io_add_watch(tcchannel, G_IO_IN, handledata, &data);
 
   gtk_main();
-
+ 
   g_source_remove(channel_id);
   g_io_channel_shutdown(tcchannel, 0, 0);
   unsigned int i;
   for(i=0; i<data.camcount; ++i)
   {
     av_frame_free(&data.cams[i].frame);
-    avcodec_free_context(&data.cams[i].ctx);
+    avcodec_free_context(&data.cams[i].vctx);
+#ifdef HAVE_SOUND
+    avcodec_free_context(&data.cams[i].actx);
+#endif
     free(data.cams[i].id);
     free(data.cams[i].nick);
   }

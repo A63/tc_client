@@ -35,6 +35,19 @@ struct chunk* chunks=0;
 unsigned int chunkcount=0;
 unsigned int chunksize_in=128;
 
+size_t fullread(int fd, void* buf, size_t len)
+{
+  size_t remaining=len;
+  while(remaining>0)
+  {
+    size_t r=read(fd, buf, remaining);
+    if(r<1){return 0;}
+    remaining-=r;
+    buf+=r;
+  }
+  return len;
+}
+
 struct chunk* chunk_get(unsigned int id)
 {
   unsigned int i;
@@ -58,40 +71,40 @@ char rtmp_get(int sock, struct rtmp* rtmp)
 {
   // Header format and chunk ID
   unsigned int x=0;
-  if(read(sock, &x, 1)<1){return 0;}
+  if(fullread(sock, &x, 1)<1){return 0;}
   unsigned int chunkid=x&0x3f;
   unsigned int fmt=(x&0xc0)>>6;
   struct chunk* chunk=chunk_get(chunkid);
   // Handle extended stream IDs
   if(chunkid<2) // (0=1 extra byte, 1=2 extra bytes)
   {
-    read(sock, &x, chunkid+1);
+    fullread(sock, &x, chunkid+1);
     chunkid=64+x;
   }
   if(fmt<3)
   {
     // Timestamp
-    read(sock, &x, 3);
+    fullread(sock, &x, 3);
     chunk->timestamp=x;
     if(fmt<2)
     {
       // Length
       x=0;
-      read(sock, ((void*)&x)+1, 3);
+      fullread(sock, ((void*)&x)+1, 3);
       chunk->length=be32(x);
       // Type
-      read(sock, &chunk->type, sizeof(chunk->type));
+      fullread(sock, &chunk->type, sizeof(chunk->type));
       if(fmt<1)
       {
         // Message ID
-        read(sock, &chunk->streamid, sizeof(chunk->streamid));
+        fullread(sock, &chunk->streamid, sizeof(chunk->streamid));
       }
     }
   }
   // Extended timestamp
   if(chunk->timestamp==0xffffff)
   {
-    read(sock, &x, sizeof(x));
+    fullread(sock, &x, sizeof(x));
     chunk->timestamp=be32(x);
   }
 
@@ -101,14 +114,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
     chunk->pos=0;
   }
   unsigned int rsize=((chunk->length-chunk->pos>=chunksize_in)?chunksize_in:(chunk->length-chunk->pos));
-  while(rsize>0)
-  {
-    size_t r=read(sock, chunk->buf+chunk->pos, rsize);
-    if(r<1){return 0;}
-    rsize-=r;
-    chunk->pos+=r;
-//    if(rsize){printf("Got a short read, %u remaining\n", rsize);}
-  }
+  chunk->pos+=fullread(sock, chunk->buf+chunk->pos, rsize);
   if(chunk->pos==chunk->length)
   {
     if(chunk->type==RTMP_SET_PACKET_SIZE)

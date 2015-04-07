@@ -403,7 +403,7 @@ int main(int argc, char** argv)
                 ++listed;
               }
             }
-            say(pm, "%u videos in queue, %u of which are not yet approved by mods (%s%s)\n", queue.itemcount, notapproved, buf, (listed<notapproved)?", etc.":"");
+            say(pm, "%u video%s in queue, %u of which are not yet approved by mods (%s%s)\n", queue.itemcount, (queue.itemcount==1)?"":"s", notapproved, buf, (listed<notapproved)?", etc.":"");
           }else{
             say(pm, "%u videos in queue\n", queue.itemcount);
           }
@@ -565,6 +565,8 @@ int main(int argc, char** argv)
             list_save(&goodvids, "goodvids.txt");
             free(playing);
             playing=strdup(vid);
+            free(requester);
+            requester=strdup(nick);
             unsigned int pos=(end?(strtol(&end[1], 0, 0)/1000):0);
             alarm(getduration(playing)-pos);
             started=time(0)-pos;

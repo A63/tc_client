@@ -2,6 +2,7 @@
     tc_client, a simple non-flash client for tinychat(.com)
     Copyright (C) 2014-2015  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
+    Copyright (C) 2015  Pamela Hiatt
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -210,6 +211,7 @@ void usage(const char* me)
          "-h, --help           Show this help text and exit\n"
          "-u, --user <user>    Username of tinychat account to use.\n"
          "-p, --pass <pass>    Password of tinychat account to use.\n"
+         "-c, --color <value>  Color to use in chat.\n"
          ,me);
 }
 
@@ -238,6 +240,11 @@ int main(int argc, char** argv)
       ++i;
       account_pass=strdup(argv[i]);
     }
+    else if(!strcmp(argv[i], "-c")||!strcmp(argv[i], "--color"))
+    {
+      ++i;
+      currentcolor=atoi(argv[i]);
+    }
     else if(!channel){channel=argv[i];}
     else if(!nickname){nickname=strdup(argv[i]);}
     else if(!password){password=argv[i];}
@@ -245,7 +252,7 @@ int main(int argc, char** argv)
   // Check for required arguments
   if(!channel||!nickname){usage(argv[0]); return 1;}
   char badchar;
-  if((badchar=checknick(argv[2])))
+  if((badchar=checknick(nickname)))
   {
     printf("'%c' is not allowed in nicknames.\n", badchar);
     return 1;
@@ -293,7 +300,10 @@ int main(int argc, char** argv)
   // RTMP handshake
   unsigned char handshake[1536];
   read(random, handshake, 1536);
-  read(random, &currentcolor, sizeof(currentcolor));
+  if(currentcolor>=COLORCOUNT)
+  {
+    read(random, &currentcolor, sizeof(currentcolor));
+  }
   close(random);
   write(sock, "\x03", 1); // Send 0x03 and 1536 bytes of random junk
   write(sock, handshake, 1536);
@@ -415,9 +425,9 @@ int main(int argc, char** argv)
             if(!strcmp(&buf[7], "off")){showcolor=0; continue;}
             if(!strcmp(&buf[7], "on")){showcolor=1; continue;}
             currentcolor=atoi(&buf[7]);
-            printf("\x1b[%smChanged color\x1b[0m\n", termcolors[currentcolor%16]);
+            printf("\x1b[%smChanged color\x1b[0m\n", termcolors[currentcolor%COLORCOUNT]);
           }else{ // No color specified, state our current color
-            printf("\x1b[%smCurrent color: %i\x1b[0m\n", termcolors[currentcolor%16], currentcolor%16);
+            printf("\x1b[%smCurrent color: %i\x1b[0m\n", termcolors[currentcolor%COLORCOUNT], currentcolor%COLORCOUNT);
           }
           fflush(stdout);
           continue;
@@ -425,7 +435,7 @@ int main(int argc, char** argv)
         else if(!strcmp(buf, "/colors"))
         {
           int i;
-          for(i=0; i<16; ++i)
+          for(i=0; i<COLORCOUNT; ++i)
           {
             printf("\x1b[%smColor %i\x1b[0m\n", termcolors[i], i);
           }
@@ -553,7 +563,7 @@ int main(int argc, char** argv)
       amfnum(&amf, 0);
       amfnull(&amf);
       amfstring(&amf, msg);
-      amfstring(&amf, colors[currentcolor%16]);
+      amfstring(&amf, colors[currentcolor%COLORCOUNT]);
       // For PMs, add a string like "n<numeric ID>-<nick>" to make the server only send it to the intended recipient
       if(privfield)
       {

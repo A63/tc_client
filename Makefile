@@ -1,4 +1,4 @@
-VERSION=0.24
+VERSION=0.25
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
 ifneq ($(wildcard config.mk),)
@@ -16,6 +16,11 @@ ifdef AVUTIL_LIBS
 ifdef SWSCALE_LIBS
   UTILS+=camviewer
   CFLAGS+=$(GTK_CFLAGS) $(AVCODEC_CFLAGS) $(AVUTIL_CFLAGS) $(SWSCALE_CFLAGS)
+  ifdef SWRESAMPLE_LIBS
+  ifdef AO_LIBS
+    CFLAGS+=-DHAVE_SOUND $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
+  endif
+  endif
 endif
 endif
 endif
@@ -39,7 +44,7 @@ modbot: $(MODBOT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
 
 camviewer: $(CAMVIEWER_OBJ)
-	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) -o $@
+	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) -o $@
 
 cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
