@@ -1,0 +1,8 @@
+*.o
+camviewer
+config.mk
+cursedchat
+irchack
+modbot
+tc_client
+tc_client-gtk
