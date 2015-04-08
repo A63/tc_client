@@ -25,7 +25,7 @@ char autoscroll_before(GtkAdjustment* scroll)
   int upper=gtk_adjustment_get_upper(scroll);
   int size=gtk_adjustment_get_page_size(scroll);
   int value=gtk_adjustment_get_value(scroll);
-  return (value+size==upper);
+  return (value+size+20>=upper);
 }
 
 void autoscroll_after(GtkAdjustment* scroll)

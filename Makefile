@@ -1,4 +1,4 @@
-VERSION=0.30
+VERSION=0.31pre
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
 ifneq ($(wildcard config.mk),)

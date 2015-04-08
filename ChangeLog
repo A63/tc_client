@@ -1,3 +1,5 @@
+0.31:
+tc_client-gtk: added a margin to the autoscroll code, which should make scrolling work better when resizing the window or panes.
 0.30:
 Adjusted the configure script for compatibility with shells that still interpret escaped characters in single-quotes (contributed by Jade)
 Added a /topic command to set the channel topic.
