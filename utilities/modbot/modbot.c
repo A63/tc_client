@@ -390,7 +390,7 @@ int main(int argc, char** argv)
             }
           }
           else if(!playing){playnext(0);}
-          else{say(pm, "Added '%s' to queue\n", title);}
+          else{say(pm, "Added '%s' to queue, it has already been approved\n", title);}
         }
         // Undo
         else if(!strcmp(msg, "!wrongrequest"))
