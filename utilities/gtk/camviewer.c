@@ -1,6 +1,7 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
     Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015  Pamela Hiatt
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -77,6 +78,7 @@ int tc_client[2];
 int tc_client_in[2];
 const char* channel=0;
 const char* mycolor=0;
+char* nickname=0;
 
 void updatescaling(struct viddata* data, unsigned int width, unsigned int height)
 {
@@ -164,6 +166,13 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
       if(next){next[0]=0;}
       adduser(nick);
     }
+    return 1;
+  }
+  if(!strncmp(buf, "Connection ID: ", 15)) // Our initial nickname is "guest-" plus our connection ID
+  {
+    unsigned int length=strlen(&buf[15]);
+    nickname=malloc(length+strlen("guest-")+1);
+    sprintf(nickname, "guest-%s", &(buf[15]));
     return 1;
   }
   // Start streams once we're properly connected
@@ -274,6 +283,12 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
           cam->nick=strdup(&space[21]);
           gtk_label_set_text(GTK_LABEL(cam->label), cam->nick);
         }
+        // If it was us, keep track of the new nickname
+        if(!strcmp(nickname, nick))
+        {
+          free(nickname);
+          nickname=strdup(&space[21]);
+        }
       }
     }
     free(color);
@@ -357,7 +372,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     struct camera* cam=camera_new();
     cam->frame=av_frame_alloc();
     cam->dstframe=av_frame_alloc();
-    cam->nick=strdup("You");
+    cam->nick=strdup(nickname);
     cam->id=strdup("out");
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
     avcodec_open2(cam->vctx, data->vdecoder, 0);
@@ -676,11 +691,11 @@ void sendmessage(GtkEntry* entry, struct viddata* data)
     gtk_entry_set_text(entry, "");
     return;
   }
-  char text[strlen("[00:00] ")+strlen("You: ")+strlen(msg)+1];
+  char text[strlen("[00:00] ")+strlen(nickname)+strlen(": ")+strlen(msg)+1];
   time_t timestamp=time(0);
   struct tm* t=localtime(&timestamp);
   sprintf(text, "[%02i:%02i] ", t->tm_hour, t->tm_min);
-  sprintf(&text[8], "You: %s", msg);
+  sprintf(&text[8], "%s: %s", nickname, msg);
   if(config_get_bool("enable_logging")){logger_write(text, channel, 0);}
   printchat_color(data, text, mycolor, 8);
   gtk_entry_set_text(entry, "");
