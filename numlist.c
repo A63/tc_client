@@ -22,6 +22,12 @@
 
 // Functions for converting to/from the comma-separated decimal character code format that tinychat uses for chat messages, e.g. "97,98,99" = "abc"
 
+#if(__BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__)
+  #define ENDIAN "le"
+#else
+  #define ENDIAN "be"
+#endif
+
 char* fromnumlist(char* in, size_t* outlen)
 {
   size_t len=1;
@@ -31,12 +37,7 @@ char* fromnumlist(char* in, size_t* outlen)
     ++len;
     x=&x[1];
   }
-#if defined(__ANDROID__) || defined(__APPLE__)
-  *outlen=len;
-  unsigned char* string=malloc(len+1);
-#else
   unsigned short string[len+1];
-#endif
   int i;
   for(i=0; i<len; ++i)
   {
@@ -46,10 +47,7 @@ char* fromnumlist(char* in, size_t* outlen)
   }
   string[len]=0;
 
-#if defined(__ANDROID__) || defined(__APPLE__)
-  return string;
-#else
-  iconv_t cd=iconv_open("", "utf-16");
+  iconv_t cd=iconv_open("", "utf-16"ENDIAN);
   char* outbuf=malloc(len*4);
   char* i_out=outbuf;
   char* i_in=(char*)string;
@@ -61,22 +59,17 @@ char* fromnumlist(char* in, size_t* outlen)
   iconv_close(cd);
   *outlen-=remaining;
   return outbuf;
-#endif
 }
 
 char* tonumlist(char* i_in, size_t len)
 {
-#if defined(__ANDROID__) || defined(__APPLE__)
-  #define in i_in
-#else
-  iconv_t cd=iconv_open("utf-16le", "");
+  iconv_t cd=iconv_open("utf-16"ENDIAN, "");
   unsigned short in[len+1];
   char* i_out=(char*)in;
   size_t outlen=len*2; // 2 bytes per character in utf-16
   while(outlen>0 && len>0 && iconv(cd, &i_in, &len, &i_out, &outlen)>0);
   iconv_close(cd);
   len=((void*)i_out-(void*)in)/2;
-#endif
 
   char* out=malloc(len*strlen("65535,"));
   out[0]=0;

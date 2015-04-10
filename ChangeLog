@@ -1,4 +1,5 @@
 0.31:
+Fixed the issue where messages would show up on kanji on some platforms (a proper fix instead of the earlier android & apple workaround)
 tc_client-gtk: added a margin to the autoscroll code, which should make scrolling work better when resizing the window or panes.
 modbot: added a little note about the video being pre-approved when requesting an already approved video.
 0.30:
