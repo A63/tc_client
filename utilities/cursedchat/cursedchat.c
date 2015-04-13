@@ -37,6 +37,8 @@ WINDOW* input;
 int to_app;
 struct list userlist={0,0};
 char* nickname=0;
+int mycolor=1;
+char mycolor_bold=0;
 
 // Translate ANSI escape codes to curses commands and write the text to a window
 void waddansi(WINDOW* w, char* str)
@@ -192,7 +194,16 @@ void gotline(char* line)
   write(to_app, "\n", 1);
   time_t timestamp=time(0);
   struct tm* t=localtime(&timestamp);
-  wprintw(buffers[currentbuf].pad, "\n[%02i:%02i] %s: %s", t->tm_hour, t->tm_min, nickname, line);
+  // Timestamp
+  wprintw(buffers[currentbuf].pad, "\n[%02i:%02i] ", t->tm_hour, t->tm_min);
+  // Set our color
+  wattron(buffers[currentbuf].pad, COLOR_PAIR(mycolor+1));
+  if(mycolor_bold){wattron(buffers[currentbuf].pad, A_BOLD);}
+  // Our message
+  wprintw(buffers[currentbuf].pad, "%s: %s", nickname, line);
+  // Unset color
+  wattroff(buffers[currentbuf].pad, COLOR_PAIR(1));
+  wattroff(buffers[currentbuf].pad, A_BOLD);
   drawchat();
 }
 
@@ -369,6 +380,7 @@ int main(int argc, char** argv)
   close(app_in[0]);
   close(app_out[1]);
   to_app=app_in[1];
+  write(to_app, "/color\n", 7); // Check the initial random color
   struct pollfd p[2]={{.fd=0, .events=POLLIN, .revents=0},
                       {.fd=app_out[0], .events=POLLIN, .revents=0}};
   while(1)
@@ -387,6 +399,7 @@ int main(int argc, char** argv)
       }
       if(len==-1){break;} // Bad read
       buf[len]=0;
+      char* colorend;
       unsigned int buffer=0;
       if(!strncmp(buf, "Room topic: ", 12))
       {
@@ -413,6 +426,11 @@ int main(int argc, char** argv)
           if(next){next[0]=',';}
           name=next;
         }
+      }
+      else if(buf[0]=='\x1b' && buf[1]=='[' && buf[2]=='3' && (colorend=strchr(buf, 'm')) && (!strcmp(&colorend[1], "Changed color\x1b[0m") || !strncmp(&colorend[1], "Current color: ", 15)))
+      {
+        mycolor=strtol(&buf[3], &colorend, 10);
+        mycolor_bold=!strncmp(colorend, ";1", 2);
       }
       else if(buf[0]=='['&&isdigit(buf[1])&&isdigit(buf[2])&&buf[3]==':'&&isdigit(buf[4])&&isdigit(buf[5])&&buf[6]==']'&&buf[7]==' ')
       {
