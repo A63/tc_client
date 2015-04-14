@@ -140,10 +140,10 @@ void playnextvid()
   waitskip=0;
   playing=queue.items[0].video;
   requester=queue.items[0].requester;
+  say(0, "/mbs youTube %s 0 %s\n", playing, queue.items[0].title);
   free(queue.items[0].title);
   --queue.itemcount;
   memmove(queue.items, &queue.items[1], sizeof(struct queueitem)*queue.itemcount);
-  say(0, "/mbs youTube %s 0\n", playing);
   // Find out the video's length and schedule an alarm for then
   alarm(getduration(playing));
   started=time(0);
