@@ -3,6 +3,7 @@ Fixed the issue where messages would show up on kanji on some platforms (a prope
 When a message is sent with a privacy field, send it once with 'b' (broadcasting) and once with 'n' (not-broadcasting)
 tc_client-gtk: added a margin to the autoscroll code, which should make scrolling work better when resizing the window or panes.
 tc_client-gtk: copied and adjusted the code for keeping track of our own nickname from cursedchat.
+tc_client-gtk and camviewer: fixed the code for fallback on libswresample.
 modbot: added a little note about the video being pre-approved when requesting an already approved video.
 modbot: include the video title at the end of the /mbs command, which doesn't affect the flash client but lets e.g. tc_client users know which video is being played.
 cursedchat: copied and adjusted the code for keeping track of our own text color from tc_client-gtk.

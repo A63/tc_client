@@ -31,7 +31,7 @@ struct camera
 extern struct camera* cams;
 extern unsigned int camcount;
 
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);
 #endif
 extern void camera_remove(const char* nick);

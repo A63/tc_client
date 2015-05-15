@@ -22,7 +22,7 @@
 struct camera* cams=0;
 unsigned int camcount=0;
 
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 // Experimental mixer, not sure if it really works
 void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount)
 {
@@ -63,7 +63,7 @@ void camera_remove(const char* id)
       gtk_widget_destroy(cams[i].box);
       av_frame_free(&cams[i].frame);
       avcodec_free_context(&cams[i].vctx);
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
       avcodec_free_context(&cams[i].actx);
 #endif
       free(cams[i].id);
@@ -85,7 +85,7 @@ void camera_removebynick(const char* nick)
       gtk_widget_destroy(cams[i].box);
       av_frame_free(&cams[i].frame);
       avcodec_free_context(&cams[i].vctx);
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
       avcodec_free_context(&cams[i].actx);
 #endif
       free(cams[i].id);
@@ -131,7 +131,7 @@ void camera_cleanup(void)
   {
     av_frame_free(&cams[i].frame);
     avcodec_free_context(&cams[i].vctx);
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
     avcodec_free_context(&cams[i].actx);
 #endif
     free(cams[i].id);

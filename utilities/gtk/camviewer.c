@@ -29,14 +29,13 @@
 #else
   #include <libavcore/imgutils.h>
 #endif
-#ifdef HAVE_SOUND
-  // Use libavresample if available, otherwise fall back on libswresample
-  #if HAVE_SOUND==avresample
-    #include <libavutil/opt.h>
-    #include <libavresample/avresample.h>
-  #else
-    #include <libswresample/swresample.h>
-  #endif
+// Use libavresample if available, otherwise fall back on libswresample
+#ifdef HAVE_AVRESAMPLE
+  #include <libavutil/opt.h>
+  #include <libavresample/avresample.h>
+  #include <ao/ao.h>
+#elif defined(HAVE_SWRESAMPLE)
+  #include <libswresample/swresample.h>
   #include <ao/ao.h>
 #endif
 #include <gtk/gtk.h>
@@ -61,13 +60,12 @@ struct viddata
   AVCodec* adecoder;
   int scalewidth;
   int scaleheight;
-#ifdef HAVE_SOUND
+#ifdef HAVE_AVRESAMPLE
   int audiopipe;
-  #if HAVE_SOUND==avresample
-    AVAudioResampleContext* resamplectx;
-  #else
-    SwrContext* swrctx;
-  #endif
+  AVAudioResampleContext* resamplectx;
+#elif defined(HAVE_SWRESAMPLE)
+  int audiopipe;
+  SwrContext* swrctx;
 #endif
   GtkTextBuffer* buffer; // TODO: struct buffer array, for PMs
   GtkAdjustment* scroll;
@@ -349,7 +347,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     cam->id=strdup(id);
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
     avcodec_open2(cam->vctx, data->vdecoder, 0);
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
     cam->actx=avcodec_alloc_context3(data->adecoder);
     avcodec_open2(cam->actx, data->adecoder, 0);
     cam->samples=0;
@@ -415,17 +413,17 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     {
       pos+=read(fd, pkt.data+pos, size-pos);
     }
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
     // Find the camera representation for the given ID (for decoder context)
     struct camera* cam=camera_find(&buf[7]);
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
     int gotframe;
     avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
     if(!gotframe){return 1;}
-  #if HAVE_SOUND==avresample
+  #ifdef HAVE_AVRESAMPLE
     int outlen=avresample_convert(data->resamplectx, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
   #else
-    int outlen=swr_convert(data->resamplectx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+    int outlen=swr_convert(data->swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
   #endif
     camera_playsnd(data->audiopipe, cam, (short*)cam->frame->data[0], outlen);
 #endif
@@ -478,7 +476,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   return 1;
 }
 
-#ifdef HAVE_SOUND
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 void audiothread(int fd)
 {
   ao_initialize();
@@ -773,8 +771,8 @@ int main(int argc, char** argv)
   data.vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
   data.adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
 
-#ifdef HAVE_SOUND
-  #if HAVE_SOUND==avresample
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
+  #ifdef HAVE_AVRESAMPLE
   data.resamplectx=avresample_alloc_context();
   av_opt_set_int(data.resamplectx, "in_channel_layout", AV_CH_FRONT_CENTER, 0);
   av_opt_set_int(data.resamplectx, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
@@ -785,7 +783,7 @@ int main(int argc, char** argv)
   av_opt_set_int(data.resamplectx, "out_sample_rate", 22050, 0);
   avresample_open(data.resamplectx);
   #else
-  data.resamplectx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0);
+  data.swrctx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0);
   swr_init(data.swrctx);
   #endif
   int audiopipe[2];
@@ -892,12 +890,10 @@ int main(int argc, char** argv)
   gtk_main();
  
   camera_cleanup();
-#ifdef HAVE_SOUND
-  #if HAVE_SOUND==avresample
+#ifdef HAVE_AVRESAMPLE
   avresample_free(&data.resamplectx);
-  #else
+#elif defined(HAVE_SWRESAMPLE)
   swr_free(&data.swrctx);
-  #endif
 #endif
   return 0;
 }
