@@ -216,7 +216,7 @@ char* getprivfield(char* nick)
     return 0;
   }
   char* priv=malloc(snprintf(0, 0, "n%i-", id)+privlen+1);
-  sprintf(priv, "n%i-", id);
+  sprintf(priv, "n%i-", id); // 'n' for not-broadcasting
   strncat(priv, nick, privlen);
   return priv;
 }
@@ -638,6 +638,17 @@ int main(int argc, char** argv)
       if(privfield)
       {
         amfstring(&amf, privfield);
+        // And one in case they're broadcasting
+        privfield[0]='b'; // 'b' for broadcasting
+        struct rtmp bamf;
+        amfinit(&bamf, 3);
+        amfstring(&bamf, "privmsg");
+        amfnum(&bamf, 0);
+        amfnull(&bamf);
+        amfstring(&bamf, msg);
+        amfstring(&bamf, colors[currentcolor%COLORCOUNT]);
+        amfstring(&bamf, privfield);
+        amfsend(&bamf, sock);
         free(privfield);
       }
       amfsend(&amf, sock);

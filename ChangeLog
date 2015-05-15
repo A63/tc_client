@@ -1,5 +1,6 @@
 0.31:
 Fixed the issue where messages would show up on kanji on some platforms (a proper fix instead of the earlier android & apple workaround)
+When a message is sent with a privacy field, send it once with 'b' (broadcasting) and once with 'n' (not-broadcasting)
 tc_client-gtk: added a margin to the autoscroll code, which should make scrolling work better when resizing the window or panes.
 tc_client-gtk: copied and adjusted the code for keeping track of our own nickname from cursedchat.
 modbot: added a little note about the video being pre-approved when requesting an already approved video.
