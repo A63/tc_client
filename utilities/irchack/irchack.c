@@ -279,6 +279,30 @@ printf("Got from tc_client: '%s'\n", buf);
         dprintf(sock, ":irchack MODE #%s -o %s\n", channel, buf);
         continue;
       }
+      if(!strcmp(buf, "Banned users:"))
+      {
+        while(strncmp(buf, "Use /forgive ", 13))
+        {
+          char* end;
+          strtoul(buf, &end, 10);
+          if(end[0]==' ') // Everything up to a space was a valid number, thus a ban entry
+          {
+            char* user=strrchr(buf, ' ')+1;
+            end[0]=0;
+            dprintf(sock, ":irchack 367 %s #%s %s!%s@* irchack 0\n", nick, channel, user, buf);
+          }
+          len=0;
+          while(len<2047)
+          {
+            if((r=read(tc_out[0], &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
+            ++len;
+          }
+          if(r!=1){return 1;}
+          buf[len]=0;
+        }
+        dprintf(sock, ":irchack 368 %s #%s :End of Channel Ban List.\n", nick, channel);
+        continue;
+      }
       if(buf[0]!='['){continue;} // Beyond this we only care about timestamped lines
       // Translate ANSI escape codes to IRC color code instead
       char* ansi;
@@ -312,7 +336,7 @@ printf("Got from tc_client: '%s'\n", buf);
         }
         else if(!strncmp(msg, "/userinfo ", 10)) // /userinfo response (translated as whois)
         {
-          if(msg[10]=='$'){continue;} // Special, ignore
+          if(!strcmp(&msg[10], "$request")){continue;} // Special, ignore
           dprintf(sock, ":server 311 %s %s user host * :%s\n", nick, name, &msg[10]);
           dprintf(sock, ":server 318 %s %s :End of /WHOIS list\n", nick, name);
         }else{ // Regular channel message
@@ -398,6 +422,48 @@ printf("Got from IRC client: '%s'\n", buf);
         char* space=strchr(&buf[6], ' ');
         if(space){space[0]=0;}
         dprintf(tc_in[1], "/priv %s /userinfo $request\n", buf[6]==':'?&buf[7]:&buf[6]);
+      }
+      else if(!strncasecmp(buf, "TOPIC ", 6))
+      {
+        char* target=&buf[6];
+        char* topic=strchr(target, ' ');
+        if(!topic){continue;}
+        topic=&topic[1];
+        if(topic[0]==':'){topic=&topic[1];}
+        dprintf(tc_in[1], "/topic %s\n", topic);
+      }
+      else if(!strncasecmp(buf, "MODE ", 5)) // Handle bans
+      {
+        char* target=&buf[5];
+        char* mode=strchr(target, ' ');
+        if(!mode){continue;}
+        mode=&mode[1];
+        if(mode[0]==':'){mode=&mode[1];}
+        char add=1;
+        if(mode[0]=='-'){mode=&mode[1]; add=0;}
+        char* arg=strchr(mode, ' ');
+        while(arg && arg[0]==' '){arg=&arg[1];}
+        while(mode[0]!=' ')
+        {
+          if(mode[0]=='b')
+          {
+            if(!arg)
+            {
+              dprintf(tc_in[1], "/banlist\n");
+              break;
+            }
+            char* argend=strchr(arg, ' ');
+            while(argend && argend[0]==' '){argend[0]=0; argend=&argend[1];}
+            char* excl=strchr(arg, '!');
+            if(excl){excl[0]=0;}
+            if(strcmp(arg, "*")) // Ignore wildcards, wouldn't work
+            {
+              dprintf(tc_in[1], add?"/ban %s\n":"/forgive %s\n", arg);
+            }
+            arg=argend;
+          }
+          mode=&mode[1];
+        }
       }
     }
   }

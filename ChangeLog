@@ -7,6 +7,7 @@ tc_client-gtk and camviewer: fixed the code for fallback on libswresample.
 modbot: added a little note about the video being pre-approved when requesting an already approved video.
 modbot: include the video title at the end of the /mbs command, which doesn't affect the flash client but lets e.g. tc_client users know which video is being played.
 cursedchat: copied and adjusted the code for keeping track of our own text color from tc_client-gtk.
+irchack: translate topic and ban/banlist commands.
 0.30:
 Adjusted the configure script for compatibility with shells that still interpret escaped characters in single-quotes (contributed by Jade)
 Added a /topic command to set the channel topic.
