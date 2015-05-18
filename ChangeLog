@@ -1,3 +1,5 @@
+0.32:
+irchack: send passwords by pipe, not argument.
 0.31:
 Fixed the issue where messages would show up on kanji on some platforms (a proper fix instead of the earlier android & apple workaround)
 When a message is sent with a privacy field, send it once with 'b' (broadcasting) and once with 'n' (not-broadcasting)

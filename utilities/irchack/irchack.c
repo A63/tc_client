@@ -189,7 +189,7 @@ char session(int sock, const char* nick, const char* channel, const char* pass, 
     dup2(tc_out[1], 1);
     if(acc_user && acc_pass)
     {
-      execl("./tc_client", "./tc_client", "-u", acc_user, "-p", acc_pass, channel, nick, pass, (char*)0);
+      execl("./tc_client", "./tc_client", "-u", acc_user, channel, nick, pass, (char*)0);
     }else{
       execl("./tc_client", "./tc_client", channel, nick, pass, (char*)0);
     }
@@ -198,6 +198,10 @@ char session(int sock, const char* nick, const char* channel, const char* pass, 
   }
   close(tc_in[0]);
   close(tc_out[1]);
+  if(acc_user && acc_pass)
+  {
+    dprintf(tc_in[1], "%s\n", acc_pass);
+  }
   struct pollfd pfd[2];
   pfd[0].fd=tc_out[0];
   pfd[0].events=POLLIN;
