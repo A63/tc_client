@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
-#include <sys/wait.h>
 #include <ctype.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
@@ -190,7 +189,6 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strcmp(buf, "Password required"))
   {
-    wait(0); // Reap the previous process
     gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(data->gui, "main")));
     gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(data->gui, "channelpasswordwindow")));
     return 1;
@@ -234,6 +232,8 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
         if(!offset){_exit(1);}
         offset[0]=0;
         offset=&offset[1];
+        char* end=strchr(offset, ' '); // Ignore any additional arguments after the offset (the modbot utility includes the video title here)
+        if(end){end[0]=0;}
         // Handle format string
         const char* fmt=config_get_str("youtubecmd");
         int len=strlen(fmt)+1;
@@ -770,6 +770,7 @@ int main(int argc, char** argv)
   avcodec_register_all();
   data.vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
   data.adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
+  signal(SIGCHLD, SIG_IGN);
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
   #ifdef HAVE_AVRESAMPLE
