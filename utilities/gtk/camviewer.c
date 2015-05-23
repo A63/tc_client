@@ -502,10 +502,12 @@ void audiothread(int fd)
 
 #ifdef HAVE_V4L2
 pid_t camproc=0;
+unsigned int cameventsource;
 void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 {
   if(!gtk_check_menu_item_get_active(item))
   {
+    g_source_remove(cameventsource);
     kill(camproc, SIGINT);
     camproc=0;
     dprintf(tc_client_in[1], "/camdown\n");
@@ -590,7 +592,7 @@ packet.size=0;
   close(campipe[1]);
   GIOChannel* channel=g_io_channel_unix_new(campipe[0]);
   g_io_channel_set_encoding(channel, 0, 0);
-  g_io_add_watch(channel, G_IO_IN, handledata, data);
+  cameventsource=g_io_add_watch(channel, G_IO_IN, handledata, data);
 }
 #endif
 

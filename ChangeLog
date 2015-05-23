@@ -2,6 +2,7 @@
 Added an 'install' make target, adjusted utilities to run tc_client from PATH unless they were run from the build directory (i.e. './<executable>')
 irchack: send passwords by pipe, not argument.
 tc_client-gtk: ignore anything after the offset in /mbs commands.
+tc_client-gtk: when camming down, remove the glib event source for our cam stream.
 0.31:
 Fixed the issue where messages would show up on kanji on some platforms (a proper fix instead of the earlier android & apple workaround)
 When a message is sent with a privacy field, send it once with 'b' (broadcasting) and once with 'n' (not-broadcasting)
