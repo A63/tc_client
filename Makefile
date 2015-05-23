@@ -1,6 +1,7 @@
 VERSION=0.32pre
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
+PREFIX=/usr/local
 ifneq ($(wildcard config.mk),)
   include config.mk
 endif
@@ -17,6 +18,7 @@ ifdef AVUTIL_LIBS
 ifdef SWSCALE_LIBS
   UTILS+=camviewer tc_client-gtk
   CFLAGS+=$(GTK_CFLAGS) $(AVCODEC_CFLAGS) $(AVUTIL_CFLAGS) $(SWSCALE_CFLAGS)
+  INSTALLDEPS+=tc_client-gtk gtkgui.glade
   ifdef AO_LIBS
     ifdef AVRESAMPLE_LIBS
       CFLAGS+=-DHAVE_AVRESAMPLE=1 $(AVRESAMPLE_CFLAGS) $(AO_CFLAGS)
@@ -36,8 +38,11 @@ ifdef CURSES_LIBS
 ifdef READLINE_LIBS
   UTILS+=cursedchat
   CFLAGS+=$(CURSES_CFLAGS) $(READLINE_CFLAGS)
+  INSTALLDEPS+=cursedchat
 endif
 endif
+CFLAGS+=-DPREFIX=\"$(PREFIX)\"
+INSTALLDEPS=tc_client
 
 tc_client: $(OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
@@ -71,3 +76,21 @@ SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.
 SOURCES+=utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h utilities/stringutils.c utilities/stringutils.h
 tarball:
 	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' $(SOURCES)
+
+install: $(INSTALLDEPS)
+	install -m 755 -D tc_client "$(PREFIX)/bin/tc_client"
+ifdef GTK_LIBS
+ifdef AVCODEC_LIBS
+ifdef AVUTIL_LIBS
+ifdef SWSCALE_LIBS
+	install -m 755 -D tc_client-gtk "$(PREFIX)/bin/tc_client-gtk"
+	install -D gtkgui.glade "$(PREFIX)/share/tc_client/gtkgui.glade"
+endif
+endif
+endif
+endif
+ifdef CURSES_LIBS
+ifdef READLINE_LIBS
+	install -m 755 -D cursedchat "$(PREFIX)/bin/tc_client-cursedchat"
+endif
+endif

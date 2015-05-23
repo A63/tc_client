@@ -505,8 +505,8 @@ int main(int argc, char** argv)
     close(tc_client_in[1]);
     dup2(tc_client[1], 1);
     dup2(tc_client_in[0], 0);
-    argv[0]="./tc_client";
-    execv("./tc_client", argv);
+    argv[0]=(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client");
+    execvp(argv[0], argv);
   }
   close(tc_client_in[0]);
   GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);

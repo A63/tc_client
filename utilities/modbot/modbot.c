@@ -224,7 +224,7 @@ int main(int argc, char** argv)
              "-l/--log <file> = log output into <file>\n"
              "-v/--verbose    = print/log all incoming messages\n"
              "\n");
-      execv("./tc_client", argv);
+      execvp(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client", argv);
       return 1;
     }
   }
@@ -238,7 +238,7 @@ int main(int argc, char** argv)
     close(out[0]);
     dup2(in[0], 0);
     dup2(out[1], 1);
-    execv("./tc_client", argv);
+    execvp(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client", argv);
     _exit(1);
   }
   close(in[0]);

@@ -331,7 +331,7 @@ char* completenicks(const char* text, int state)
 
 int main(int argc, char** argv)
 {
-  if(argc<3){execv("./tc_client", argv); return 1;}
+  if(argc<3){execvp(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client", argv); return 1;}
   setlocale(LC_ALL, "");
   WINDOW* w=initscr();
   signal(SIGWINCH, resizechat);
@@ -373,8 +373,8 @@ int main(int argc, char** argv)
     close(app_out[0]);
     dup2(app_in[0],0);
     dup2(app_out[1],1);
-    argv[0]="./tc_client";
-    execv("./tc_client", argv);
+    argv[0]=(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client");
+    execvp(argv[0], argv);
     _exit(1);
   }
   close(app_in[0]);

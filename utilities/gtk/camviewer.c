@@ -76,6 +76,8 @@ int tc_client_in[2];
 const char* channel=0;
 const char* mycolor=0;
 char* nickname=0;
+char frombuild=0; // Running from the build directory
+#define TC_CLIENT (frombuild?"./tc_client":"tc_client")
 
 void updatescaling(struct viddata* data, unsigned int width, unsigned int height)
 {
@@ -720,9 +722,9 @@ void startsession(GtkButton* button, struct viddata* data)
     dup2(tc_client_in[0], 0);
     if(acc_user[0])
     {
-      execl("./tc_client", "./tc_client", "-u", acc_user, channel, nick, chanpass, (char*)0);
+      execlp(TC_CLIENT, TC_CLIENT, "-u", acc_user, channel, nick, chanpass, (char*)0);
     }else{
-      execl("./tc_client", "./tc_client", channel, nick, chanpass, (char*)0);
+      execlp(TC_CLIENT, TC_CLIENT, channel, nick, chanpass, (char*)0);
     }
   }
   if(acc_user[0]){dprintf(tc_client_in[1], "%s\n", acc_pass);}
@@ -766,6 +768,7 @@ void startsession(GtkButton* button, struct viddata* data)
 
 int main(int argc, char** argv)
 {
+  if(!strncmp(argv[0], "./", 2)){frombuild=1;}
   struct viddata data={0,0,0,0,0};
   avcodec_register_all();
   data.vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
@@ -801,7 +804,13 @@ int main(int argc, char** argv)
 #endif
 
   gtk_init(&argc, &argv);
-  GtkBuilder* gui=gtk_builder_new_from_file("gtkgui.glade");
+  GtkBuilder* gui;
+  if(frombuild)
+  {
+    gui=gtk_builder_new_from_file("gtkgui.glade");
+  }else{
+    gui=gtk_builder_new_from_file(PREFIX "/share/tc_client/gtkgui.glade");
+  }
   gtk_builder_connect_signals(gui, 0);
   data.gui=gui;
 

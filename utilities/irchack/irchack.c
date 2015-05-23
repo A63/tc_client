@@ -46,6 +46,8 @@ struct color colortable[]={
   {"35;1", "\x03""13"},
   {"35;1", "\x03""13"}
 };
+char frombuild=0; // Running from the source directory
+#define TC_CLIENT (frombuild?"./tc_client":"tc_client")
 
 const char* findcolor_irc(const char* ansi)
 {
@@ -189,9 +191,9 @@ char session(int sock, const char* nick, const char* channel, const char* pass, 
     dup2(tc_out[1], 1);
     if(acc_user && acc_pass)
     {
-      execl("./tc_client", "./tc_client", "-u", acc_user, channel, nick, pass, (char*)0);
+      execlp(TC_CLIENT, TC_CLIENT, "-u", acc_user, channel, nick, pass, (char*)0);
     }else{
-      execl("./tc_client", "./tc_client", channel, nick, pass, (char*)0);
+      execlp(TC_CLIENT, TC_CLIENT, channel, nick, pass, (char*)0);
     }
     perror("Failed to exec tc_client");
     _exit(1);
