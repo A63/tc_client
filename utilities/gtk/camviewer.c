@@ -454,6 +454,12 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   {
     pos+=read(fd, pkt.data+pos, size-pos);
   }
+  if(!strcmp(&buf[7], "out"))
+  {
+    dprintf(tc_client_in[1], "/video %i\n", size+1);
+    write(tc_client_in[1], &frameinfo, 1);
+    write(tc_client_in[1], pkt.data, size);
+  }
   if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
   if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
   pkt.size=size;
@@ -576,10 +582,7 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 packet.size=0;
       avcodec_encode_video2(ctx, &packet, dstframe, &gotpacket);
       unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
-      dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
-      write(tc_client_in[1], &frameinfo, 1);
-      write(tc_client_in[1], packet.data, packet.size);
-      // Also send the packet to our main thread so we can see ourselves
+      // Send the packet to our main thread so we can see ourselves (the main thread also sends it to the server)
       dprintf(campipe[1], "Video: out %i\n", packet.size+1);
       write(campipe[1], &frameinfo, 1);
       write(campipe[1], packet.data, packet.size);
