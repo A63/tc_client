@@ -598,9 +598,12 @@ int main(int argc, char** argv)
             list_add(&badvids, vid);
             list_save(&goodvids, "goodvids.txt");
             list_save(&badvids, "badvids.txt");
-            if(playing && !strcmp(vid, playing)){say(0, "/mbc youTube\n");}
             say(pm, "Marked '%s' as bad, it will not be allowed into the queue again. You can reverse this by !approve'ing the video by ID/link/name\n", vid);
-            playnext(0);
+            if(playing && !strcmp(vid, playing))
+            {
+              say(0, "/mbc youTube\n");
+              playnext(0);
+            }
           }
           else if(!strcmp(msg, "!skip") || !strncmp(msg, "!skip ", 6))
           {
