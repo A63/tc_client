@@ -35,6 +35,7 @@ struct list goodvids={0,0}; // pre-approved videos
 struct list badvids={0,0}; // not allowed, essentially banned
 char* playing=0;
 char* requester=0;
+char* title=0;
 time_t started=0;
 int tc_client;
 
@@ -141,8 +142,8 @@ void playnextvid()
   waitskip=0;
   playing=queue.items[0].video;
   requester=queue.items[0].requester;
+  title=queue.items[0].title;
   say(0, "/mbs youTube %s 0 %s\n", playing, queue.items[0].title);
-  free(queue.items[0].title);
   --queue.itemcount;
   memmove(queue.items, &queue.items[1], sizeof(struct queueitem)*queue.itemcount);
   // Find out the video's length and schedule an alarm for then
@@ -154,8 +155,10 @@ void playnext(int x)
 {
   free(playing);
   free(requester);
+  free(title);
   playing=0;
   requester=0;
+  title=0;
   if(queue.itemcount<1){alarm(0); printf("Nothing more to play\n"); return;} // Nothing more to play
   if(!list_contains(&goodvids, queue.items[0].video))
   {
@@ -467,7 +470,7 @@ int main(int argc, char** argv)
         else if(!strcmp(msg, "!requestedby"))
         {
           if(!playing){say(pm, "Nothing is playing\n");}
-          else{say(pm, "%s requested %s\n", requester, playing);}
+          else{say(pm, "%s requested %s (%s)\n", requester, playing, title);}
         }
         else if(!strcmp(msg, "!time")) // Debugging
         {
@@ -511,6 +514,11 @@ int main(int argc, char** argv)
           }else{
             say(pm, "Nothing is playing\n");
           }
+        }
+        else if(!strcmp(msg, "!nowplaying"))
+        {
+          if(!playing){say(pm, "Nothing is playing\n");}
+          else{say(pm, "Currently playing: %s (http://youtube.com/watch?v=%s )\n", title, playing);}
         }
         else if(list_contains(&mods, nick)) // Mods-only commands
         {
