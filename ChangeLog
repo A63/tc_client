@@ -6,6 +6,7 @@ tc_client-gtk: ignore anything after the offset in /mbs commands.
 tc_client-gtk: when camming down, remove the glib event source for our cam stream.
 tc_client-gtk: send the cam stream to tc_client from the main process instead of from the cam child process to avoid potential overlap of writes.
 modbot: for !badvid, only play the next video if the one we marked as bad was the currently playing video.
+modbot: make sure we don't skip over an unapproved video in queue before the 2 minutes are up.
 0.31:
 Fixed the issue where messages would show up on kanji on some platforms (a proper fix instead of the earlier android & apple workaround)
 When a message is sent with a privacy field, send it once with 'b' (broadcasting) and once with 'n' (not-broadcasting)
