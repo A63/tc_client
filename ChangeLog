@@ -1,5 +1,6 @@
 0.32:
 Added an 'install' make target, adjusted utilities to run tc_client from PATH unless they were run from the build directory (i.e. './<executable>')
+Provide feedback on the /ban command.
 irchack: send passwords by pipe, not argument.
 tc_client-gtk: ignore anything after the offset in /mbs commands.
 tc_client-gtk: when camming down, remove the glib event source for our cam stream.

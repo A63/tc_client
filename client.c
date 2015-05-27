@@ -531,6 +531,7 @@ int main(int argc, char** argv)
           sprintf(buf, "notice%s%%20was%%20banned%%20by%%20%s%%20(%s)", nick, nickname, account_user);
           amfstring(&amf, buf);
           amfsend(&amf, sock);
+          printf("%s %s was banned by %s (%s)\n", timestamp(), nick, nickname, account_user);
           // kick (this does the actual banning)
           amfinit(&amf, 3);
           amfstring(&amf, "kick");
