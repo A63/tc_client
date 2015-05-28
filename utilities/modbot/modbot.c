@@ -128,10 +128,10 @@ unsigned int getduration(const char* vid)
   if(sep){sep[0]=0; len+=atoi(&sep[1])*60;}
   // Hours
   sep=strrchr(timebuf, ':');
-  if(sep){sep[0]=0; len+=atoi(&sep[1])*60;}
+  if(sep){sep[0]=0; len+=atoi(&sep[1])*60*60;}
   // Days
   sep=strrchr(timebuf, ':');
-  if(sep){sep[0]=0; len+=atoi(&sep[1])*24;}
+  if(sep){sep[0]=0; len+=atoi(&sep[1])*60*60*24;}
   return len;
 }
 
