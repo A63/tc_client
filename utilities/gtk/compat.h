@@ -22,3 +22,6 @@
   extern int gtk_widget_get_allocated_height(GtkWidget* widget);
   extern GtkBuilder* gtk_builder_new_from_file(const char* filename);
 #endif
+#if GTK_MAJOR_VERSION<3 || GTK_MINOR_VERSION<10
+  #define gtk_button_new_from_icon_name(name, size) gtk_button_new_from_stock(name)
+#endif

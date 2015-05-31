@@ -68,8 +68,8 @@ struct viddata
 #endif
   GtkTextBuffer* buffer; // TODO: struct buffer array, for PMs
   GtkAdjustment* scroll;
-  GtkBuilder* gui;
 };
+struct viddata* data;
 
 int tc_client[2];
 int tc_client_in[2];
@@ -136,9 +136,12 @@ void printchat_color(struct viddata* data, const char* text, const char* color, 
   int startnum=gtk_text_iter_get_offset(&end);
   gtk_text_buffer_insert(data->buffer, &end, text, -1);
   // Set color if there was one
-  GtkTextIter start;
-  gtk_text_buffer_get_iter_at_offset(data->buffer, &start, startnum+offset);
-  gtk_text_buffer_apply_tag_by_name(data->buffer, color, &start, &end);
+  if(color)
+  {
+    GtkTextIter start;
+    gtk_text_buffer_get_iter_at_offset(data->buffer, &start, startnum+offset);
+    gtk_text_buffer_apply_tag_by_name(data->buffer, color, &start, &end);
+  }
   if(bottom){autoscroll_after(data->scroll);}
 }
 
@@ -146,7 +149,6 @@ char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
 {
   int fd=g_io_channel_unix_get_fd(iochannel);
-  struct viddata* data=datap;
   unsigned int i;
   for(i=0; i<1023; ++i)
   {
@@ -191,8 +193,8 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strcmp(buf, "Password required"))
   {
-    gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(data->gui, "main")));
-    gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(data->gui, "channelpasswordwindow")));
+    gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
+    gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordwindow")));
     return 1;
   }
   if(buf[0]=='/') // For the /help text
@@ -706,16 +708,39 @@ void sendmessage(GtkEntry* entry, struct viddata* data)
   gtk_entry_set_text(entry, "");
 }
 
-void startsession(GtkButton* button, struct viddata* data)
+void startsession(GtkButton* button, void* x)
 {
-  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(data->gui, "startwindow")));
-  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(data->gui, "channelpasswordwindow")));
-  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(data->gui, "main")));
-  const char* nick=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_nick")));
-  channel=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_channel")));
-  const char* chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "channelpassword")));
-  const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_username")));
-  const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_password")));
+  if(x!=(void*)-1)
+  {
+    // Populate the quick-connect fields with saved data
+    int channel_id=(int)(intptr_t)x;
+    char buf[256];
+    sprintf(buf, "channel%i_nick", channel_id);
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_nick")), config_get_str(buf));
+
+    sprintf(buf, "channel%i_name", channel_id);
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_channel")), config_get_str(buf));
+
+    sprintf(buf, "channel%i_password", channel_id);
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_password")), config_get_str(buf));
+
+    sprintf(buf, "channel%i_accuser", channel_id);
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")), config_get_str(buf));
+
+    sprintf(buf, "channel%i_accpass", channel_id);
+    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")), config_get_str(buf));
+    // TODO: if account password is empty, open a password entry window similar to the channel password one
+  }
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "startwindow")));
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "channelconfig")));
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordwindow")));
+  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
+  const char* nick=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_nick")));
+  channel=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_channel")));
+  const char* chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "channelpassword")));
+  if(!chanpass[0]){chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_password")));}
+  const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")));
+  const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")));
   pipe(tc_client);
   pipe(tc_client_in);
   if(!fork())
@@ -737,67 +762,36 @@ void startsession(GtkButton* button, struct viddata* data)
   GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
   g_io_channel_set_encoding(tcchannel, 0, 0);
   g_io_add_watch(tcchannel, G_IO_IN, handledata, data);
-  // Remember, if asked to
-  char save=0;
-  if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(data->gui, "start_rememberchan"))))
-  {
-    config_set("remember_nick", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_nick"))));
-    config_set("remember_chan", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "start_channel"))));
-    config_set("remember_chan_nick", "True");
-    save=1;
-  }
-  else if(config_get_bool("remember_chan_nick")) // Remove previously remembered info
-  {
-    config_set("remember_nick", "");
-    config_set("remember_chan", "");
-    config_set("remember_chan_nick", "False");
-    save=1;
-  }
-  // Same for account
-  if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(data->gui, "start_rememberacc"))))
-  {
-    config_set("remember_username", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_username"))));
-    config_set("remember_password", gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(data->gui, "acc_password"))));
-    config_set("remember_acc", "True");
-    save=1;
-  }
-  else if(config_get_bool("remember_acc")) // Remove previously remembered info
-  {
-    config_set("remember_username", "");
-    config_set("remember_password", "");
-    config_set("remember_acc", "False");
-    save=1;
-  }
-  if(save){config_save();}
 }
 
 int main(int argc, char** argv)
 {
   if(!strncmp(argv[0], "./", 2)){frombuild=1;}
-  struct viddata data={0,0,0,0,0};
+  struct viddata datax={0,0,0,0,0};
+  data=&datax;
   avcodec_register_all();
-  data.vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
-  data.adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
+  data->vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
+  data->adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
   signal(SIGCHLD, SIG_IGN);
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
   #ifdef HAVE_AVRESAMPLE
-  data.resamplectx=avresample_alloc_context();
-  av_opt_set_int(data.resamplectx, "in_channel_layout", AV_CH_FRONT_CENTER, 0);
-  av_opt_set_int(data.resamplectx, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
+  data->resamplectx=avresample_alloc_context();
+  av_opt_set_int(data->resamplectx, "in_channel_layout", AV_CH_FRONT_CENTER, 0);
+  av_opt_set_int(data->resamplectx, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
   // TODO: any way to get the sample rate from the frame/decoder? cam->frame->sample_rate seems to be 0
-  av_opt_set_int(data.resamplectx, "in_sample_rate", 11025, 0);
-  av_opt_set_int(data.resamplectx, "out_channel_layout", AV_CH_FRONT_CENTER, 0);
-  av_opt_set_int(data.resamplectx, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
-  av_opt_set_int(data.resamplectx, "out_sample_rate", 22050, 0);
-  avresample_open(data.resamplectx);
+  av_opt_set_int(data->resamplectx, "in_sample_rate", 11025, 0);
+  av_opt_set_int(data->resamplectx, "out_channel_layout", AV_CH_FRONT_CENTER, 0);
+  av_opt_set_int(data->resamplectx, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+  av_opt_set_int(data->resamplectx, "out_sample_rate", 22050, 0);
+  avresample_open(data->resamplectx);
   #else
-  data.swrctx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0);
-  swr_init(data.swrctx);
+  data->swrctx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0);
+  swr_init(data->swrctx);
   #endif
   int audiopipe[2];
   pipe(audiopipe);
-  data.audiopipe=audiopipe[1];
+  data->audiopipe=audiopipe[1];
   if(!fork())
   {
     prctl(PR_SET_PDEATHSIG, SIGHUP);
@@ -809,7 +803,6 @@ int main(int argc, char** argv)
 #endif
 
   gtk_init(&argc, &argv);
-  GtkBuilder* gui;
   if(frombuild)
   {
     gui=gtk_builder_new_from_file("gtkgui.glade");
@@ -817,12 +810,11 @@ int main(int argc, char** argv)
     gui=gtk_builder_new_from_file(PREFIX "/share/tc_client/gtkgui.glade");
   }
   gtk_builder_connect_signals(gui, 0);
-  data.gui=gui;
 
 #ifdef HAVE_V4L2
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
-  g_signal_connect(item, "toggled", G_CALLBACK(togglecam), &data);
-  data.vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
+  g_signal_connect(item, "toggled", G_CALLBACK(togglecam), data);
+  data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
 #else
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast"));
   gtk_widget_destroy(item);
@@ -831,13 +823,13 @@ int main(int argc, char** argv)
   item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings"));
   g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
   
-  data.box=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
+  data->box=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
   userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));
   GtkWidget* chatview=GTK_WIDGET(gtk_builder_get_object(gui, "chatview"));
-  data.scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(gtk_builder_get_object(gui, "chatscroll")));
+  data->scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(gtk_builder_get_object(gui, "chatscroll")));
 
-  data.buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(chatview));
-  #define colormap(code, color) gtk_text_buffer_create_tag(data.buffer, code, "foreground", color, (char*)0)
+  data->buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(chatview));
+  #define colormap(code, color) gtk_text_buffer_create_tag(data->buffer, code, "foreground", color, (char*)0)
   colormap("[31", "#821615");
   colormap("[31;1", "#c53332");
   colormap("[33", "#a08f23");
@@ -856,11 +848,11 @@ int main(int argc, char** argv)
   //colormap("[35;1", "#b9807f");
 
   GtkWidget* panes=GTK_WIDGET(gtk_builder_get_object(gui, "vpaned"));
-  g_signal_connect(panes, "notify::position", G_CALLBACK(handleresizepane), &data);
+  g_signal_connect(panes, "notify::position", G_CALLBACK(handleresizepane), data);
 
   GtkWidget* inputfield=GTK_WIDGET(gtk_builder_get_object(gui, "inputfield"));
-  g_signal_connect(inputfield, "activate", G_CALLBACK(sendmessage), &data);
-  g_signal_connect(inputfield, "key-press-event", G_CALLBACK(inputkeys), &data);
+  g_signal_connect(inputfield, "activate", G_CALLBACK(sendmessage), data);
+  g_signal_connect(inputfield, "key-press-event", G_CALLBACK(inputkeys), data);
 
   config_load();
   // Sound
@@ -876,29 +868,46 @@ int main(int argc, char** argv)
   g_signal_connect(option, "toggled", G_CALLBACK(toggle_youtubecmd), gui);
 
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "main"));
-  g_signal_connect(window, "configure-event", G_CALLBACK(handleresize), &data);
+  g_signal_connect(window, "configure-event", G_CALLBACK(handleresize), data);
 
   // Start window and channel password window signals
-  GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "connectbutton"));
-  g_signal_connect(button, "clicked", G_CALLBACK(startsession), &data);
-  button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordbutton"));
-  g_signal_connect(button, "clicked", G_CALLBACK(startsession), &data);
+  GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordbutton"));
+  g_signal_connect(button, "clicked", G_CALLBACK(startsession), (void*)-1); // &data);
   button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpassword"));
-  g_signal_connect(button, "activate", G_CALLBACK(startsession), &data);
+  g_signal_connect(button, "activate", G_CALLBACK(startsession), (void*)-1); // &data);
   GtkWidget* startwindow=GTK_WIDGET(gtk_builder_get_object(gui, "startwindow"));
-  // Set channel and nick from last session
-  if(config_get_bool("remember_chan_nick"))
+  // Connect signal for quick connect
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_connect"));
+  struct channelopts cc_connect={-1,0};
+  g_signal_connect(item, "activate", G_CALLBACK(channeldialog), &cc_connect);
+  // Connect signal for the add option
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_add"));
+  struct channelopts cc_add={-1,1};
+  g_signal_connect(item, "activate", G_CALLBACK(channeldialog), &cc_add);
+  // Populate saved channels
+  GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
+  int channelcount=config_get_int("channelcount");
+  char buf[256];
+  int i;
+  for(i=0; i<channelcount; ++i)
   {
-    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "start_nick")), config_get_str("remember_nick"));
-    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "start_channel")), config_get_str("remember_chan"));
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "start_rememberchan")), 1);
-  }
-  // Set username and password from last session
-  if(config_get_bool("remember_acc"))
-  {
-    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")), config_get_str("remember_username"));
-    gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")), config_get_str("remember_password"));
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "start_rememberacc")), 1);
+    GtkWidget* box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    #ifdef GTK_STYLE_CLASS_LINKED
+      GtkStyleContext* style=gtk_widget_get_style_context(box);
+      gtk_style_context_add_class(style, GTK_STYLE_CLASS_LINKED);
+    #endif
+    sprintf(buf, "channel%i_name", i);
+    const char* name=config_get_str(buf);
+    GtkWidget* connectbutton=gtk_button_new_with_label(name);
+    g_signal_connect(connectbutton, "clicked", G_CALLBACK(startsession), (void*)(intptr_t)i);
+    gtk_box_pack_start(GTK_BOX(box), connectbutton, 1, 1, 0);
+    GtkWidget* cfgbutton=gtk_button_new_from_icon_name("gtk-preferences", GTK_ICON_SIZE_BUTTON);
+    struct channelopts* opts=malloc(sizeof(struct channelopts));
+    opts->channel_id=i;
+    opts->save=1;
+    g_signal_connect(cfgbutton, "clicked", G_CALLBACK(channeldialog), opts);
+    gtk_box_pack_start(GTK_BOX(box), cfgbutton, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(startbox), box, 0, 0, 2);
   }
   gtk_widget_show_all(startwindow);
 
@@ -906,9 +915,9 @@ int main(int argc, char** argv)
  
   camera_cleanup();
 #ifdef HAVE_AVRESAMPLE
-  avresample_free(&data.resamplectx);
+  avresample_free(&data->resamplectx);
 #elif defined(HAVE_SWRESAMPLE)
-  swr_free(&data.swrctx);
+  swr_free(&data->swrctx);
 #endif
   return 0;
 }
