@@ -545,10 +545,12 @@ int main(int argc, char** argv)
         }
         else if(!strcmp(buf, "/banlist") || !strncmp(buf, "/forgive ", 9))
         {
+          free(unban);
           if(buf[1]=='f') // forgive
           {
-            free(unban);
             unban=strdup(&buf[9]);
+          }else{
+            unban=0;
           }
           amfinit(&amf, 3);
           amfstring(&amf, "banlist");
@@ -853,23 +855,17 @@ int main(int argc, char** argv)
         for(i=2; i+1<amfin->itemcount; i+=2)
         {
           if(amfin->items[i].type!=AMF_STRING || amfin->items[i+1].type!=AMF_STRING){break;}
-          if(!strcmp(amfin->items[i+1].string.string, unban))
+          if(!strcmp(amfin->items[i+1].string.string, unban) || !strcmp(amfin->items[i].string.string, unban))
           {
-            free(unban);
-            // A little unnecessary allocation, but the code gets cleaner without leaking
-            unban=strdup(amfin->items[i].string.string);
-            break;
+            amfinit(&amf, 3);
+            amfstring(&amf, "forgive");
+            amfnum(&amf, 0);
+            amfnull(&amf);
+            amfstring(&amf, amfin->items[i].string.string);
+            amfsend(&amf, sock);
           }
           // If the nickname isn't found in the banlist we assume it's an ID
         }
-        amfinit(&amf, 3);
-        amfstring(&amf, "forgive");
-        amfnum(&amf, 0);
-        amfnull(&amf);
-        amfstring(&amf, unban);
-        amfsend(&amf, sock);
-        free(unban);
-        unban=0;
         continue;
       }
       printf("Banned users:\n");

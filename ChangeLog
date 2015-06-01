@@ -1,4 +1,5 @@
 0.33:
+Fixed the /forgive command (by name) which would previously fail unless the target was found in the first 'banlist' AMF0 packet.
 modbot: fixed finding the duration of videos longer than 59 minutes (conversion from hh:mm:ss format to seconds)
 tc_client-gtk: redesigned the startup window to better support frequenting multiple channels.
 0.32:
