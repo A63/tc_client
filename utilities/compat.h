@@ -14,8 +14,16 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(_WIN32)
 #include <stdint.h>
+#include <stddef.h>
 extern size_t dprintf(int fd, const char* fmt, ...);
 #define mbtowc(x,y,z) 1
+#endif
+#ifdef _WIN32
+  #define prctl(...)
+  #define wait(x)
+#endif
+#if GLIB_MAJOR_VERSION<2 || (GLIB_MAJOR_VERSION==2 && GLIB_MINOR_VERSION<2)
+  #define g_io_channel_read_chars(a,b,c,d,e) g_io_channel_read(a,b,c,d)
 #endif

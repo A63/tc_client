@@ -19,7 +19,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/prctl.h>
+#ifdef _WIN32
+  #include <wtypes.h>
+  #include <winbase.h>
+#else
+  #include <sys/prctl.h>
+  #include <sys/wait.h>
+#endif
 #include <ctype.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
@@ -50,6 +56,7 @@
 #include "gui.h"
 #include "logging.h"
 #include "../stringutils.h"
+#include "../compat.h"
 
 struct viddata
 {
@@ -78,6 +85,9 @@ const char* mycolor=0;
 char* nickname=0;
 char frombuild=0; // Running from the build directory
 #define TC_CLIENT (frombuild?"./tc_client":"tc_client")
+#ifdef _WIN32
+  PROCESS_INFORMATION coreprocess={.hProcess=0};
+#endif
 
 void updatescaling(struct viddata* data, unsigned int width, unsigned int height)
 {
@@ -148,11 +158,12 @@ void printchat_color(struct viddata* data, const char* text, const char* color, 
 char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
 {
-  int fd=g_io_channel_unix_get_fd(iochannel);
+  gsize r;
   unsigned int i;
   for(i=0; i<1023; ++i)
   {
-    if(read(fd, &buf[i], 1)<1){printf("No more data\n"); gtk_main_quit(); return 0;}
+    g_io_channel_read_chars(iochannel, &buf[i], 1, &r, 0);
+    if(r<1){printf("No more data\n"); gtk_main_quit(); return 0;}
     if(buf[i]=='\r'||buf[i]=='\n'){break;}
   }
   buf[i]=0;
@@ -222,6 +233,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     if(space[-1]==':')
     {
 // TODO: handle /msg (PMs)
+#ifndef _WIN32 // TODO: port sound and youtube command code to windows
       if(config_get_bool("soundradio_cmd") && !fork())
       {
         execlp("sh", "sh", "-c", config_get_str("soundcmd"), (char*)0);
@@ -229,7 +241,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
       }
       if(!strncmp(space, " /mbs youTube ", 14) && config_get_bool("youtuberadio_cmd") && !fork())
       {
-// TODO: store the PID and make sure it's dead before starting a new video?
+// TODO: store the PID and make sure it's dead before starting a new video? and upon /mbc?
 // TODO: only play videos from mods?
         char* id=&space[14];
         char* offset=strchr(id, ' ');
@@ -256,6 +268,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
         execlp("sh", "sh", "-c", cmd, (char*)0);
         _exit(0);
       }
+#endif
     }
 // TODO: handle logging PMs
     if(config_get_bool("enable_logging")){logger_write(buf, channel, 0);}
@@ -405,7 +418,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     unsigned int size=strtoul(&sizestr[1], 0, 0);
     if(!size){return 1;}
     unsigned char frameinfo;
-    read(fd, &frameinfo, 1);
+    g_io_channel_read_chars(iochannel, (gchar*)&frameinfo, 1, 0, 0);
     --size; // For the byte we read above
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -415,7 +428,8 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     unsigned int pos=0;
     while(pos<size)
     {
-      pos+=read(fd, pkt.data+pos, size-pos);
+      g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
+      pos+=r;
     }
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
     // Find the camera representation for the given ID (for decoder context)
@@ -448,13 +462,14 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   unsigned char databuf[size+4];
   pkt.data=databuf;
   unsigned char frameinfo;
-  read(fd, &frameinfo, 1);
+  g_io_channel_read_chars(iochannel, (gchar*)&frameinfo, 1, 0, 0);
 // printf("Frametype-frame: %x\n", ((unsigned int)frameinfo&0xf0)/16);
 // printf("Frametype-codec: %x\n", (unsigned int)frameinfo&0xf);
   unsigned int pos=0;
   while(pos<size)
   {
-    pos+=read(fd, pkt.data+pos, size-pos);
+    g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
+    pos+=r;
   }
   if(!strcmp(&buf[7], "out"))
   {
@@ -608,7 +623,9 @@ gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddat
   {
     updatescaling(data, event->width, 0);
   }
+#ifndef _WIN32 // For some reason scrolling as a response to resizing freezes windows
   if(bottom){autoscroll_after(data->scroll);}
+#endif
   return 0;
 }
 
@@ -616,7 +633,9 @@ void handleresizepane(GObject* obj, GParamSpec* spec, struct viddata* data)
 {
   char bottom=autoscroll_before(data->scroll);
   updatescaling(data, 0, gtk_paned_get_position(GTK_PANED(obj)));
+#ifndef _WIN32
   if(bottom){autoscroll_after(data->scroll);}
+#endif
 }
 
 gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
@@ -741,6 +760,36 @@ void startsession(GtkButton* button, void* x)
   if(!chanpass[0]){chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_password")));}
   const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")));
   const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")));
+#ifdef _WIN32
+  HANDLE h_tc_client0, h_tc_client1;
+  CreatePipe(&h_tc_client0, &h_tc_client1, &sa, 0);
+  HANDLE h_tc_client_in0, h_tc_client_in1;
+  CreatePipe(&h_tc_client_in0, &h_tc_client_in1, &sa, 0);
+  tc_client[0]=_open_osfhandle(h_tc_client0, _O_RDONLY);
+  tc_client[1]=_open_osfhandle(h_tc_client1, _O_WRONLY);
+  tc_client_in[0]=_open_osfhandle(h_tc_client_in0, _O_RDONLY);
+  tc_client_in[1]=_open_osfhandle(h_tc_client_in1, _O_WRONLY);
+  STARTUPINFO startup;
+  GetStartupInfo(&startup);
+  startup.dwFlags|=STARTF_USESTDHANDLES;
+  startup.hStdInput=h_tc_client_in0;
+  startup.hStdOutput=h_tc_client1;
+  char cmd[strlen("./tc_client -u    0")+strlen(acc_user)+strlen(channel)+strlen(nick)+strlen(chanpass)];
+  strcpy(cmd, "./tc_client ");
+  if(acc_user[0])
+  {
+    strcat(cmd, "-u ");
+    strcat(cmd, acc_user);
+    strcat(cmd, " ");
+  }
+  strcat(cmd, channel);
+  strcat(cmd, " ");
+  strcat(cmd, nick);
+  strcat(cmd, " ");
+  strcat(cmd, chanpass);
+  strcat(cmd, " ");
+  CreateProcess(0, cmd, 0, 0, 1, DETACHED_PROCESS, 0, 0, &startup, &coreprocess);
+#else
   pipe(tc_client);
   pipe(tc_client_in);
   if(!fork())
@@ -757,6 +806,7 @@ void startsession(GtkButton* button, void* x)
       execlp(TC_CLIENT, TC_CLIENT, channel, nick, chanpass, (char*)0);
     }
   }
+#endif
   if(acc_user[0]){dprintf(tc_client_in[1], "%s\n", acc_pass);}
   write(tc_client_in[1], "/color\n", 7);
   GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
@@ -772,7 +822,11 @@ int main(int argc, char** argv)
   avcodec_register_all();
   data->vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
   data->adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
+#ifndef _WIN32
   signal(SIGCHLD, SIG_IGN);
+#else
+  frombuild=1;
+#endif
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
   #ifdef HAVE_AVRESAMPLE
@@ -913,6 +967,12 @@ int main(int argc, char** argv)
 
   gtk_main();
  
+#ifdef _WIN32
+  if(coreprocess.hProcess)
+  {
+    TerminateProcess(coreprocess.hProcess, 0);
+  }
+#endif
   camera_cleanup();
 #ifdef HAVE_AVRESAMPLE
   avresample_free(&data->resamplectx);

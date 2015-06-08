@@ -14,14 +14,18 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#ifdef _WIN32
+#include <wtypes.h>
+extern SECURITY_ATTRIBUTES sa;
+#endif
 #if GTK_MAJOR_VERSION<3
   #define GTK_ORIENTATION_HORIZONTAL 0
   #define GTK_ORIENTATION_VERTICAL 1
   extern GtkWidget* gtk_box_new(int vertical, int spacing);
   extern int gtk_widget_get_allocated_width(GtkWidget* widget);
   extern int gtk_widget_get_allocated_height(GtkWidget* widget);
-  extern GtkBuilder* gtk_builder_new_from_file(const char* filename);
 #endif
-#if GTK_MAJOR_VERSION<3 || GTK_MINOR_VERSION<10
+#if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<10)
   #define gtk_button_new_from_icon_name(name, size) gtk_button_new_from_stock(name)
+  extern GtkBuilder* gtk_builder_new_from_file(const char* filename);
 #endif

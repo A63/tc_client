@@ -16,6 +16,7 @@
 */
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <gtk/gtk.h>
 #include "gui.h"
 #include "config.h"

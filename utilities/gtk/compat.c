@@ -22,6 +22,14 @@
 #include <gtk/gtk.h>
 #include "compat.h"
 
+#ifdef _WIN32
+SECURITY_ATTRIBUTES sa={
+  .nLength=sizeof(SECURITY_ATTRIBUTES),
+  .bInheritHandle=1,
+  .lpSecurityDescriptor=0
+};
+#endif
+
 #if GTK_MAJOR_VERSION<3
   GtkWidget* gtk_box_new(int vertical, int spacing)
   {
@@ -90,6 +98,13 @@
     GtkBuilder* gui=gtk_builder_new();
     GError* error=0;
     if(!gtk_builder_add_from_string(gui, buf, -1, &error)){g_error("%s\n", error->message);}
+    return gui;
+  }
+#elif GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<10
+  GtkBuilder* gtk_builder_new_from_file(const char* filename)
+  {
+    GtkBuilder* gui=gtk_builder_new();
+    gtk_builder_add_from_file(gui, filename, 0);
     return gui;
   }
 #endif

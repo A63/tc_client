@@ -18,7 +18,12 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/prctl.h>
+#ifdef _WIN32
+  #include <wtypes.h>
+  #include <winbase.h>
+#else
+  #include <sys/prctl.h>
+#endif
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #if LIBAVUTIL_VERSION_MAJOR>50 || (LIBAVUTIL_VERSION_MAJOR==50 && LIBAVUTIL_VERSION_MINOR>37)
@@ -40,6 +45,7 @@
   #include <libv4l2.h>
   #include <linux/videodev2.h>
 #endif
+#include "../compat.h"
 
 #if GTK_MAJOR_VERSION==2
   #define GTK_ORIENTATION_HORIZONTAL 0
@@ -53,6 +59,14 @@
       return gtk_hbox_new(1, spacing);
     }
   }
+#endif
+
+#ifdef _WIN32
+SECURITY_ATTRIBUTES sa={
+  .nLength=sizeof(SECURITY_ATTRIBUTES),
+  .bInheritHandle=1,
+  .lpSecurityDescriptor=0
+};
 #endif
 
 struct camera
@@ -146,10 +160,12 @@ char buf[1024];
 gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
 {
   struct viddata* data=datap;
+  gsize r;
   unsigned int i;
   for(i=0; i<1023; ++i)
   {
-    if(read(tc_client[0], &buf[i], 1)<1){printf("No more data\n"); gtk_main_quit(); return 0;}
+    g_io_channel_read_chars(channel, &buf[i], 1, &r, 0);
+    if(r<1){printf("No more data\n"); gtk_main_quit(); return 0;}
     if(buf[i]=='\r'||buf[i]=='\n'){break;}
   }
   buf[i]=0;
@@ -246,7 +262,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     unsigned int size=strtoul(&sizestr[1], 0, 0);
     if(!size){return 1;}
     unsigned char frameinfo;
-    read(tc_client[0], &frameinfo, 1);
+    g_io_channel_read_chars(channel, (gchar*)&frameinfo, 1, 0, 0);
     --size; // For the byte we read above
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -256,7 +272,8 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     unsigned int pos=0;
     while(pos<size)
     {
-      pos+=read(tc_client[0], pkt.data+pos, size-pos);
+      g_io_channel_read_chars(channel, (gchar*)pkt.data+pos, size-pos, &r, 0);
+      pos+=r;
     }
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
     // Find the camera representation for the given ID (for decoder context)
@@ -297,13 +314,14 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   unsigned char databuf[size+4];
   pkt.data=databuf;
   unsigned char frameinfo;
-  read(tc_client[0], &frameinfo, 1);
+  g_io_channel_read_chars(channel, (gchar*)&frameinfo, 1, 0, 0);
 // printf("Frametype-frame: %x\n", ((unsigned int)frameinfo&0xf0)/16);
 // printf("Frametype-codec: %x\n", (unsigned int)frameinfo&0xf);
   unsigned int pos=0;
   while(pos<size)
   {
-    pos+=read(tc_client[0], pkt.data+pos, size-pos);
+    g_io_channel_read_chars(channel, (gchar*)pkt.data+pos, size-pos, &r, 0);
+    pos+=r;
   }
   if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
   if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
@@ -496,6 +514,29 @@ int main(int argc, char** argv)
 #endif
   gtk_widget_show_all(w);
 
+  unsigned int i;
+#ifdef _WIN32
+  HANDLE h_tc_client0, h_tc_client1;
+  CreatePipe(&h_tc_client0, &h_tc_client1, &sa, 0);
+  HANDLE h_tc_client_in0, h_tc_client_in1;
+  CreatePipe(&h_tc_client_in0, &h_tc_client_in1, &sa, 0);
+  tc_client[0]=_open_osfhandle(h_tc_client0, _O_RDONLY);
+  tc_client[1]=_open_osfhandle(h_tc_client1, _O_WRONLY);
+  tc_client_in[0]=_open_osfhandle(h_tc_client_in0, _O_RDONLY);
+  tc_client_in[1]=_open_osfhandle(h_tc_client_in1, _O_WRONLY);
+  STARTUPINFO startup;
+  GetStartupInfo(&startup);
+  startup.dwFlags|=STARTF_USESTDHANDLES;
+  startup.hStdInput=h_tc_client_in0;
+  startup.hStdOutput=h_tc_client1;
+  PROCESS_INFORMATION pi;
+  int len=strlen("./tc_client");
+  for(i=1; i<argc; ++i){len+=strlen(argv[i])+1;}
+  char cmd[len+1];
+  strcpy(cmd, "./tc_client");
+  for(i=1; i<argc; ++i){strcat(cmd, " "); strcat(cmd, argv[i]);}
+  CreateProcess(0, cmd, 0, 0, 1, DETACHED_PROCESS, 0, 0, &startup, &pi);
+#else
   pipe(tc_client);
   pipe(tc_client_in);
   if(!fork())
@@ -508,6 +549,7 @@ int main(int argc, char** argv)
     argv[0]=(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client");
     execvp(argv[0], argv);
   }
+#endif
   close(tc_client_in[0]);
   GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
   g_io_channel_set_encoding(tcchannel, 0, 0);
@@ -515,9 +557,11 @@ int main(int argc, char** argv)
 
   gtk_main();
  
+#ifdef _WIN32
+  TerminateProcess(pi.hProcess, 0);
+#endif
   g_source_remove(channel_id);
   g_io_channel_shutdown(tcchannel, 0, 0);
-  unsigned int i;
   for(i=0; i<data.camcount; ++i)
   {
     av_frame_free(&data.cams[i].frame);

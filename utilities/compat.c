@@ -15,8 +15,10 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "compat.h"
-#ifdef __ANDROID__
-// Android has no dprintf, so we make our own
+#if defined(__ANDROID__) || defined(_WIN32)
+// Android and windows have no dprintf, so we make our own
+#include <stdio.h>
+#include <unistd.h>
 #include <stdarg.h>
 size_t dprintf(int fd, const char* fmt, ...)
 {

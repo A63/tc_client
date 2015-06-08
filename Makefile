@@ -8,9 +8,9 @@ endif
 OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endian.o media.o
 IRCHACK_OBJ=utilities/irchack/irchack.o utilities/compat.o
 MODBOT_OBJ=utilities/modbot/modbot.o utilities/list.o utilities/modbot/queue.o
-CAMVIEWER_OBJ=utilities/camviewer/camviewer.o
+CAMVIEWER_OBJ=utilities/camviewer/camviewer.o utilities/compat.o
 CURSEDCHAT_OBJ=utilities/cursedchat/cursedchat.o utilities/cursedchat/buffer.o utilities/compat.o utilities/list.o
-TC_CLIENT_GTK_OBJ=utilities/gtk/camviewer.o utilities/gtk/userlist.o utilities/gtk/media.o utilities/gtk/compat.o utilities/gtk/config.o utilities/gtk/gui.o utilities/stringutils.o utilities/gtk/logging.o
+TC_CLIENT_GTK_OBJ=utilities/gtk/camviewer.o utilities/gtk/userlist.o utilities/gtk/media.o utilities/gtk/compat.o utilities/gtk/config.o utilities/gtk/gui.o utilities/stringutils.o utilities/gtk/logging.o utilities/compat.o
 UTILS=irchack modbot
 ifdef GTK_LIBS
 ifdef AVCODEC_LIBS
@@ -29,6 +29,12 @@ ifdef SWSCALE_LIBS
   endif
   ifdef LIBV4L2_LIBS
     CFLAGS+=-DHAVE_V4L2 $(LIBV4L2_CFLAGS)
+  endif
+  ifneq ($(findstring MINGW,$(shell uname -s)),)
+    LDFLAGS+=-mwindows
+    windowstargets: camviewer tc_client-gtk
+	@echo
+	@echo 'To build the core (tc_client.exe), enter this directory from cygwin and type make'
   endif
 endif
 endif

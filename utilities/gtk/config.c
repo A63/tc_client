@@ -31,9 +31,13 @@ unsigned int configitemcount=0;
 
 void config_load(void)
 {
+#ifndef _WIN32
   const char* home=getenv("HOME");
   char filename[strlen(home)+strlen("/.config/tc_client-gtk0")];
   sprintf(filename, "%s/.config/tc_client-gtk", home);
+#else
+  char* filename="config.txt";
+#endif
   FILE* f=fopen(filename, "r");
   if(!f){return;}
   char buf[2048];
@@ -55,11 +59,15 @@ void config_load(void)
 
 void config_save(void)
 {
+#ifndef _WIN32
   const char* home=getenv("HOME");
   char filename[strlen(home)+strlen("/.config/tc_client-gtk0")];
   sprintf(filename, "%s/.config", home);
   mkdir(filename, 0700);
   strcat(filename, "/tc_client-gtk");
+#else
+  char* filename="config.txt";
+#endif
   FILE* f=fopen(filename, "w");
   if(!f){perror("fopen(~/.config/tc_client-gtk)"); return;}
   unsigned int i;
