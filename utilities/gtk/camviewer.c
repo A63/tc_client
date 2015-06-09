@@ -233,42 +233,58 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     if(space[-1]==':')
     {
 // TODO: handle /msg (PMs)
-#ifndef _WIN32 // TODO: port sound and youtube command code to windows
-      if(config_get_bool("soundradio_cmd") && !fork())
+      if(config_get_bool("soundradio_cmd"))
       {
-        execlp("sh", "sh", "-c", config_get_str("soundcmd"), (char*)0);
-        _exit(0);
+#ifdef _WIN32
+        char* cmd=strdup(config_get_str("soundcmd"));
+        w32_runcmd(cmd);
+        free(cmd);
+#else
+        if(!fork())
+        {
+          execlp("sh", "sh", "-c", config_get_str("soundcmd"), (char*)0);
+          _exit(0);
+        }
+#endif
       }
-      if(!strncmp(space, " /mbs youTube ", 14) && config_get_bool("youtuberadio_cmd") && !fork())
+      if(!strncmp(space, " /mbs youTube ", 14) && config_get_bool("youtuberadio_cmd"))
       {
+#ifndef _WIN32
+        if(!fork())
+#endif
+        {
 // TODO: store the PID and make sure it's dead before starting a new video? and upon /mbc?
 // TODO: only play videos from mods?
-        char* id=&space[14];
-        char* offset=strchr(id, ' ');
-        if(!offset){_exit(1);}
-        offset[0]=0;
-        offset=&offset[1];
-        char* end=strchr(offset, ' '); // Ignore any additional arguments after the offset (the modbot utility includes the video title here)
-        if(end){end[0]=0;}
-        // Handle format string
-        const char* fmt=config_get_str("youtubecmd");
-        int len=strlen(fmt)+1;
-        len+=strcount(fmt, "%i")*(strlen(id)-2);
-        len+=strcount(fmt, "%t")*(strlen(id)-2);
-        char cmd[len];
-        cmd[0]=0;
-        while(fmt[0])
-        {
-          if(!strncmp(fmt, "%i", 2)){strcat(cmd, id); fmt=&fmt[2]; continue;}
-          if(!strncmp(fmt, "%t", 2)){strcat(cmd, offset); fmt=&fmt[2]; continue;}
-          for(len=0; fmt[len] && strncmp(&fmt[len], "%i", 2) && strncmp(&fmt[len], "%t", 2); ++len);
-          strncat(cmd, fmt, len);
-          fmt=&fmt[len];
-        }
-        execlp("sh", "sh", "-c", cmd, (char*)0);
-        _exit(0);
-      }
+          char* id=&space[14];
+          char* offset=strchr(id, ' ');
+          if(!offset){_exit(1);}
+          offset[0]=0;
+          offset=&offset[1];
+          char* end=strchr(offset, ' '); // Ignore any additional arguments after the offset (the modbot utility includes the video title here)
+          if(end){end[0]=0;}
+          // Handle format string
+          const char* fmt=config_get_str("youtubecmd");
+          int len=strlen(fmt)+1;
+          len+=strcount(fmt, "%i")*(strlen(id)-2);
+          len+=strcount(fmt, "%t")*(strlen(id)-2);
+          char cmd[len];
+          cmd[0]=0;
+          while(fmt[0])
+          {
+            if(!strncmp(fmt, "%i", 2)){strcat(cmd, id); fmt=&fmt[2]; continue;}
+            if(!strncmp(fmt, "%t", 2)){strcat(cmd, offset); fmt=&fmt[2]; continue;}
+            for(len=0; fmt[len] && strncmp(&fmt[len], "%i", 2) && strncmp(&fmt[len], "%t", 2); ++len);
+            strncat(cmd, fmt, len);
+            fmt=&fmt[len];
+          }
+#ifdef _WIN32
+          w32_runcmd(cmd);
+#else
+          execlp("sh", "sh", "-c", cmd, (char*)0);
+          _exit(0);
 #endif
+        }
+      }
     }
 // TODO: handle logging PMs
     if(config_get_bool("enable_logging")){logger_write(buf, channel, 0);}
