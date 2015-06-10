@@ -957,6 +957,10 @@ int main(int argc, char** argv)
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");
+  if(channelcount)
+  {
+    gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(gui, "channel_placeholder")));
+  }
   char buf[256];
   int i;
   for(i=0; i<channelcount; ++i)

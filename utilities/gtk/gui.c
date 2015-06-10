@@ -152,6 +152,8 @@ void savechannel(GtkButton* button, void* x)
 
   if(x==(void*)-1)
   {
+    GtkWidget* placeholder=GTK_WIDGET(gtk_builder_get_object(gui, "channel_placeholder"));
+    if(placeholder){gtk_widget_destroy(placeholder);}
     GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
     GtkWidget* box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     #ifdef GTK_STYLE_CLASS_LINKED

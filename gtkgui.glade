@@ -289,6 +289,22 @@
             <property name="position">0</property>
           </packing>
         </child>
+        <child>
+          <object class="GtkLabel" id="channel_placeholder">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">No channels have been added yet, click Channel and then Add to add one.</property>
+            <property name="wrap">True</property>
+            <attributes>
+              <attribute name="size" value="12000"/>
+            </attributes>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
       </object>
     </child>
   </object>
