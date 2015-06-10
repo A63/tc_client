@@ -467,6 +467,12 @@ int main(int argc, char** argv)
             say(pm, "%u video%s in queue\n", queue.itemcount, (queue.itemcount==1)?"":"s");
           }
         }
+        else if(!strncmp(msg, "!queue ", 7))
+        {
+          unsigned int i=atoi(&msg[7]);
+          if(i>=queue.itemcount){say(pm, "%u is beyond the size of the queue\n", i); continue;}
+          say(pm, "%s by %s (%s)\n", queue.items[i].video, queue.items[i].requester, queue.items[i].title);
+        }
         else if(!strcmp(msg, "!requestedby"))
         {
           if(!playing){say(pm, "Nothing is playing\n");}
