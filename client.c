@@ -704,30 +704,48 @@ int main(int argc, char** argv)
       printf("%s \x1b[%sm%s: ", timestamp(), color, amfin->items[5].string.string);
       fwrite(msg, len, 1, stdout);
       printf("\x1b[0m\n");
+      char* response=0;
       if(len==18 && !strncmp(msg, "/userinfo $request", 18))
       {
-        char* msg;
         if(account_user)
         {
-          unsigned int len=strlen("/userinfo \n0")+strlen(account_user);
+          unsigned int len=strlen("/userinfo ")+strlen(account_user);
           char buf[len+1];
-          sprintf(buf, "/userinfo %s\n", account_user);
-          msg=tonumlist(buf, len);
+          sprintf(buf, "/userinfo %s", account_user);
+          response=tonumlist(buf, len);
         }else{
-          msg=tonumlist("/userinfo tc_client\n", 20); // TODO: include version number?
+          response=tonumlist("/userinfo $noinfo", 17);
         }
+      }
+      else if(len==8 && !strncmp(msg, "/version", 8))
+      {
+        response=tonumlist("/version tc_client-" VERSION, strlen(VERSION)+19);
+      }
+      if(response)
+      {
+        // Send our command reponse with a privacy field
         amfinit(&amf, 3);
         amfstring(&amf, "privmsg");
         amfnum(&amf, 0);
         amfnull(&amf);
-        amfstring(&amf, msg);
+        amfstring(&amf, response);
         amfstring(&amf, "#0,en");
         int id=idlist_get(amfin->items[5].string.string);
         char priv[snprintf(0, 0, "n%i-%s", id, amfin->items[5].string.string)+1];
         sprintf(priv, "n%i-%s", id, amfin->items[5].string.string);
         amfstring(&amf, priv);
         amfsend(&amf, sock);
-        free(msg);
+        // And again in case they're broadcasting
+        amfinit(&amf, 3);
+        amfstring(&amf, "privmsg");
+        amfnum(&amf, 0);
+        amfnull(&amf);
+        amfstring(&amf, response);
+        amfstring(&amf, "#0,en");
+        priv[0]='b';
+        amfstring(&amf, priv);
+        amfsend(&amf, sock);
+        free(response);
       }
       free(msg);
       fflush(stdout);

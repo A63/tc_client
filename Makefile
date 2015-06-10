@@ -47,7 +47,7 @@ ifdef READLINE_LIBS
   INSTALLDEPS+=cursedchat
 endif
 endif
-CFLAGS+=-DPREFIX=\"$(PREFIX)\"
+CFLAGS+=-DPREFIX=\"$(PREFIX)\" -DVERSION=\"$(VERSION)\"
 INSTALLDEPS=tc_client
 
 tc_client: $(OBJ)

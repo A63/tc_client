@@ -1,5 +1,6 @@
 0.33:
 Fixed the /forgive command (by name) which would previously fail unless the target was found in the first 'banlist' AMF0 packet.
+Added a /version remote command to give the client name and version number, making /userinfo conform to the flash client's behaviour instead, and send the response with the two separate privacy field options 'n' and 'b'.
 modbot: fixed finding the duration of videos longer than 59 minutes (conversion from hh:mm:ss format to seconds)
 tc_client-gtk: redesigned the startup window to better support frequenting multiple channels.
 tc_client-gtk and camviewer: added compatibility code to build on windows (for now the tc_client core still needs to be built with cygwin for windows)
