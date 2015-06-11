@@ -32,5 +32,9 @@ extern void toggle_logging(GtkToggleButton* button, GtkBuilder* gui);
 extern void toggle_youtubecmd(GtkToggleButton* button, GtkBuilder* gui);
 extern void deletechannel(GtkButton* button, void* x);
 extern void channeldialog(GtkButton* button, struct channelopts* opts);
+extern void pm_open(const char* nick, char select);
+extern void pm_highlight(const char* nick);
+extern char pm_select(GtkNotebook* tabs, GtkWidget* tab, int num, void* x);
+extern void buffer_setup_colors(GtkTextBuffer* buffer);
 
 extern GtkBuilder* gui;

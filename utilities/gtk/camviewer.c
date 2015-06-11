@@ -73,7 +73,7 @@ struct viddata
   int audiopipe;
   SwrContext* swrctx;
 #endif
-  GtkTextBuffer* buffer; // TODO: struct buffer array, for PMs
+  GtkTextBuffer* buffer;
   GtkAdjustment* scroll;
 };
 struct viddata* data;
@@ -125,34 +125,58 @@ void updatescaling(struct viddata* data, unsigned int width, unsigned int height
   }
 }
 
-void printchat(struct viddata* data, const char* text)
+void printchat(const char* text, const char* pm)
 {
-  char bottom=autoscroll_before(data->scroll);
+  GtkAdjustment* scroll;
+  GtkTextBuffer* buffer;
+  struct user* user;
+  if(pm && (user=finduser(pm)))
+  {
+    pm_open(pm, 0);
+    scroll=user->pm_scroll;
+    buffer=user->pm_buffer;
+  }else{
+    scroll=data->scroll;
+    buffer=data->buffer;
+  }
+  char bottom=autoscroll_before(scroll);
   // Insert new content
   GtkTextIter end;
-  gtk_text_buffer_get_end_iter(data->buffer, &end);
-  gtk_text_buffer_insert(data->buffer, &end, "\n", -1);
-  gtk_text_buffer_insert(data->buffer, &end, text, -1);
-  if(bottom){autoscroll_after(data->scroll);}
+  gtk_text_buffer_get_end_iter(buffer, &end);
+  gtk_text_buffer_insert(buffer, &end, "\n", -1);
+  gtk_text_buffer_insert(buffer, &end, text, -1);
+  if(bottom){autoscroll_after(scroll);}
 }
 
-void printchat_color(struct viddata* data, const char* text, const char* color, unsigned int offset)
+void printchat_color(const char* text, const char* color, unsigned int offset, const char* pm)
 {
-  char bottom=autoscroll_before(data->scroll);
+  GtkAdjustment* scroll;
+  GtkTextBuffer* buffer;
+  struct user* user;
+  if(pm && (user=finduser(pm)))
+  {
+    pm_open(pm, 0);
+    scroll=user->pm_scroll;
+    buffer=user->pm_buffer;
+  }else{
+    scroll=data->scroll;
+    buffer=data->buffer;
+  }
+  char bottom=autoscroll_before(scroll);
   // Insert new content
   GtkTextIter end;
-  gtk_text_buffer_get_end_iter(data->buffer, &end);
-  gtk_text_buffer_insert(data->buffer, &end, "\n", -1);
+  gtk_text_buffer_get_end_iter(buffer, &end);
+  gtk_text_buffer_insert(buffer, &end, "\n", -1);
   int startnum=gtk_text_iter_get_offset(&end);
-  gtk_text_buffer_insert(data->buffer, &end, text, -1);
+  gtk_text_buffer_insert(buffer, &end, text, -1);
   // Set color if there was one
   if(color)
   {
     GtkTextIter start;
-    gtk_text_buffer_get_iter_at_offset(data->buffer, &start, startnum+offset);
-    gtk_text_buffer_apply_tag_by_name(data->buffer, color, &start, &end);
+    gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum+offset);
+    gtk_text_buffer_apply_tag_by_name(buffer, color, &start, &end);
   }
-  if(bottom){autoscroll_after(data->scroll);}
+  if(bottom){autoscroll_after(scroll);}
 }
 
 char buf[1024];
@@ -169,7 +193,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   buf[i]=0;
   if(!strncmp(buf, "Currently online: ", 18))
   {
-    printchat(data, buf);
+    printchat(buf, 0);
     char* next=&buf[16];
     while(next)
     {
@@ -190,7 +214,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   // Start streams once we're properly connected
   if(!strncmp(buf, "Currently on cam: ", 18))
   {
-    printchat(data, buf);
+    printchat(buf, 0);
     char* next=&buf[16];
     while(next)
     {
@@ -210,7 +234,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(buf[0]=='/') // For the /help text
   {
-    printchat(data, buf);
+    printchat(buf, 0);
     return 1;
   }
   // Remove escape codes and pick up the text color while we're at it
@@ -227,12 +251,12 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   // Timestamped events
   if(buf[0]=='['&&isdigit(buf[1])&&isdigit(buf[2])&&buf[3]==':'&&isdigit(buf[4])&&isdigit(buf[5])&&buf[6]==']'&&buf[7]==' ')
   {
+    char* pm=0;
     char* nick=&buf[8];
     space=strchr(nick, ' ');
     if(!space){return 1;}
     if(space[-1]==':')
     {
-// TODO: handle /msg (PMs)
       if(config_get_bool("soundradio_cmd"))
       {
 #ifdef _WIN32
@@ -285,11 +309,23 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
 #endif
         }
       }
+      // Handle incoming PMs
+      else if(!strncmp(space, " /msg ", 6))
+      {
+        char* msg=strchr(&space[6], ' ');
+        if(msg)
+        {
+          memmove(space, msg, strlen(msg)+1);
+          char* end=strchr(nick, ':');
+          pm=strndup(nick, end-nick);
+        }
+      }
     }
-// TODO: handle logging PMs
-    if(config_get_bool("enable_logging")){logger_write(buf, channel, 0);}
+    if(config_get_bool("enable_logging")){logger_write(buf, channel, pm);}
     // Insert new content
-    printchat_color(data, buf, color, 8);
+    printchat_color(buf, color, 8, pm);
+    pm_highlight(pm);
+    free(pm);
     if(space[-1]!=':') // Not a message
     {
       if(!strcmp(space, " entered the channel"))
@@ -327,14 +363,14 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strcmp(buf, "Changed color") || !strncmp(buf, "Current color: ", 15))
   {
-    printchat_color(data, buf, color, 0);
+    printchat_color(buf, color, 0, 0);
     free((void*)mycolor);
     mycolor=color;
     return 1;
   }
   if(!strncmp(buf, "Color ", 6))
   {
-    printchat_color(data, buf, color, 0);
+    printchat_color(buf, color, 0, 0);
   }
   free(color);
   if(space && !strcmp(space, " is a moderator."))
@@ -709,6 +745,30 @@ gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
 void sendmessage(GtkEntry* entry, struct viddata* data)
 {
   const char* msg=gtk_entry_get_text(entry);
+  char* pm=0;
+  if(!strncmp(msg, "/pm ", 4))
+  {
+    pm_open(&msg[4], 1);
+    gtk_entry_set_text(entry, "");
+    return;
+  }
+  else if(msg[0]!='/') // If we're in a PM tab, send messages as PMs
+  {
+    GtkNotebook* tabs=GTK_NOTEBOOK(gtk_builder_get_object(gui, "tabs"));
+    int num=gtk_notebook_get_current_page(tabs);
+    if(num>0)
+    {
+      GtkWidget* page=gtk_notebook_get_nth_page(tabs, num);
+      struct user* user=user_find_by_tab(page);
+      if(!user) // Person we were PMing with left
+      {
+        gtk_entry_set_text(entry, "");
+        return;
+      }
+      pm=strdup(user->nick);
+      dprintf(tc_client_in[1], "/msg %s ", pm);
+    }
+  }
   dprintf(tc_client_in[1], "%s\n", msg);
   // Don't print commands
   if(!strcmp(msg, "/help") ||
@@ -733,14 +793,36 @@ void sendmessage(GtkEntry* entry, struct viddata* data)
     gtk_entry_set_text(entry, "");
     return;
   }
+  if(!strncmp(msg, "/msg ", 5))
+  {
+    const char* end=strchr(&msg[5], ' ');
+    if(end)
+    {
+      pm=strndup(&msg[5], end-&msg[5]);
+      struct user* user=finduser(pm);
+      if(!user)
+      {
+        gtk_entry_set_text(entry, "");
+        printchat("No such user", 0);
+        free(pm);
+        return;
+      }
+    }
+  }
   char text[strlen("[00:00] ")+strlen(nickname)+strlen(": ")+strlen(msg)+1];
   time_t timestamp=time(0);
   struct tm* t=localtime(&timestamp);
   sprintf(text, "[%02i:%02i] ", t->tm_hour, t->tm_min);
-  sprintf(&text[8], "%s: %s", nickname, msg);
-  if(config_get_bool("enable_logging")){logger_write(text, channel, 0);}
-  printchat_color(data, text, mycolor, 8);
+  if(pm && msg[0]=='/')
+  {
+    sprintf(&text[8], "%s: %s", nickname, &msg[6+strlen(pm)]);
+  }else{
+    sprintf(&text[8], "%s: %s", nickname, msg);
+  }
+  if(config_get_bool("enable_logging")){logger_write(text, channel, pm);}
+  printchat_color(text, mycolor, 8, pm);
   gtk_entry_set_text(entry, "");
+  free(pm);
 }
 
 void startsession(GtkButton* button, void* x)
@@ -899,23 +981,7 @@ int main(int argc, char** argv)
   data->scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(gtk_builder_get_object(gui, "chatscroll")));
 
   data->buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(chatview));
-  #define colormap(code, color) gtk_text_buffer_create_tag(data->buffer, code, "foreground", color, (char*)0)
-  colormap("[31", "#821615");
-  colormap("[31;1", "#c53332");
-  colormap("[33", "#a08f23");
-  //colormap("[33", "#a78901");
-  colormap("[33;1", "#919104");
-  colormap("[32;1", "#7bb224");
-  //colormap("[32;1", "#7db257");
-  colormap("[32", "#487d21");
-  colormap("[36", "#00a990");
-  colormap("[34;1", "#32a5d9");
-  //colormap("[34;1", "#1d82eb");
-  colormap("[34", "#1965b6");
-  colormap("[35", "#5c1a7a");
-  colormap("[35;1", "#9d5bb5");
-  //colormap("[35;1", "#c356a3");
-  //colormap("[35;1", "#b9807f");
+  buffer_setup_colors(data->buffer);
 
   GtkWidget* panes=GTK_WIDGET(gtk_builder_get_object(gui, "vpaned"));
   g_signal_connect(panes, "notify::position", G_CALLBACK(handleresizepane), data);
@@ -954,6 +1020,9 @@ int main(int argc, char** argv)
   item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_add"));
   struct channelopts cc_add={-1,1};
   g_signal_connect(item, "activate", G_CALLBACK(channeldialog), &cc_add);
+  // Connect signal for tab changing (to un-highlight)
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "tabs"));
+  g_signal_connect(item, "switch-page", G_CALLBACK(pm_select), 0);
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");

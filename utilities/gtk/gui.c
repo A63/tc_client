@@ -22,6 +22,7 @@
 #include "config.h"
 #include "logging.h"
 #include "compat.h"
+#include "userlist.h"
 
 extern void startsession(GtkButton* button, void* x);
 GtkBuilder* gui;
@@ -298,4 +299,100 @@ void channeldialog(GtkButton* button, struct channelopts* opts)
     g_signal_handlers_disconnect_matched(obj, G_SIGNAL_MATCH_FUNC, 0, 0, 0, deletechannel, 0);
     g_signal_connect(obj, "clicked", G_CALLBACK(deletechannel), (void*)(intptr_t)opts->channel_id);
   }
+}
+
+void pm_close(GtkButton* btn, GtkWidget* tab)
+{
+  gtk_widget_destroy(tab);
+  struct user* user=user_find_by_tab(tab);
+  if(!user){return;}
+  user->pm_tab=0;
+  user->pm_tablabel=0;
+  user->pm_buffer=0;
+  user->pm_scroll=0;
+  user->pm_highlight=0;
+}
+
+void pm_open(const char* nick, char select)
+{
+  struct user* user=finduser(nick);
+  if(!user){return;}
+  GtkNotebook* tabs=GTK_NOTEBOOK(gtk_builder_get_object(gui, "tabs"));
+  if(user->pm_tab)
+  {
+    if(!select){return;}
+    int num=gtk_notebook_page_num(tabs, user->pm_tab);
+    gtk_notebook_set_current_page(tabs, num);
+    return;
+  }
+  user->pm_tab=gtk_text_view_new();
+  user->pm_buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(user->pm_tab));
+  user->pm_scroll=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(user->pm_tab));
+  user->pm_tablabel=gtk_label_new(nick);
+  buffer_setup_colors(user->pm_buffer);
+  GtkWidget* tabbox=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+#if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<10)
+  GtkWidget* closebtn=gtk_button_new_from_icon_name("gtk-close", GTK_ICON_SIZE_BUTTON);
+#else
+  GtkWidget* closebtn=gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_BUTTON);
+#endif
+  g_signal_connect(closebtn, "clicked", G_CALLBACK(pm_close), user->pm_tab);
+  gtk_box_pack_start(GTK_BOX(tabbox), user->pm_tablabel, 1, 1, 0);
+  gtk_box_pack_start(GTK_BOX(tabbox), closebtn, 0, 0, 0);
+  int num=gtk_notebook_append_page(tabs, user->pm_tab, tabbox);
+  gtk_text_view_set_editable(GTK_TEXT_VIEW(user->pm_tab), 0);
+  gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(user->pm_tab), 0);
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(user->pm_tab), GTK_WRAP_CHAR);
+  gtk_widget_show_all(user->pm_tab);
+  gtk_widget_show_all(tabbox);
+  if(select)
+  {
+    gtk_notebook_set_current_page(tabs, num);
+  }
+}
+
+void pm_highlight(const char* nick)
+{
+  if(!nick){return;}
+  struct user* user=finduser(nick);
+  if(!user || !user->pm_tablabel){return;}
+  // Only highlight tabs we're not on
+  GtkNotebook* tabs=GTK_NOTEBOOK(gtk_builder_get_object(gui, "tabs"));
+  GtkWidget* page=gtk_notebook_get_nth_page(tabs, gtk_notebook_get_current_page(tabs));
+  if(page==user->pm_tab){return;}
+  char* markup=g_markup_printf_escaped("<span color=\"red\">%s</span>", user->nick);
+  gtk_label_set_markup(GTK_LABEL(user->pm_tablabel), markup);
+  g_free(markup);
+  user->pm_highlight=1;
+}
+
+char pm_select(GtkNotebook* tabs, GtkWidget* tab, int num, void* x)
+{
+  struct user* user=user_find_by_tab(tab);
+  if(!user){return 0;}
+  // Reset highlighting
+  gtk_label_set_text(GTK_LABEL(user->pm_tablabel), user->nick);
+  user->pm_highlight=0;
+  return 0;
+}
+
+void buffer_setup_colors(GtkTextBuffer* buffer)
+{
+  #define colormap(code, color) gtk_text_buffer_create_tag(buffer, code, "foreground", color, (char*)0)
+  colormap("[31", "#821615");
+  colormap("[31;1", "#c53332");
+  colormap("[33", "#a08f23");
+  //colormap("[33", "#a78901");
+  colormap("[33;1", "#919104");
+  colormap("[32;1", "#7bb224");
+  //colormap("[32;1", "#7db257");
+  colormap("[32", "#487d21");
+  colormap("[36", "#00a990");
+  colormap("[34;1", "#32a5d9");
+  //colormap("[34;1", "#1d82eb");
+  colormap("[34", "#1965b6");
+  colormap("[35", "#5c1a7a");
+  colormap("[35;1", "#9d5bb5");
+  //colormap("[35;1", "#c356a3");
+  //colormap("[35;1", "#b9807f");
 }

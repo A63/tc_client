@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gtk/gtk.h>
+#include "gui.h"
 #include "userlist.h"
 
 struct user* userlist=0;
@@ -33,6 +34,16 @@ struct user* finduser(const char* nick)
   return 0;
 }
 
+struct user* user_find_by_tab(GtkWidget* tab)
+{
+  unsigned int i;
+  for(i=0; i<usercount; ++i)
+  {
+    if(userlist[i].pm_tab==tab){return &userlist[i];}
+  }
+  return 0;
+}
+
 struct user* adduser(const char* nick)
 {
   struct user* user=finduser(nick);
@@ -41,6 +52,11 @@ struct user* adduser(const char* nick)
   userlist=realloc(userlist, sizeof(struct user)*usercount);
   userlist[usercount-1].nick=strdup(nick);
   userlist[usercount-1].label=gtk_label_new(nick); // TODO: some kind of menubutton for actions?
+  userlist[usercount-1].pm_tab=0;
+  userlist[usercount-1].pm_tablabel=0;
+  userlist[usercount-1].pm_buffer=0;
+  userlist[usercount-1].pm_scroll=0;
+  userlist[usercount-1].pm_highlight=0;
 #if GTK_MAJOR_VERSION>=3
   gtk_widget_set_halign(userlist[usercount-1].label, GTK_ALIGN_START);
 #endif
@@ -64,6 +80,15 @@ void renameuser(const char* old, const char* newnick)
     gtk_label_set_text(GTK_LABEL(user->label), newlabel);
   }else{
     gtk_label_set_text(GTK_LABEL(user->label), newnick);
+  }
+  if(user->pm_tablabel)
+  {
+    if(user->pm_highlight)
+    {
+      pm_highlight(newnick);
+    }else{
+      gtk_label_set_text(GTK_LABEL(user->pm_tablabel), newnick);
+    }
   }
 }
 
