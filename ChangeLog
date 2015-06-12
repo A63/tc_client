@@ -8,6 +8,7 @@ tc_client-gtk and camviewer: added compatibility code to build on windows (for n
 tc_client-gtk: made the options for notifications and youtube videos work for windows.
 tc_client-gtk: if there are no saved channels, show a placeholder text instructing how to add a channel.
 tc_client-gtk: added tabs for PMs.
+tc_client-gtk: put the GtkTextViews for PM tabs in GtkScrolledWindows for compatibility with GTK+2.
 0.32:
 Added an 'install' make target, adjusted utilities to run tc_client from PATH unless they were run from the build directory (i.e. './<executable>')
 Provide feedback on the /ban command.

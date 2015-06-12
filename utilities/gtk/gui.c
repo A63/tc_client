@@ -325,11 +325,13 @@ void pm_open(const char* nick, char select)
     gtk_notebook_set_current_page(tabs, num);
     return;
   }
-  user->pm_tab=gtk_text_view_new();
-  user->pm_buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(user->pm_tab));
-  user->pm_scroll=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(user->pm_tab));
+  GtkWidget* textview=gtk_text_view_new();
+  user->pm_tab=gtk_scrolled_window_new(0, 0);
+  user->pm_buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
+  user->pm_scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(user->pm_tab));
   user->pm_tablabel=gtk_label_new(nick);
   buffer_setup_colors(user->pm_buffer);
+  gtk_container_add(GTK_CONTAINER(user->pm_tab), textview);
   GtkWidget* tabbox=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 #if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<10)
   GtkWidget* closebtn=gtk_button_new_from_icon_name("gtk-close", GTK_ICON_SIZE_BUTTON);
@@ -340,9 +342,9 @@ void pm_open(const char* nick, char select)
   gtk_box_pack_start(GTK_BOX(tabbox), user->pm_tablabel, 1, 1, 0);
   gtk_box_pack_start(GTK_BOX(tabbox), closebtn, 0, 0, 0);
   int num=gtk_notebook_append_page(tabs, user->pm_tab, tabbox);
-  gtk_text_view_set_editable(GTK_TEXT_VIEW(user->pm_tab), 0);
-  gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(user->pm_tab), 0);
-  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(user->pm_tab), GTK_WRAP_CHAR);
+  gtk_text_view_set_editable(GTK_TEXT_VIEW(textview), 0);
+  gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(textview), 0);
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(textview), GTK_WRAP_CHAR);
   gtk_widget_show_all(user->pm_tab);
   gtk_widget_show_all(tabbox);
   if(select)
