@@ -317,7 +317,9 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
         {
           memmove(space, msg, strlen(msg)+1);
           char* end=strchr(nick, ':');
-          pm=strndup(nick, end-nick);
+          pm=malloc(end-nick+1);
+          memcpy(pm, nick, end-nick);
+          pm[end-nick]=0;
         }
       }
     }
@@ -798,7 +800,9 @@ void sendmessage(GtkEntry* entry, struct viddata* data)
     const char* end=strchr(&msg[5], ' ');
     if(end)
     {
-      pm=strndup(&msg[5], end-&msg[5]);
+      pm=malloc(end-&msg[5]+1);
+      memcpy(pm, &msg[5], end-&msg[5]);
+      pm[end-&msg[5]]=0;
       struct user* user=finduser(pm);
       if(!user)
       {

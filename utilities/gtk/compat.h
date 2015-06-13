@@ -19,7 +19,7 @@
 extern SECURITY_ATTRIBUTES sa;
 #define w32_runcmd(cmd) \
   { \
-    char* arg=strchr(cmd,''); \
+    char* arg=strchr(cmd,' '); \
     if(arg){arg[0]=0; arg=&arg[1];} \
     ShellExecute(0, "open", cmd, arg, 0, SW_SHOWNORMAL); \
   }
