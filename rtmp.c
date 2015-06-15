@@ -81,6 +81,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   // Header format and chunk ID
   unsigned int x=0;
   if(fullread(sock, &x, 1)<1){return 0;}
+  x=le32(x);
   unsigned int chunkid=x&0x3f;
   unsigned int fmt=(x&0xc0)>>6;
   struct chunk* chunk=chunk_get(chunkid);

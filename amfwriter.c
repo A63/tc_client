@@ -61,8 +61,8 @@ void amfstring(struct rtmp* msg, const char* string)
   msg->buf=realloc(msg->buf, msg->length);
   unsigned char* type=msg->buf+offset;
   type[0]='\x02';
-  uint16_t* strlength=(uint16_t*)(msg->buf+offset+1);
-  *strlength=be16(len);
+  uint16_t strlength=be16(len);
+  memcpy(msg->buf+offset+1, &strlength, sizeof(strlength));
   memcpy(msg->buf+offset+3, string, len);
 }
 
@@ -81,8 +81,8 @@ void amfobjitem(struct rtmp* msg, char* name)
   int offset=msg->length;
   msg->length+=2+len;
   msg->buf=realloc(msg->buf, msg->length);
-  uint16_t* strlength=(uint16_t*)(msg->buf+offset);
-  *strlength=be16(len);
+  uint16_t strlength=be16(len);
+  memcpy(msg->buf+offset, &strlength, sizeof(strlength));
   memcpy(msg->buf+offset+2, name, len);
 }
 

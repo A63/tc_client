@@ -71,7 +71,9 @@ struct amf* amf_parse(const unsigned char* buf, int len)
       obj=&amf->items[amf->itemcount-1].object;
       // TODO: recurse into unfinished member-objects (unimportant, I haven't seen any objects within objects so far)
       // Add member and set name
-      i=be16(*(short*)buf);
+      unsigned short x;
+      memcpy(&x, buf, sizeof(x));
+      i=be16(x);
       buf=&buf[sizeof(short)];
       if(&buf[i]>=end){printf("Warning: skipping object item with name exceeding RTMP size (0x%x)\n", i);}
       if(&buf[i]<end && buf[i]!=9) // 9=end-of-object
@@ -117,7 +119,9 @@ struct amf* amf_parse(const unsigned char* buf, int len)
         item=&obj->members[obj->membercount-1].value;
       else
         item=amf_newitem(amf);
-      i=be16(*(short*)buf);
+      unsigned short x=0;
+      memcpy(&x, buf, sizeof(x));
+      i=be16(x);
       buf=&buf[sizeof(short)];
       item->type=AMF_STRING;
       item->string.length=i;
