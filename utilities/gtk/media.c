@@ -18,6 +18,7 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include <libavcodec/avcodec.h>
+#include "../compat.h"
 #include "media.h"
 struct camera* cams=0;
 unsigned int camcount=0;
