@@ -1,5 +1,6 @@
 0.34:
 Fixed memory alignment in rtmp/amf code (for CPU architectures that are picky about it)
+Print version info when called with -v/--version (contributed by Jade)
 tc_client-gtk: fixed windows compatibility (w32_runcmd and strndup)
 tc_client-gtk and camviewer: added some compatibility macros for older libav versions.
 0.33:

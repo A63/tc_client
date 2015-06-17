@@ -226,6 +226,7 @@ void usage(const char* me)
   printf("Usage: %s [options] <channelname> <nickname> [channelpassword]\n"
          "Options include:\n"
          "-h, --help           Show this help text and exit\n"
+         "-v, --version        Show the program version and exit.\n"
          "-u, --user <user>    Username of tinychat account to use.\n"
          "-p, --pass <pass>    Password of tinychat account to use.\n"
          "-c, --color <value>  Color to use in chat.\n"
@@ -249,6 +250,7 @@ int main(int argc, char** argv)
   for(i=1; i<argc; ++i)
   {
     if(!strcmp(argv[i], "-h")||!strcmp(argv[i], "--help")){usage(argv[0]); return 0;}
+    if(!strcmp(argv[i], "-v")||!strcmp(argv[i], "--version")){printf("tc_client-"VERSION"\n"); return 0;}
     else if(!strcmp(argv[i], "-u")||!strcmp(argv[i], "--user"))
     {
       if(i+1==argc){continue;}
