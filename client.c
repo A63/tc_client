@@ -49,6 +49,7 @@ void b_read(int sock, void* buf, size_t len)
   while(len>0)
   {
     size_t r=read(sock, buf, len);
+    if(r<1){return;}
     len-=r;
     buf+=r;
   }
@@ -667,7 +668,7 @@ int main(int argc, char** argv)
     if(!rtmpres){printf("Server disconnected\n"); break;}
     if(rtmpres==2){continue;} // Not disconnected, but we didn't get a complete chunk yet either
     if(rtmp.type==RTMP_VIDEO || rtmp.type==RTMP_AUDIO){stream_handledata(&rtmp); continue;}
-    if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); continue;}
+    if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); fflush(stdout); continue;}
     struct amf* amfin=amf_parse(rtmp.buf, rtmp.length);
     if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING)
     {
