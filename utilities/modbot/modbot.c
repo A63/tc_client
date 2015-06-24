@@ -193,6 +193,7 @@ int main(int argc, char** argv)
   char daemon=0;
   char* logfile=0;
   char verbose=0;
+  char disablelists=0;
   unsigned int i;
   for(i=1; i<argc; ++i)
   {
@@ -223,12 +224,22 @@ int main(int argc, char** argv)
       argv[argc]=0;
       --i;
     }
+    else if(!strcmp(argv[i], "--disable-lists"))
+    {
+      disablelists=1;
+      // Remove non-tc_client argument
+      --argc;
+      memmove(&argv[i], &argv[i+1], sizeof(char*)*(argc-i));
+      argv[argc]=0;
+      --i;
+    }
     else if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
     {
       printf("Additional options for modbot:\n"
              "-d/--daemon     = daemonize after startup\n"
              "-l/--log <file> = log output into <file>\n"
              "-v/--verbose    = print/log all incoming messages\n"
+             "--disable-lists = disable playlists\n"
              "\n");
       execvp(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client", argv);
       return 1;
@@ -343,6 +354,12 @@ int main(int argc, char** argv)
         }
         if(!strncmp(msg, "!request ", 9))
         {
+          if(disablelists)
+          {
+            char* x;
+            if((x=strstr(&msg[9], "&list="))){x[0]=0;}
+            if((x=strstr(&msg[9], "?list="))){x[1]='_';}
+          }
           char title[256];
           char vid[1024];
           char viderr[1024];
