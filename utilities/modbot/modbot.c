@@ -424,6 +424,12 @@ int main(int argc, char** argv)
             --i;
             if(!strcmp(queue.items[i].requester, nick))
             {
+              say(0, "/priv %s Removing '%s' from queue\n", nick, queue.items[i].title);
+              if(list_contains(&mods, nick) && goodvids.itemcount && !strcmp(goodvids.items[goodvids.itemcount-1], queue.items[i].video))
+              {
+                list_del(&goodvids, queue.items[i].video); // Un-approve the video since it was probably a bad search result and auto-approved because the requester is a mod
+                list_save(&goodvids, "goodvids.txt");
+              }
               queue_del(&queue, queue.items[i].video);
               if(!playing && i==0){playnext(0);}
               i=1; // distinguish from just having reached the front of the queue
@@ -444,6 +450,12 @@ int main(int argc, char** argv)
           {
             if(!strcmp(queue.items[i].requester, nick) && !strcmp(queue.items[i].video, vid))
             {
+              say(0, "/priv %s Removing '%s' from queue\n", nick, queue.items[i].title);
+              if(list_contains(&mods, nick) && goodvids.itemcount && !strcmp(goodvids.items[goodvids.itemcount-1], queue.items[i].video))
+              {
+                list_del(&goodvids, queue.items[i].video); // Un-approve the video since it was probably a bad search result and auto-approved because the requester is a mod
+                list_save(&goodvids, "goodvids.txt");
+              }
               queue_del(&queue, queue.items[i].video);
               break;
             }

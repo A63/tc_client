@@ -6,6 +6,7 @@ tc_client-gtk: fixed windows compatibility (w32_runcmd and strndup)
 tc_client-gtk and camviewer: added some compatibility macros for older libav versions.
 modbot: added an option (--disable-lists) to disable playlist requests, instead only the first video linked to will be added to the queue.
 modbot: make a note about skipped videos (!skip) not being marked as bad, and list the skipped videos to make it easier if they were meant to be marked as bad.
+modbot: give feedback for !wrongrequest, and if the user is a mod and the dropped video was the last one approved, remove it from goodvids since it was probably requested (and automatically approved) by accident.
 0.33:
 Fixed the /forgive command (by name) which would previously fail unless the target was found in the first 'banlist' AMF0 packet.
 Added a /version remote command to give the client name and version number, making /userinfo conform to the flash client's behaviour instead, and send the response with the two separate privacy field options 'n' and 'b'.
