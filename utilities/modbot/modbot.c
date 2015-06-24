@@ -643,12 +643,19 @@ int main(int argc, char** argv)
           {
             unsigned int num=((msg[5]&&msg[6])?strtoul(&msg[6], 0, 0):1);
             if(num<1){say(pm, "The given value evaluates to 0, please specify the number of videos you would like to skip (or if you do not specify it will default to 1)\n"); continue;}
-            if(playing){free(playing); playing=0; --num; say(0, "/mbc youTube\n");}
+            if(playing){--num; say(0, "/mbc youTube\n");}
+            say(0, "/priv %s Skipping %u videos. Note that these videos are not marked as bad (!badvid). Videos: %s", nick, num+(!!playing), playing?playing:"");
+            char first=!playing;
             while(num>0&&queue.itemcount>0)
             {
+              say(0, "%s%s", first?"":", ", queue.items[0].video);
+              first=0;
               queue_del(&queue, queue.items[0].video);
               --num;
             }
+            say(0, "\n");
+            free(playing);
+            playing=0;
             playnext(0);
           }
           else if(!strncmp(msg, "/mbs youTube ", 13))
