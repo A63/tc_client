@@ -27,14 +27,17 @@ ifdef SWSCALE_LIBS
       CFLAGS+=-DHAVE_SWRESAMPLE=1 $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
     endif
   endif
-  ifdef LIBV4L2_LIBS
-    CFLAGS+=-DHAVE_V4L2 $(LIBV4L2_CFLAGS)
-  endif
   ifneq ($(findstring MINGW,$(shell uname -s)),)
     LDFLAGS+=-mwindows
     windowstargets: camviewer tc_client-gtk
 	@echo
 	@echo 'To build the core (tc_client.exe), enter this directory from cygwin and type make'
+  endif
+  ifdef LIBV4L2_LIBS
+    CFLAGS+=-DHAVE_CAM $(LIBV4L2_CFLAGS)
+    LIBCAMERA_OBJ+=utilities/libcamera/camera_v4l2.o
+    CAMVIEWER_OBJ+=libcamera.a
+    TC_CLIENT_GTK_OBJ+=libcamera.a
   endif
 endif
 endif
@@ -46,6 +49,12 @@ ifdef READLINE_LIBS
   CFLAGS+=$(CURSES_CFLAGS) $(READLINE_CFLAGS)
   INSTALLDEPS+=cursedchat
 endif
+endif
+ifeq ($(AR),)
+  AR=ar
+endif
+ifeq ($(RANLIB),)
+  RANLIB=ranlib
 endif
 CFLAGS+=-DPREFIX=\"$(PREFIX)\" -DVERSION=\"$(VERSION)\"
 INSTALLDEPS=tc_client
@@ -70,8 +79,12 @@ cursedchat: $(CURSEDCHAT_OBJ)
 tc_client-gtk: $(TC_CLIENT_GTK_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
 
+libcamera.a: $(LIBCAMERA_OBJ)
+	$(AR) cru $@ $^
+	$(RANLIB) $@
+
 clean:
-	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk
+	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk
 
 SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure
 SOURCES+=utilities/irchack/irchack.c
@@ -80,6 +93,7 @@ SOURCES+=utilities/camviewer/camviewer.c
 SOURCES+=utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h
 SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/config.c utilities/gtk/gui.c utilities/gtk/logging.c utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/gtk/config.h utilities/gtk/gui.h utilities/gtk/logging.h gtkgui.glade
 SOURCES+=utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h utilities/stringutils.c utilities/stringutils.h
+SOURCES+=utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c
 tarball:
 	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' $(SOURCES)
 

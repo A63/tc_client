@@ -4,6 +4,7 @@ Print version info when called with -v/--version (contributed by Jade)
 Flush stdout after printing unknown RTMP types, and return upon <1 reads in b_read.
 tc_client-gtk: fixed windows compatibility (w32_runcmd and strndup)
 tc_client-gtk and camviewer: added some compatibility macros for older libav versions.
+tc_client-gtk and camviewer: added an abstraction library (libcamera) for cam access.
 modbot: added an option (--disable-lists) to disable playlist requests, instead only the first video linked to will be added to the queue.
 modbot: make a note about skipped videos (!skip) not being marked as bad, and list the skipped videos to make it easier if they were meant to be marked as bad.
 modbot: give feedback for !wrongrequest, and if the user is a mod and the dropped video was the last one approved, remove it from goodvids since it was probably requested (and automatically approved) by accident.

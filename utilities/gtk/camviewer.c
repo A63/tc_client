@@ -45,9 +45,8 @@
 #endif
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
-#ifdef HAVE_V4L2
-  #include <libv4l2.h>
-  #include <linux/videodev2.h>
+#ifdef HAVE_CAM
+  #include "../libcamera/camera.h"
 #endif
 #include "userlist.h"
 #include "media.h"
@@ -577,7 +576,7 @@ void audiothread(int fd)
 }
 #endif
 
-#ifdef HAVE_V4L2
+#ifdef HAVE_CAM
 pid_t camproc=0;
 unsigned int cameventsource;
 void togglecam(GtkCheckMenuItem* item, struct viddata* data)
@@ -591,6 +590,9 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
     dprintf(tc_client[1], "VideoEnd: out\n"); // Close our local display
     return;
   }
+  unsigned int count;
+  char** cams=cam_list(&count);
+  if(!count){printf("No camera found\n"); return;}
   // Set up a second pipe to be handled by handledata() to avoid overlap with tc_client's output
   int campipe[2];
   pipe(campipe);
@@ -603,27 +605,19 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     unsigned int delay=500000;
     // Set up camera
-    int fd=v4l2_open("/dev/video0", O_RDWR);
-    struct v4l2_format fmt;
-    fmt.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width=320;
-    fmt.fmt.pix.height=240;
-    fmt.fmt.pix.pixelformat=V4L2_PIX_FMT_RGB24;
-    fmt.fmt.pix.field=V4L2_FIELD_NONE;
-    fmt.fmt.pix.bytesperline=fmt.fmt.pix.width*3;
-    fmt.fmt.pix.sizeimage=fmt.fmt.pix.bytesperline*fmt.fmt.pix.height;
-    v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt);
+    CAM* cam=cam_open(cams[0]);
     AVCodecContext* ctx=avcodec_alloc_context3(data->vencoder);
-    ctx->width=fmt.fmt.pix.width;
-    ctx->height=fmt.fmt.pix.height;
+    ctx->width=320;
+    ctx->height=240;
+    cam_resolution(cam, (unsigned int*)&ctx->width, (unsigned int*)&ctx->height);
     ctx->pix_fmt=PIX_FMT_YUV420P;
     ctx->time_base.num=1;
     ctx->time_base.den=10;
     avcodec_open2(ctx, data->vencoder, 0);
     AVFrame* frame=av_frame_alloc();
     frame->format=PIX_FMT_RGB24;
-    frame->width=fmt.fmt.pix.width;
-    frame->height=fmt.fmt.pix.height;
+    frame->width=ctx->width;
+    frame->height=ctx->height;
     av_image_alloc(frame->data, frame->linesize, ctx->width, ctx->height, frame->format, 1);
     AVPacket packet;
     packet.buf=0;
@@ -645,7 +639,7 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
     {
       usleep(delay);
       if(delay>100000){delay-=50000;}
-      v4l2_read(fd, frame->data[0], fmt.fmt.pix.sizeimage);
+      cam_getframe(cam, frame->data[0]);
       int gotpacket;
       sws_scale(swsctx, (const uint8_t*const*)frame->data, frame->linesize, 0, frame->height, dstframe->data, dstframe->linesize);
       av_init_packet(&packet);
@@ -967,7 +961,7 @@ int main(int argc, char** argv)
   }
   gtk_builder_connect_signals(gui, 0);
 
-#ifdef HAVE_V4L2
+#ifdef HAVE_CAM
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
   g_signal_connect(item, "toggled", G_CALLBACK(togglecam), data);
   data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
