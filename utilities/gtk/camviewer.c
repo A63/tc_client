@@ -524,11 +524,20 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
     pos+=r;
   }
+  unsigned int scalewidth=data->scalewidth;
+  unsigned int scaleheight=data->scaleheight;
   if(!strcmp(&buf[7], "out"))
   {
-    dprintf(tc_client_in[1], "/video %i\n", size+1);
-    write(tc_client_in[1], &frameinfo, 1);
-    write(tc_client_in[1], pkt.data, size);
+    if(cam)
+    {
+      dprintf(tc_client_in[1], "/video %i\n", size+1);
+      write(tc_client_in[1], &frameinfo, 1);
+      write(tc_client_in[1], pkt.data, size);
+    }else{
+      cam=&campreview;
+      scalewidth=320;
+      scaleheight=240;
+    }
   }
   if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
   if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
@@ -538,15 +547,15 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!gotframe){return 1;}
 
   // Scale and convert to RGB24 format
-  unsigned int bufsize=avpicture_get_size(PIX_FMT_RGB24, data->scalewidth, data->scaleheight);
+  unsigned int bufsize=avpicture_get_size(PIX_FMT_RGB24, scalewidth, scaleheight);
   unsigned char buf[bufsize];
   cam->dstframe->data[0]=buf;
-  cam->dstframe->linesize[0]=data->scalewidth*3;
-  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, data->scalewidth, data->scaleheight, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
+  cam->dstframe->linesize[0]=scalewidth*3;
+  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, scalewidth, scaleheight, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
 
-  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, data->scalewidth, data->scaleheight, cam->dstframe->linesize[0], 0, 0);
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, scalewidth, scaleheight, cam->dstframe->linesize[0], 0, 0);
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
   // Make sure it gets redrawn in time
   gdk_window_process_updates(gtk_widget_get_window(cam->cam), 1);
@@ -577,8 +586,7 @@ void audiothread(int fd)
 #endif
 
 #ifdef HAVE_CAM
-pid_t camproc=0;
-unsigned int cameventsource;
+unsigned int cameventsource=0;
 void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 {
   if(!gtk_check_menu_item_get_active(item))
@@ -586,81 +594,20 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
     g_source_remove(cameventsource);
     kill(camproc, SIGINT);
     camproc=0;
-    dprintf(tc_client_in[1], "/camdown\n");
-    dprintf(tc_client[1], "VideoEnd: out\n"); // Close our local display
+    if(camera_find("out"))
+    {
+      dprintf(tc_client_in[1], "/camdown\n");
+      dprintf(tc_client[1], "VideoEnd: out\n"); // Close our local display
+    }
     return;
   }
-  unsigned int count;
-  char** cams=cam_list(&count);
-  if(!count){printf("No camera found\n"); return;}
-  // Set up a second pipe to be handled by handledata() to avoid overlap with tc_client's output
-  int campipe[2];
-  pipe(campipe);
-  dprintf(tc_client_in[1], "/camup\n");
-// printf("Camming up!\n");
-  camproc=fork();
-  if(!camproc)
-  {
-    close(campipe[0]);
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
-    unsigned int delay=500000;
-    // Set up camera
-    CAM* cam=cam_open(cams[0]);
-    AVCodecContext* ctx=avcodec_alloc_context3(data->vencoder);
-    ctx->width=320;
-    ctx->height=240;
-    cam_resolution(cam, (unsigned int*)&ctx->width, (unsigned int*)&ctx->height);
-    ctx->pix_fmt=PIX_FMT_YUV420P;
-    ctx->time_base.num=1;
-    ctx->time_base.den=10;
-    avcodec_open2(ctx, data->vencoder, 0);
-    AVFrame* frame=av_frame_alloc();
-    frame->format=PIX_FMT_RGB24;
-    frame->width=ctx->width;
-    frame->height=ctx->height;
-    av_image_alloc(frame->data, frame->linesize, ctx->width, ctx->height, frame->format, 1);
-    AVPacket packet;
-    packet.buf=0;
-    packet.data=0;
-    packet.size=0;
-    packet.dts=AV_NOPTS_VALUE;
-    packet.pts=AV_NOPTS_VALUE;
+  GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
+  gtk_widget_show_all(window);
 
-    // Set up frame for conversion from the camera's format to a format the encoder can use
-    AVFrame* dstframe=av_frame_alloc();
-    dstframe->format=ctx->pix_fmt;
-    dstframe->width=ctx->width;
-    dstframe->height=ctx->height;
-    av_image_alloc(dstframe->data, dstframe->linesize, ctx->width, ctx->height, ctx->pix_fmt, 1);
-
-    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
-
-    while(1)
-    {
-      usleep(delay);
-      if(delay>100000){delay-=50000;}
-      cam_getframe(cam, frame->data[0]);
-      int gotpacket;
-      sws_scale(swsctx, (const uint8_t*const*)frame->data, frame->linesize, 0, frame->height, dstframe->data, dstframe->linesize);
-      av_init_packet(&packet);
-      packet.data=0;
-packet.size=0;
-      avcodec_encode_video2(ctx, &packet, dstframe, &gotpacket);
-      unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
-      // Send the packet to our main thread so we can see ourselves (the main thread also sends it to the server)
-      dprintf(campipe[1], "Video: out %i\n", packet.size+1);
-      write(campipe[1], &frameinfo, 1);
-      write(campipe[1], packet.data, packet.size);
-
-      av_free_packet(&packet);
-    }
-    sws_freeContext(swsctx);
-    _exit(0);
-  }
-  close(campipe[1]);
-  GIOChannel* channel=g_io_channel_unix_new(campipe[0]);
-  g_io_channel_set_encoding(channel, 0, 0);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, handledata, data);
+  // Start a cam thread for the selected cam
+  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
+  GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), data->vencoder, 100000);
+  cameventsource=g_io_add_watch(channel, G_IO_IN, handledata, 0);
 }
 #endif
 
@@ -961,10 +908,40 @@ int main(int argc, char** argv)
   }
   gtk_builder_connect_signals(gui, 0);
 
+  unsigned int i;
 #ifdef HAVE_CAM
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
   g_signal_connect(item, "toggled", G_CALLBACK(togglecam), data);
   data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
+  // Set up cam selection and preview
+  campreview.cam=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_preview"));
+  campreview.frame=av_frame_alloc();
+  campreview.dstframe=av_frame_alloc();
+  campreview.vctx=avcodec_alloc_context3(data->vdecoder);
+  avcodec_open2(campreview.vctx, data->vdecoder, 0);
+  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
+  g_signal_connect(combo, "changed", G_CALLBACK(camselect_change), data->vencoder);
+  // Signals for cancelling
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
+  g_signal_connect(item, "delete-event", G_CALLBACK(camselect_cancel), 0);
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_cancel"));
+  g_signal_connect(item, "clicked", G_CALLBACK(camselect_cancel), 0);
+  // Signals for switching from preview to streaming
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_ok"));
+  g_signal_connect(item, "clicked", G_CALLBACK(camselect_accept), data->vencoder);
+  // Populate list of cams
+  unsigned int count;
+  char** cams=cam_list(&count);
+  GtkListStore* list=gtk_list_store_new(1, G_TYPE_STRING);
+  for(i=0; i<count; ++i)
+  {
+    gtk_list_store_insert_with_values(list, 0, -1, 0, cams[i], -1);
+    free(cams[i]);
+  }
+  free(cams);
+  gtk_combo_box_set_model(combo, GTK_TREE_MODEL(list));
+  g_object_unref(list);
+  gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo), gtk_cell_renderer_text_new(), 1);
 #else
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast"));
   gtk_widget_destroy(item);
@@ -1029,7 +1006,6 @@ int main(int argc, char** argv)
     gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(gui, "channel_placeholder")));
   }
   char buf[256];
-  int i;
   for(i=0; i<channelcount; ++i)
   {
     GtkWidget* box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
