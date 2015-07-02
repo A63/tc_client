@@ -30,6 +30,7 @@ extern SECURITY_ATTRIBUTES sa;
   extern GtkWidget* gtk_box_new(int vertical, int spacing);
   extern int gtk_widget_get_allocated_width(GtkWidget* widget);
   extern int gtk_widget_get_allocated_height(GtkWidget* widget);
+  extern const char* gtk_combo_box_get_active_id(GtkComboBox* combo);
 #endif
 #if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<10)
   #define gtk_button_new_from_icon_name(name, size) gtk_button_new_from_stock(name)

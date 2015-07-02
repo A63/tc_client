@@ -52,6 +52,16 @@ SECURITY_ATTRIBUTES sa={
     gtk_widget_get_allocation(widget, &alloc);
     return alloc.height;
   }
+  GValue gtk_combo_box_active_id=G_VALUE_INIT;
+  const char* gtk_combo_box_get_active_id(GtkComboBox* combo)
+  {
+    g_value_unset(&gtk_combo_box_active_id);
+    GtkTreeModel* model=gtk_combo_box_get_model(combo);
+    GtkTreeIter iter;
+    gtk_combo_box_get_active_iter(combo, &iter);
+    gtk_tree_model_get_value(model, &iter, 0, &gtk_combo_box_active_id);
+    return g_value_get_string(&gtk_combo_box_active_id);
+  }
   char* newline(char* line)
   {
     unsigned int i;

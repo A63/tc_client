@@ -29,6 +29,7 @@
   #include "../libcamera/camera.h"
 #endif
 #include "../compat.h"
+#include "compat.h"
 #include "gui.h"
 #include "media.h"
 struct camera campreview;

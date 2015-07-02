@@ -4,6 +4,7 @@ Print version info when called with -v/--version (contributed by Jade)
 Flush stdout after printing unknown RTMP types, and return upon <1 reads in b_read.
 tc_client-gtk: fixed windows compatibility (w32_runcmd and strndup)
 tc_client-gtk: added a camera selection (and preview) window when starting to broadcast.
+tc_client-gtk: fixed gtk+2 compatibility (differences in gtk_combo_box API)
 tc_client-gtk and camviewer: added some compatibility macros for older libav versions.
 tc_client-gtk and camviewer: added an abstraction library (libcamera) for cam access.
 modbot: added an option (--disable-lists) to disable playlist requests, instead only the first video linked to will be added to the queue.
