@@ -1,4 +1,4 @@
-VERSION=0.34
+VERSION=0.35pre
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LIBS=-g3 $(shell curl-config --libs)
 PREFIX=/usr/local

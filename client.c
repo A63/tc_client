@@ -66,9 +66,10 @@ size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
   return size;
 }
 
+CURL* curl=0;
 char* http_get(const char* url, const char* post)
 {
-  CURL* curl=curl_easy_init();
+  if(!curl){curl=curl_easy_init();}
   if(!curl){return 0;}
   curl_easy_setopt(curl, CURLOPT_URL, url);
   struct writebuf writebuf={0, 0};
@@ -81,7 +82,6 @@ char* http_get(const char* url, const char* post)
   char err[CURL_ERROR_SIZE];
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err);
   if(curl_easy_perform(curl)){curl_easy_cleanup(curl); printf("%s\n", err); return 0;}
-  curl_easy_cleanup(curl);
   return writebuf.buf; // should be free()d when no longer needed
 }
 
@@ -141,6 +141,23 @@ char* getkey(const char* id, const char* channel)
   key=strndup(key, keyend-key);
   free(response);
   return key;
+}
+
+char* getcookie(const char* channel)
+{
+  time_t now=time(0);
+  char url[strlen("http://tinychat.com/cauth?t=&room=0")+snprintf(0,0, "%tu", now)+strlen(channel)];
+  sprintf(url, "http://tinychat.com/cauth?t=%tu&room=%s", now, channel);
+  char* response=http_get(url, 0);
+  char* cookie=strstr(response, "\"cookie\":\"");
+
+  if(!cookie){return 0;}
+  cookie+=10;
+  char* end=strchr(cookie, '"');
+  if(!end){return 0;}
+  cookie=strndup(cookie, end-cookie);
+  free(response);
+  return cookie;
 }
 
 char* getbroadcastkey(const char* channel, const char* nick)
@@ -346,6 +363,7 @@ int main(int argc, char** argv)
   char loggedin=0;
   char* modkey=getmodkey(account_user, account_pass, channel, &loggedin);
   if(!loggedin){free(account_pass); account_user=0; account_pass=0;}
+  char* cookie=getcookie(channel);
   // Send connect request
   struct rtmp amf;
   amfinit(&amf, 3);
@@ -394,8 +412,11 @@ int main(int argc, char** argv)
   amfstring(&amf, "default"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to, but "default" seems to work fine too.
   amfstring(&amf, "tinychat");
   amfstring(&amf, modkey?account_user:"");
+  amfstring(&amf, "");
+  amfstring(&amf, cookie);
   amfsend(&amf, sock);
   free(modkey);
+  free(cookie);
 
   char* unban=0;
   struct pollfd pfd[2];
@@ -681,6 +702,8 @@ int main(int argc, char** argv)
       char* id=amfin->items[amfin->itemcount-1].string.string;
       printf("Connection ID: %s\n", id);
       char* key=getkey(id, channel);
+      curl_easy_cleanup(curl); // At this point we should be done with HTTP requests
+      curl=0;
       if(!key){printf("Failed to get channel key\n"); return 1;}
 
       amfinit(&amf, 3);

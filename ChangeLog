@@ -1,3 +1,5 @@
+0.35:
+Adjusted for tinychat authentication changes (both for joining the channel and to use moderator accounts)
 0.34:
 Fixed memory alignment in rtmp/amf code (for CPU architectures that are picky about it)
 Print version info when called with -v/--version (contributed by Jade)
