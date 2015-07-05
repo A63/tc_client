@@ -411,7 +411,7 @@ int main(int argc, char** argv)
   amfstring(&amf, modkey?modkey:"none");
   amfstring(&amf, "default"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to, but "default" seems to work fine too.
   amfstring(&amf, "tinychat");
-  amfstring(&amf, modkey?account_user:"");
+  amfstring(&amf, account_user?account_user:"");
   amfstring(&amf, "");
   amfstring(&amf, cookie);
   amfsend(&amf, sock);
