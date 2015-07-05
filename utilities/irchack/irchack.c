@@ -86,6 +86,7 @@ extern char session(int sock, const char* nick, const char* channel, const char*
 
 int main(int argc, char** argv)
 {
+  if(!strncmp(argv[0], "./", 2)){frombuild=1;}
   int port=(argc>1?atoi(argv[1]):6667);
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
