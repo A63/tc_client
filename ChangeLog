@@ -1,6 +1,7 @@
 0.35:
 Adjusted for tinychat authentication changes (both for joining the channel and to use moderator accounts)
 Send account username in AMF0 "connect" command at startup regardless of whether we are modded or not, as is now required for non-mod accounts (contributed by Jade)
+If an RTMP chunk already has a buffer allocated when a packet sets the length, free it and start over.
 irchack: added a check for whether tc_client is installed or should be run from the source directory (should have been added along with the 'install' target)
 0.34:
 Fixed memory alignment in rtmp/amf code (for CPU architectures that are picky about it)

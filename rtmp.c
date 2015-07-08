@@ -103,6 +103,11 @@ char rtmp_get(int sock, struct rtmp* rtmp)
       x=0;
       fullread(sock, ((void*)&x)+1, 3);
       chunk->length=be32(x);
+      if(chunk->buf) // Setting length of a chunk that is already partially received = start over
+      {
+        free(chunk->buf);
+        chunk->buf=0;
+      }
       // Type
       fullread(sock, &chunk->type, sizeof(chunk->type));
       if(fmt<1)
