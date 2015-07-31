@@ -88,6 +88,44 @@
       </object>
     </child>
   </object>
+  <object class="GtkWindow" id="captcha">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">tc_client (captcha)</property>
+    <child>
+      <object class="GtkBox" id="box10">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkLabel" id="captcha_link">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="xpad">50</property>
+            <property name="ypad">50</property>
+            <property name="use_markup">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="captcha_done">
+            <property name="label" translatable="yes">Done</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkWindow" id="channelconfig">
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">tc_client</property>

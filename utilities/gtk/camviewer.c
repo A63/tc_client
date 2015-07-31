@@ -205,9 +205,19 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strncmp(buf, "Connection ID: ", 15)) // Our initial nickname is "guest-" plus our connection ID
   {
+    write(tc_client_in[1], "/color\n", 7); // Check which random color tc_client picked
     unsigned int length=strlen(&buf[15]);
     nickname=malloc(length+strlen("guest-")+1);
     sprintf(nickname, "guest-%s", &(buf[15]));
+    return 1;
+  }
+  if(!strncmp(buf, "Captcha: ", 9))
+  {
+    gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
+    gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "captcha")));
+    char link[snprintf(0,0,"Captcha: <a href=\"%s\">%s</a>", &buf[9], &buf[9])+1];
+    sprintf(link, "Captcha: <a href=\"%s\">%s</a>", &buf[9], &buf[9]);
+    gtk_label_set_markup(GTK_LABEL(gtk_builder_get_object(gui, "captcha_link")), link);
     return 1;
   }
   // Start streams once we're properly connected
@@ -851,10 +861,16 @@ void startsession(GtkButton* button, void* x)
   }
 #endif
   if(acc_user[0]){dprintf(tc_client_in[1], "%s\n", acc_pass);}
-  write(tc_client_in[1], "/color\n", 7);
   GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
   g_io_channel_set_encoding(tcchannel, 0, 0);
   g_io_add_watch(tcchannel, G_IO_IN, handledata, data);
+}
+
+void captcha_done(GtkWidget* button, void* x)
+{
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "captcha")));
+  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
+  write(tc_client_in[1], "\n", 1);
 }
 
 int main(int argc, char** argv)
@@ -998,6 +1014,8 @@ int main(int argc, char** argv)
   // Connect signal for tab changing (to un-highlight)
   item=GTK_WIDGET(gtk_builder_get_object(gui, "tabs"));
   g_signal_connect(item, "switch-page", G_CALLBACK(pm_select), 0);
+  // Connect signal for captcha
+  g_signal_connect(gtk_builder_get_object(gui, "captcha_done"), "clicked", G_CALLBACK(captcha_done), 0);
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");

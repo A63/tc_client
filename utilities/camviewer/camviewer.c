@@ -155,6 +155,12 @@ void camera_remove(struct viddata* data, const char* nick)
   }
 }
 
+void captcha_done(GtkButton* button, GtkWidget* box)
+{
+  gtk_widget_destroy(box);
+  write(tc_client_in[1], "\n", 1);
+}
+
 char buf[1024];
 gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
 {
@@ -195,6 +201,21 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   {
     space[0]=0;
     camera_remove(data, buf);
+    return 1;
+  }
+  if(!strncmp(buf, "Captcha: ", 9))
+  {
+    GtkWidget* box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    GtkWidget* label=gtk_label_new(0);
+    char link[snprintf(0,0,"Captcha: <a href=\"%s\">%s</a>", &buf[9], &buf[9])+1];
+    sprintf(link, "Captcha: <a href=\"%s\">%s</a>", &buf[9], &buf[9]);
+    gtk_label_set_markup(GTK_LABEL(label), link);
+    gtk_box_pack_start(GTK_BOX(box), label, 0, 0, 0);
+    GtkWidget* button=gtk_button_new_with_label("Done");
+    g_signal_connect(button, "clicked", G_CALLBACK(captcha_done), box);
+    gtk_box_pack_start(GTK_BOX(box), button, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(data->box), box, 0, 0, 0);
+    gtk_widget_show_all(box);
     return 1;
   }
   if(!strncmp(buf, "Starting media stream for ", 26))
