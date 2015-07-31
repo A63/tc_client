@@ -192,6 +192,7 @@ void gotline(char* line)
   }
   write(to_app, line, strlen(line));
   write(to_app, "\n", 1);
+  if(!nickname){return;}
   time_t timestamp=time(0);
   struct tm* t=localtime(&timestamp);
   // Timestamp
@@ -380,7 +381,6 @@ int main(int argc, char** argv)
   close(app_in[0]);
   close(app_out[1]);
   to_app=app_in[1];
-  write(to_app, "/color\n", 7); // Check the initial random color
   struct pollfd p[2]={{.fd=0, .events=POLLIN, .revents=0},
                       {.fd=app_out[0], .events=POLLIN, .revents=0}};
   while(1)
@@ -409,9 +409,19 @@ int main(int argc, char** argv)
       }
       else if(!strncmp(buf, "Connection ID: ", 15)) // Our initial nickname is "guest-" plus our connection ID
       {
+        write(to_app, "/color\n", 7); // Check the initial random color
         unsigned int length=strlen(&buf[15]);
         nickname=malloc(length+strlen("guest-")+1);
         sprintf(nickname, "guest-%s", &(buf[15]));
+      }
+      else if(!strncmp(buf, "Captcha: ", 9))
+      {
+        waddstr(buffers[0].pad, "\n");
+        waddstr(buffers[0].pad, buf);
+        waddstr(buffers[0].pad, " (press return to continue)");
+        drawchat();
+        wrefresh(input);
+        continue;
       }
       else if(!strncmp(buf, "Currently online: ", 18))
       {
