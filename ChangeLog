@@ -4,7 +4,8 @@ Send account username in AMF0 "connect" command at startup regardless of whether
 If an RTMP chunk already has a buffer allocated when a packet sets the length, free it and start over.
 Added support for captchas.
 irchack: added a check for whether tc_client is installed or should be run from the source directory (should have been added along with the 'install' target)
-tc_client-gtk and camviewer: added support for captchas
+tc_client-gtk and camviewer: added support for captchas.
+irchack: added support for captchas.
 0.34:
 Fixed memory alignment in rtmp/amf code (for CPU architectures that are picky about it)
 Print version info when called with -v/--version (contributed by Jade)

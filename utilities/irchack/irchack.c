@@ -82,6 +82,20 @@ int findcolor_ansi(char* irc, char** end)
   return -1;
 }
 
+int read_line(int fd, char* buf, int buflen)
+{
+  int r;
+  int len=0;
+  while(len<buflen-1)
+  {
+    if((r=read(fd, &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
+    ++len;
+  }
+  if(r!=1){return 0;}
+  buf[len]=0;
+  return 1;
+}
+
 extern char session(int sock, const char* nick, const char* channel, const char* pass, const char* acc_user, const char* acc_pass);
 
 int main(int argc, char** argv)
@@ -108,18 +122,9 @@ int main(int argc, char** argv)
     char* pass=0;
     char* acc_user=0;
     char* acc_pass=0;
-    int len;
     while(1)
     {
-      len=0;
-      int r;
-      while(len<2047)
-      {
-        if((r=read(sock, &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
-        ++len;
-      }
-      if(r!=1){break;}
-      buf[len]=0;
+      if(!read_line(sock, buf, 2048)){break;}
       if(!strncmp(buf, "USER ", 5))
       {
         acc_user=&buf[5];
@@ -213,7 +218,6 @@ char session(int sock, const char* nick, const char* channel, const char* pass, 
   pfd[1].events=POLLIN;
   pfd[1].revents=0;
   char buf[2048];
-  int len;
   char joins=0;
   while(1)
   {
@@ -221,15 +225,7 @@ char session(int sock, const char* nick, const char* channel, const char* pass, 
     if(pfd[0].revents)
     {
       pfd[0].revents=0;
-      len=0;
-      int r;
-      while(len<2047)
-      {
-        if((r=read(tc_out[0], &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
-        ++len;
-      }
-      if(r!=1){break;}
-      buf[len]=0;
+      if(!read_line(tc_out[0], buf, 2048)){break;}
 printf("Got from tc_client: '%s'\n", buf);
       if(!strncmp(buf, "Currently online: ", 18))
       {
@@ -254,6 +250,20 @@ printf("Got from tc_client: '%s'\n", buf);
       if(!strncmp(buf, "Room topic: ", 12))
       {
         dprintf(sock, ":irchack 332 %s #%s :%s\n", nick, channel, &buf[12]);
+        continue;
+      }
+      if(!strncmp(buf, "Captcha: ", 9))
+      {
+        dprintf(sock, ":captcha!user@host PRIVMSG %s :%s (reply to this when done)\n", nick, buf);
+        while(1)
+        {
+          if(!read_line(sock, buf, 2048)){break;}
+          if(!strncmp(buf, "PRIVMSG captcha ", 16))
+          {
+            write(tc_in[1], "\n", 1);
+            break;
+          }
+        }
         continue;
       }
       if(!strcmp(buf, "Password required"))
@@ -298,14 +308,7 @@ printf("Got from tc_client: '%s'\n", buf);
             end[0]=0;
             dprintf(sock, ":irchack 367 %s #%s %s!%s@* irchack 0\n", nick, channel, user, buf);
           }
-          len=0;
-          while(len<2047)
-          {
-            if((r=read(tc_out[0], &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
-            ++len;
-          }
-          if(r!=1){return 1;}
-          buf[len]=0;
+          if(!read_line(tc_out[0], buf, 2048)){return 1;}
         }
         dprintf(sock, ":irchack 368 %s #%s :End of Channel Ban List.\n", nick, channel);
         continue;
@@ -373,15 +376,7 @@ printf("Got from tc_client: '%s'\n", buf);
     if(pfd[1].revents)
     {
       pfd[1].revents=0;
-      len=0;
-      int r;
-      while(len<2047)
-      {
-        if((r=read(sock, &buf[len], 1))!=1 || buf[len]=='\r' || buf[len]=='\n'){break;}
-        ++len;
-      }
-      if(r!=1){break;}
-      buf[len]=0;
+      if(!read_line(sock, buf, 2048)){break;}
 printf("Got from IRC client: '%s'\n", buf);
       if(!strncasecmp(buf, "PRIVMSG ", 8))
       {
