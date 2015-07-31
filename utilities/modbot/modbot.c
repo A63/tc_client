@@ -293,6 +293,13 @@ int main(int argc, char** argv)
     }
     if(!len){continue;}
     buf[len]=0;
+    if(!strncmp(buf, "Captcha: ", 9))
+    {
+      fprintf(stdout, "%s\nPress return to continue...", buf);
+      fflush(stdout);
+      fgetc(stdin);
+      write(tc_client, "\n", 1);
+    }
     char* esc;
     while((esc=strstr(buf, "\x1b["))) // Strip out ANSI colors
     {

@@ -200,6 +200,26 @@ char* getmodkey(const char* user, const char* pass, const char* channel, char* l
   return key;
 }
 
+void getcaptcha(void)
+{
+  char* url="http://tinychat.com/cauth/captcha";
+  char* page=http_get(url, 0);
+  char* token=strstr(page, "\"token\":\"");
+  if(token)
+  {
+    token=&token[9];
+    char* end=strchr(token, '"');
+    if(end)
+    {
+      end[0]=0;
+      printf("Captcha: http://tinychat.com/cauth/recaptcha?token=%s\n", token);
+      fflush(stdout);
+      fgetc(stdin);
+    }
+  }
+  free(page);
+}
+
 char timestampbuf[8];
 char* timestamp()
 {
@@ -363,6 +383,7 @@ int main(int argc, char** argv)
   char loggedin=0;
   char* modkey=getmodkey(account_user, account_pass, channel, &loggedin);
   if(!loggedin){free(account_pass); account_user=0; account_pass=0;}
+  getcaptcha();
   char* cookie=getcookie(channel);
   // Send connect request
   struct rtmp amf;
