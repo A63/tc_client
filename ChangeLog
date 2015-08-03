@@ -5,6 +5,7 @@ If an RTMP chunk already has a buffer allocated when a packet sets the length, f
 Added support for captchas.
 irchack: added a check for whether tc_client is installed or should be run from the source directory (should have been added along with the 'install' target)
 tc_client-gtk and camviewer: added support for captchas.
+tc_client-gtk: made the pane handles between cams, chat, and userlist wide (contributed by David Kreuter)
 irchack: added support for captchas.
 cursedchat: added support for captchas.
 0.34:
