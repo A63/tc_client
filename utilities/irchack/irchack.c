@@ -263,6 +263,10 @@ printf("Got from tc_client: '%s'\n", buf);
             write(tc_in[1], "\n", 1);
             break;
           }
+          else if(!strncasecmp(buf, "PING ", 5))
+          {
+            dprintf(sock, ":irchack PONG %s\n", &buf[5]);
+          }
         }
         continue;
       }
