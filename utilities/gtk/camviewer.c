@@ -976,6 +976,9 @@ int main(int argc, char** argv)
 
   GtkWidget* panes=GTK_WIDGET(gtk_builder_get_object(gui, "vpaned"));
   g_signal_connect(panes, "notify::position", G_CALLBACK(handleresizepane), data);
+  gtk_paned_set_wide_handle(GTK_PANED(panes), 1);
+  panes=GTK_WIDGET(gtk_builder_get_object(gui, "chatnick"));
+  gtk_paned_set_wide_handle(GTK_PANED(panes), 1);
 
   GtkWidget* inputfield=GTK_WIDGET(gtk_builder_get_object(gui, "inputfield"));
   g_signal_connect(inputfield, "activate", G_CALLBACK(sendmessage), data);

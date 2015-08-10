@@ -7,6 +7,7 @@ irchack: added a check for whether tc_client is installed or should be run from 
 irchack: respond to pings while waiting for the captcha.
 tc_client-gtk and camviewer: added support for captchas.
 tc_client-gtk: made the pane handles between cams, chat, and userlist wide (contributed by David Kreuter)
+tc_client-gtk: changed how pane handles are set to be wide to be compatible with older gtk+ versions.
 irchack: added support for captchas.
 cursedchat: added support for captchas.
 0.34:

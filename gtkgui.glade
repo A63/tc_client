@@ -502,7 +502,6 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="orientation">vertical</property>
-            <property name="wide_handle">True</property>
             <child>
               <object class="GtkScrolledWindow" id="camerascroll">
                 <property name="visible">True</property>
@@ -537,7 +536,6 @@
                   <object class="GtkPaned" id="chatnick">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="wide_handle">True</property>
                     <child>
                       <object class="GtkNotebook" id="tabs">
                         <property name="visible">True</property>

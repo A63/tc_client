@@ -115,6 +115,7 @@ void stream_handledata(struct rtmp* rtmp)
     return;
   }
   printf("Received media data to unknown stream ID %u\n", rtmp->msgid);
+  fflush(stdout);
 }
 
 void stream_handlestatus(struct amf* amf, int sock)

@@ -118,3 +118,6 @@ SECURITY_ATTRIBUTES sa={
     return gui;
   }
 #endif
+#if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<16)
+void gtk_paned_set_wide_handle(void* a, char b){}
+#endif
