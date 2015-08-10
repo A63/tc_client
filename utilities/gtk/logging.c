@@ -65,7 +65,7 @@ void logger_write(const char* line, const char* channel, const char* nick)
     while((sep=strchr(sep, '/')))
     {
       sep[0]=0;
-printf("Creating '%s' if it doesn't exist yet\n", filename);
+// printf("Creating '%s' if it doesn't exist yet\n", filename);
       mkdir(filename, 0700);
       sep[0]='/';
       sep=&sep[1];
@@ -81,6 +81,7 @@ printf("Creating '%s' if it doesn't exist yet\n", filename);
     fprintf(logfiles[i].f, "Opening logfile on %ti (TODO: format)\n", time(0));
   }
   fprintf(logfiles[i].f, "%s\n", line);
+  fflush(logfiles[i].f);
 }
 
 void logger_close_all(void)
