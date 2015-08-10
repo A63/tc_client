@@ -41,7 +41,7 @@ void queue_del(struct queue* queue, const char* item)
   }
 }
 
-void queue_add(struct queue* queue, const char* item, const char* requester, const char* title)
+void queue_add(struct queue* queue, const char* item, const char* requester, const char* title, unsigned int timeoffset)
 {
   queue_del(queue, item);
   unsigned int len;
@@ -54,6 +54,7 @@ void queue_add(struct queue* queue, const char* item, const char* requester, con
     queue->items[queue->itemcount-1].video=strndup(item, len);
     queue->items[queue->itemcount-1].requester=strdup(requester);
     queue->items[queue->itemcount-1].title=strdup(title);
+    queue->items[queue->itemcount-1].timeoffset=timeoffset*1000;
     item=&item[len];
   }
 }

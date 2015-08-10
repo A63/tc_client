@@ -19,6 +19,7 @@ struct queueitem
   char* video;
   char* requester;
   char* title;
+  unsigned int timeoffset;
 };
 
 struct queue
@@ -28,6 +29,6 @@ struct queue
 };
 
 extern void queue_del(struct queue* queue, const char* item);
-extern void queue_add(struct queue* queue, const char* item, const char* requester, const char* title);
+extern void queue_add(struct queue* queue, const char* item, const char* requester, const char* title, unsigned int timeoffset);
 extern int queue_getpos(struct queue* queue, char* item);
 extern void queue_movetofront(struct queue* queue, unsigned int pos);

@@ -11,6 +11,7 @@ tc_client-gtk: changed how pane handles are set to be wide to be compatible with
 tc_client-gtk: flush logs after every write to avoid loss of data.
 irchack: added support for captchas.
 cursedchat: added support for captchas.
+modbot: added support for youtube links with time offsets.
 0.34:
 Fixed memory alignment in rtmp/amf code (for CPU architectures that are picky about it)
 Print version info when called with -v/--version (contributed by Jade)

@@ -143,7 +143,7 @@ void playnextvid()
   playing=queue.items[0].video;
   requester=queue.items[0].requester;
   title=queue.items[0].title;
-  say(0, "/mbs youTube %s 0 %s\n", playing, queue.items[0].title);
+  say(0, "/mbs youTube %s %u %s\n", playing, queue.items[0].timeoffset, queue.items[0].title);
   --queue.itemcount;
   memmove(queue.items, &queue.items[1], sizeof(struct queueitem)*queue.itemcount);
   // Find out the video's length and schedule an alarm for then
@@ -370,6 +370,24 @@ int main(int argc, char** argv)
           char title[256];
           char vid[1024];
           char viderr[1024];
+          unsigned int timeoffset=0;
+          char* timestr=strstr(&msg[9], "&t=");
+          if(!timestr){timestr=strstr(&msg[9], "?t=");}
+          if(timestr)
+          {
+            timestr=&timestr[3];
+            while(timestr[0])
+            {
+              unsigned int num=strtoul(timestr, &timestr, 10);
+              if(timestr[0])
+              {
+                if(timestr[0]=='h'){num*=3600;}
+                else if(timestr[0]=='m'){num*=60;}
+                timestr=&timestr[1];
+              }
+              timeoffset+=num;
+            }
+          }
           getvidinfo(&msg[9], "--get-id", vid, viderr, 1024);
           if(!vid[0]) // Nothing found
           {
@@ -409,7 +427,7 @@ int main(int argc, char** argv)
             list_save(&badvids, "badvids.txt");
           }
 
-          queue_add(&queue, vid, nick, title);
+          queue_add(&queue, vid, nick, title, timeoffset);
           if(!list_contains(&goodvids, vid))
           {
             if(plist)
