@@ -54,7 +54,7 @@ void queue_add(struct queue* queue, const char* item, const char* requester, con
     queue->items[queue->itemcount-1].video=strndup(item, len);
     queue->items[queue->itemcount-1].requester=strdup(requester);
     queue->items[queue->itemcount-1].title=strdup(title);
-    queue->items[queue->itemcount-1].timeoffset=timeoffset*1000;
+    queue->items[queue->itemcount-1].timeoffset=timeoffset;
     item=&item[len];
   }
 }
