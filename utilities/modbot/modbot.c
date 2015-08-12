@@ -188,6 +188,16 @@ void playnext(int x)
   playnextvid();
 }
 
+void playfor(const char* nick)
+{
+  if(started)
+  {
+    say(0, "/priv %s /mbs youTube %s %u\n", nick, playing, (time(0)-started)*1000);
+  }else{
+    say(0, "/priv %s /mbsp youTube %s 0\n", nick, playing); // Start paused
+  }
+}
+
 int main(int argc, char** argv)
 {
   // Handle arguments (-d, -l, -h additions, the rest are handled by tc_client)
@@ -571,7 +581,7 @@ int main(int argc, char** argv)
           if(playing)
           {
             space[0]=0;
-            say(0, "/priv %s /mbs youTube %s %u\n", nick, playing, (time(0)-started)*1000);
+            playfor(nick);
           }else{
             say(pm, "Nothing is playing\n");
           }
@@ -719,13 +729,17 @@ int main(int argc, char** argv)
             list_save(&goodvids, "goodvids.txt");
             playnext(0);
           }
-          else if(!strncmp(msg, "/mbsk youTube ", 14)) // Seeking
+          else if((!strncmp(msg, "/mbsk youTube ", 14) || !strncmp(msg, "/mbpl youTube ", 14)) && playing) // Seeking, or resume playing
           {
             unsigned int pos=strtol(&msg[14], 0, 0)/1000;
             alarm(getduration(playing)-pos);
             started=time(0)-pos;
           }
-          // TODO: handle /mbpa (pause) and /mbpl (resume play)
+          else if(!strcmp(msg, "/mbpa youTube")) // Pause
+          {
+            alarm(0);
+            started=0;
+          }
         }
       }else{ // Actions
         if(!strncmp(space, " changed nickname to ", 21))
@@ -752,7 +766,7 @@ int main(int argc, char** argv)
           if(playing)
           {
             space[0]=0;
-            say(0, "/priv %s /mbs youTube %s %u\n", nick, playing, (time(0)-started)*1000);
+            playfor(nick);
           }
         }
         else if(!strcmp(space, " left the channel"))
