@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <termios.h>
+#include <curl/curl.h>
 #include "../list.h"
 #include "queue.h"
 
@@ -51,6 +52,40 @@ void timemods(void)
   }
   time_modcount=now;
   havemods=(mods.itemcount>1); // Not counting modbot as a mod
+}
+
+struct writebuf
+{
+  char* buf;
+  int len;
+};
+
+size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
+{
+  struct writebuf* data=x;
+  size*=nmemb;
+  data->buf=realloc(data->buf, data->len+size+1);
+  memcpy(&data->buf[data->len], ptr, size);
+  data->len+=size;
+  data->buf[data->len]=0;
+  return size;
+}
+
+char* http_get(const char* url)
+{
+  CURL* curl=curl_easy_init();
+  if(!curl){return 0;}
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  struct writebuf writebuf={0, 0};
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writehttp);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &writebuf);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla Firefox");
+  char err[CURL_ERROR_SIZE];
+  curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err);
+  if(curl_easy_perform(curl)){curl_easy_cleanup(curl); printf("%s\n", err); return 0;}
+  curl_easy_cleanup(curl);
+  return writebuf.buf; // should be free()d when no longer needed
 }
 
 void say(const char* pm, const char* fmt, ...)
@@ -429,6 +464,19 @@ int main(int argc, char** argv)
           {
             say(pm, "Video '%s' is marked as bad, won't add to queue\n", title);
             continue;
+          }
+          if(!list_contains(&goodvids, vid)) // Check that this video can be embedded (for the flash client)
+          {
+            char url[strlen("https://www.youtube.com/watch?v=0")+strlen(vid)];
+            sprintf(url, "https://www.youtube.com/watch?v=%s", vid);
+            char* page=http_get(url);
+            void* res=strstr(page, "youtube.com/embed/");
+            free(page);
+            if(!res)
+            {
+              say(pm, "The video I found for '%s' was not embeddable, sorry\n", &msg[9]);
+              continue;
+            }
           }
           if(list_contains(&mods, nick)) // Auto-approve for mods
           {
