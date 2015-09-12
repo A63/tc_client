@@ -170,8 +170,7 @@ unsigned int getduration(const char* vid)
   return len;
 }
 
-unsigned int waitskip=0;
-time_t waitskiptime=0;
+time_t waitskip=0;
 void playnextvid()
 {
   waitskip=0;
@@ -201,23 +200,23 @@ void playnext(int x)
     if(!waitskip)
     {
       say(0, "Next video (%s, %s) is not yet approved by mods\n", queue.items[0].video, queue.items[0].title);
+      waitskip=time(0)+120;
+      alarm(120);
+      return;
+    }else{
+      if(time(0)<waitskip){return;} // Not time yet
       unsigned int i;
       for(i=1; i<queue.itemcount; ++i)
       {
         if(list_contains(&goodvids, queue.items[i].video))
         {
-          waitskip=i;
-          waitskiptime=time(0)+120;
-          alarm(120);
+          say(0, "Skipping http://youtube.com/watch?v=%s because it is still not approved after 2 minutes\n", queue.items[0].video);
+          queue_movetofront(&queue, i);
+          waitskip=0;
           break;
         }
       }
-      return;
-    }else{
-      if(time(0)<waitskiptime){return;} // Not time yet
-      say(0, "Skipping http://youtube.com/watch?v=%s because it is still not approved after 2 minutes\n", queue.items[0].video);
-      queue_movetofront(&queue, waitskip);
-      waitskip=0;
+      if(i==queue.itemcount){return;}
     }
   }
   playnextvid();
@@ -496,7 +495,7 @@ int main(int argc, char** argv)
               say(pm, "Video '%s' (%s) is added to the queue but will need to be approved by a mod\n", vid, title);
             }
           }
-          else if(!playing && !waitskip){playnext(0);}
+          else if(!playing){playnext(0);}
           else{say(pm, "Added '%s' to queue, it has already been approved\n", title);}
         }
         // Undo
