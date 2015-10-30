@@ -490,7 +490,8 @@ int main(int argc, char** argv)
                  "/camup          = open an audio/video stream for broadcasting your video\n"
                  "/camdown        = close the broadcasting stream\n"
                  "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n"
-                 "/topic <topic>  = set the channel topic\n");
+                 "/topic <topic>  = set the channel topic\n"
+                 "/whois <nick/ID> = check a user's username\n");
           fflush(stdout);
           continue;
         }
@@ -671,6 +672,19 @@ int main(int argc, char** argv)
           amfnull(&amf);
           amfstring(&amf, &buf[7]);
           amfstring(&amf, "");
+          amfsend(&amf, sock);
+          continue;
+        }
+        else if(!strncmp(buf, "/whois ", 7)) // Request username
+        {
+          amfinit(&amf, 3);
+          amfstring(&amf, "account");
+          amfnum(&amf, 0);
+          amfnull(&amf);
+          int id=idlist_get(&buf[7]);
+          if(id<0 && isdigit(buf[7])){id=atoi(&buf[7]);}
+          sprintf(buf, "%i", id);
+          amfstring(&amf, buf);
           amfsend(&amf, sock);
           continue;
         }
@@ -978,6 +992,22 @@ int main(int argc, char** argv)
     else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "onStatus"))
     {
       stream_handlestatus(amfin, sock);
+    }
+    else if(amfin->itemcount>2 && amfin->items[0].type==AMF_STRING && amfin->items[2].type==AMF_OBJECT && amf_comparestrings_c(&amfin->items[0].string, "account"))
+    {
+      struct amfitem* id=amf_getobjmember(&amfin->items[2].object, "id");
+      struct amfitem* account=amf_getobjmember(&amfin->items[2].object, "account");
+      if(id && account && id->type==AMF_NUMBER && account->type==AMF_STRING)
+      {
+        for(i=0; i<idlistlen; ++i)
+        {
+          if(id->number==idlist[i].id)
+          {
+            printf("%s is logged in as %s\n", idlist[i].name, account->string.string);
+            break;
+          }
+        }
+      }
     }
     // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
     amf_free(amfin);
