@@ -1009,6 +1009,7 @@ int main(int argc, char** argv)
             }else{
               printf("%s is not logged in\n", idlist[i].name);
             }
+            fflush(stdout);
             break;
           }
         }

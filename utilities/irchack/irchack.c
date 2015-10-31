@@ -300,6 +300,20 @@ printf("Got from tc_client: '%s'\n", buf);
         dprintf(sock, ":irchack MODE #%s -o %s\n", channel, buf);
         continue;
       }
+      if(space && !strncmp(space, " is logged in as ", 17)) // /whois response
+      {
+        space[0]=0;
+        dprintf(sock, ":server 311 %s %s user host * :%s\n", nick, buf, &space[17]);
+        dprintf(sock, ":server 318 %s %s :End of /WHOIS list\n", nick, buf);
+        continue;
+      }
+      if(space && !strcmp(space, " is not logged in")) // /whois response
+      {
+        space[0]=0;
+        dprintf(sock, ":server 311 %s %s user host * :Not logged in\n", nick, buf);
+        dprintf(sock, ":server 318 %s %s :End of /WHOIS list\n", nick, buf);
+        continue;
+      }
       if(!strcmp(buf, "Banned users:"))
       {
         while(strncmp(buf, "Use /forgive ", 13))
@@ -347,12 +361,6 @@ printf("Got from tc_client: '%s'\n", buf);
           if(!msg){continue;}
           msg=&msg[1];
           dprintf(sock, ":%s!user@host PRIVMSG %s :%s%s\n", name, nick, color, msg);
-        }
-        else if(!strncmp(msg, "/userinfo ", 10)) // /userinfo response (translated as whois)
-        {
-          if(!strcmp(&msg[10], "$request")){continue;} // Special, ignore
-          dprintf(sock, ":server 311 %s %s user host * :%s\n", nick, name, &msg[10]);
-          dprintf(sock, ":server 318 %s %s :End of /WHOIS list\n", nick, name);
         }else{ // Regular channel message
           dprintf(sock, ":%s!user@host PRIVMSG #%s :%s%s\n", name, channel, color, msg);
         }
@@ -427,7 +435,7 @@ printf("Got from IRC client: '%s'\n", buf);
       {
         char* space=strchr(&buf[6], ' ');
         if(space){space[0]=0;}
-        dprintf(tc_in[1], "/priv %s /userinfo $request\n", buf[6]==':'?&buf[7]:&buf[6]);
+        dprintf(tc_in[1], "/whois %s\n", buf[6]==':'?&buf[7]:&buf[6]);
       }
       else if(!strncasecmp(buf, "TOPIC ", 6))
       {
