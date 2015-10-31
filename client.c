@@ -1003,7 +1003,12 @@ int main(int argc, char** argv)
         {
           if(id->number==idlist[i].id)
           {
-            printf("%s is logged in as %s\n", idlist[i].name, account->string.string);
+            if(strcmp(account->string.string, "$noinfo"))
+            {
+              printf("%s is logged in as %s\n", idlist[i].name, account->string.string);
+            }else{
+              printf("%s is not logged in\n", idlist[i].name);
+            }
             break;
           }
         }

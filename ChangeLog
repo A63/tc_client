@@ -1,5 +1,6 @@
 0.36:
 Implemented /whois <nick/ID> to check someone's username.
+Changed the /whois output to be more human-readable in cases where the user isn't logged in.
 modbot: take time offset into account for the duration of videos.
 modbot: added support for /mbpa (pause) and /mbpl (play/resume)
 modbot: check that videos can be embedded (for the flash client) before adding them to the queue.
