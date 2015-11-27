@@ -6,6 +6,7 @@ modbot: added support for /mbpa (pause) and /mbpl (play/resume)
 modbot: check that videos can be embedded (for the flash client) before adding them to the queue.
 modbot: when skipping an unapproved video after 2 minutes, find the next approved video when it's time to play it (in case the queue has changed)
 irchack: changed WHOIS to use the new /whois command instead of /userinfo (which tinychat retired)
+tc_client-gtk: added an option to automatically cam down when someone joins ("Shy mode")
 0.35:
 Adjusted for tinychat authentication changes (both for joining the channel and to use moderator accounts)
 Send account username in AMF0 "connect" command at startup regardless of whether we are modded or not, as is now required for non-mod accounts (contributed by Jade)

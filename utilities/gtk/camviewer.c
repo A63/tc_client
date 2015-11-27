@@ -341,6 +341,10 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     {
       if(!strcmp(space, " entered the channel"))
       {
+        if(config_get_bool("camdownonjoin"))
+        {
+          gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera")), 0);
+        }
         space[0]=0;
         adduser(nick);
       }
@@ -996,6 +1000,8 @@ int main(int argc, char** argv)
   // Youtube
   option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
   g_signal_connect(option, "toggled", G_CALLBACK(toggle_youtubecmd), gui);
+  // Misc
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
 
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "main"));
   g_signal_connect(window, "configure-event", G_CALLBACK(handleresize), data);
