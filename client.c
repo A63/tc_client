@@ -829,9 +829,9 @@ int main(int argc, char** argv)
       fflush(stdout);
     }
     // join ("join", 0, "<ID>", "guest-<ID>")
-    else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "join") && amfin->items[2].type==AMF_STRING && amfin->items[3].type==AMF_STRING)
+    else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "join") && amfin->items[2].type==AMF_NUMBER && amfin->items[3].type==AMF_STRING)
     {
-      idlist_add(atoi(amfin->items[2].string.string), amfin->items[3].string.string);
+      idlist_add(amfin->items[2].number, amfin->items[3].string.string);
       printf("%s %s entered the channel\n", timestamp(), amfin->items[3].string.string);
       fflush(stdout);
     }
