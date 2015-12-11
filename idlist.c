@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014-2015  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
@@ -22,13 +22,15 @@
 struct idmap* idlist=0;
 int idlistlen=0;
 
-void idlist_add(int id, const char* name)
+void idlist_add(int id, const char* name, const char* account, char op)
 {
   idlist_remove(name);
   ++idlistlen;
   idlist=realloc(idlist, sizeof(struct idmap)*idlistlen);
   idlist[idlistlen-1].id=id;
+  idlist[idlistlen-1].op=op;
   idlist[idlistlen-1].name=strdup(name);
+  idlist[idlistlen-1].account=(account?strdup(account):0);
 }
 
 void idlist_remove(const char* name)
@@ -75,17 +77,19 @@ int idlist_get(const char* name)
   return -1;
 }
 
-void idlist_set_op(const char* name, char op)
+const char* idlist_getaccount(const char* name)
 {
+  int len;
+  for(len=0; name[len]&&name[len]!=' '; ++len);
   int i;
   for(i=0; i<idlistlen; ++i)
   {
-    if(!strcmp(name, idlist[i].name))
+    if(!strncmp(name, idlist[i].name, len) && !idlist[i].name[len])
     {
-      idlist[i].op=op;
-      return;
+      return idlist[i].account;
     }
   }
+  return 0;
 }
 
 char idlist_is_op(const char* name)

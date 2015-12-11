@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014  alicia@ion.nu
+    Copyright (C) 2014-2015  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
@@ -20,14 +20,15 @@ struct idmap
   const char* name;
   int id;
   char op;
+  const char* account;
 };
 
 extern struct idmap* idlist;
 extern int idlistlen;
 
-extern void idlist_add(int id, const char* name);
+extern void idlist_add(int id, const char* name, const char* account, char op);
 extern void idlist_remove(const char* name);
 extern void idlist_rename(const char* oldname, const char* newname);
 extern int idlist_get(const char* name);
-extern void idlist_set_op(const char* name, char op);
+extern const char* idlist_getaccount(const char* name);
 extern char idlist_is_op(const char* name);

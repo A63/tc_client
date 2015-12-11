@@ -121,10 +121,10 @@ char* gethost(char *channel, char *password)
   return host;
 }
 
-char* getkey(const char* id, const char* channel)
+char* getkey(int id, const char* channel)
 {
-  char url[strlen("http://apl.tinychat.com/api/captcha/check.php?guest%5Fid=&room=tinychat%5E0")+strlen(id)+strlen(channel)];
-  sprintf(url, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%s&room=tinychat%%5E%s", id, channel);
+  char url[snprintf(0,0, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=tinychat%%5E%s", id, channel)+1];
+  sprintf(url, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=tinychat%%5E%s", id, channel);
   char* response=http_get(url, 0);
   char* key=strstr(response, "\"key\":\"");
 
@@ -428,13 +428,30 @@ int main(int argc, char** argv)
     amfobjitem(&amf, "objectEncoding");
     amfnum(&amf, 0);
   amfobjend(&amf);
-  amfstring(&amf, channel);
-  amfstring(&amf, modkey?modkey:"none");
-  amfstring(&amf, "default"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to, but "default" seems to work fine too.
-  amfstring(&amf, "tinychat");
-  amfstring(&amf, account_user?account_user:"");
-  amfstring(&amf, "");
-  amfstring(&amf, cookie);
+  amfobjstart(&amf);
+    amfobjitem(&amf, "version");
+    amfstring(&amf, "Desktop");
+
+    amfobjitem(&amf, "type");
+    amfstring(&amf, "default"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to, but "default" seems to work fine too.
+
+    amfobjitem(&amf, "account");
+    amfstring(&amf, account_user?account_user:"");
+
+    amfobjitem(&amf, "prefix");
+    amfstring(&amf, "tinychat");
+
+    amfobjitem(&amf, "room");
+    amfstring(&amf, channel);
+
+    if(modkey)
+    {
+      amfobjitem(&amf, "autoop");
+      amfstring(&amf, modkey);
+    }
+    amfobjitem(&amf, "cookie");
+    amfstring(&amf, cookie);
+  amfobjend(&amf);
   amfsend(&amf, sock);
   free(modkey);
   free(cookie);
@@ -675,17 +692,16 @@ int main(int argc, char** argv)
           amfsend(&amf, sock);
           continue;
         }
-        else if(!strncmp(buf, "/whois ", 7)) // Request username
+        else if(!strncmp(buf, "/whois ", 7)) // Get account username
         {
-          amfinit(&amf, 3);
-          amfstring(&amf, "account");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          int id=idlist_get(&buf[7]);
-          if(id<0 && isdigit(buf[7])){id=atoi(&buf[7]);}
-          sprintf(buf, "%i", id);
-          amfstring(&amf, buf);
-          amfsend(&amf, sock);
+          const char* account=idlist_getaccount(&buf[7]);
+          if(account)
+          {
+            printf("%s is logged in as %s\n", &buf[7], account);
+          }else{
+            printf("%s is not logged in\n", &buf[7]);
+          }
+          fflush(stdout);
           continue;
         }
       }
@@ -732,32 +748,8 @@ int main(int argc, char** argv)
       if(!strcmp(amfin->items[0].string.string, "_error"))
         printamf(amfin);
     }
-    if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "registered") && amfin->items[amfin->itemcount-1].type==AMF_STRING)
-    {
-      char* id=amfin->items[amfin->itemcount-1].string.string;
-      printf("Connection ID: %s\n", id);
-      char* key=getkey(id, channel);
-      curl_easy_cleanup(curl); // At this point we should be done with HTTP requests
-      curl=0;
-      if(!key){printf("Failed to get channel key\n"); return 1;}
-
-      amfinit(&amf, 3);
-      amfstring(&amf, "cauth");
-      amfnum(&amf, 0);
-      amfnull(&amf); // Means nothing but is apparently critically important for cauth at least
-      amfstring(&amf, key);
-      amfsend(&amf, sock);
-      free(key);
-
-      amfinit(&amf, 3);
-      amfstring(&amf, "nick");
-      amfnum(&amf, 0);
-      amfnull(&amf);
-      amfstring(&amf, nickname);
-      amfsend(&amf, sock);
-    }
     // Items for privmsg: 0=cmd, 2=channel, 3=msg, 4=color/lang, 5=nick
-    else if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[4].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
+    if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[4].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
     {
       size_t len;
       char* msg=fromnumlist(amfin->items[3].string.string, &len);
@@ -812,27 +804,68 @@ int main(int argc, char** argv)
       fflush(stdout);
     }
     // users on channel entry.  there's also a "joinsdone" command for some reason...
-    else if(amfin->itemcount>3 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "joins"))
+    else if(amfin->itemcount>2 && amfin->items[0].type==AMF_STRING && (amf_comparestrings_c(&amfin->items[0].string, "joins") || amf_comparestrings_c(&amfin->items[0].string, "join") || amf_comparestrings_c(&amfin->items[0].string, "registered")))
     {
-      printf("Currently online: ");
-      int i;
-      for(i = 3; i < amfin->itemcount-1; i+=2)
+      if(amf_comparestrings_c(&amfin->items[0].string, "joins"))
       {
-        // a "numeric" id precedes each nick, i.e. i is the id, i+1 is the nick
-        if(amfin->items[i].type==AMF_STRING && amfin->items[i+1].type==AMF_STRING)
+        printf("Currently online: ");
+      }else{
+        printf("%s ", timestamp());
+      }
+      int i;
+      for(i = 2; i < amfin->itemcount; ++i)
+      {
+        if(amfin->items[i].type==AMF_OBJECT)
         {
-          idlist_add(atoi(amfin->items[i].string.string), amfin->items[i+1].string.string);
-          printf("%s%s", (i==3?"":", "), amfin->items[i+1].string.string);
+          struct amfitem* item=amf_getobjmember(&amfin->items[i].object, "id");
+          if(item->type!=AMF_NUMBER){continue;}
+          int id=item->number;
+          item=amf_getobjmember(&amfin->items[i].object, "nick");
+          if(item->type!=AMF_STRING){continue;}
+          const char* nick=item->string.string;
+          item=amf_getobjmember(&amfin->items[i].object, "account");
+          if(item->type!=AMF_STRING){continue;}
+          const char* account=(item->string.string[0]?item->string.string:0);
+          item=amf_getobjmember(&amfin->items[i].object, "mod");
+          if(item->type!=AMF_BOOL){continue;}
+          char mod=item->boolean;
+          idlist_add(id, nick, account, mod);
+          printf("%s%s", (i==2?"":", "), nick);
+          if(amf_comparestrings_c(&amfin->items[0].string, "registered"))
+          {
+            char* key=getkey(id, channel);
+            curl_easy_cleanup(curl); // At this point we should be done with HTTP requests
+            curl=0;
+            if(!key){printf("Failed to get channel key\n"); return 1;}
+            amfinit(&amf, 3);
+            amfstring(&amf, "cauth");
+            amfnum(&amf, 0);
+            amfnull(&amf); // Means nothing but is apparently critically important for cauth at least
+            amfstring(&amf, key);
+            amfsend(&amf, sock);
+            free(key);
+            if(nickname[0]) // Empty = don't set one
+            {
+              amfinit(&amf, 3);
+              amfstring(&amf, "nick");
+              amfnum(&amf, 0);
+              amfnull(&amf);
+              amfstring(&amf, nickname);
+              amfsend(&amf, sock);
+            }
+          }
         }
       }
-      printf("\n");
-      fflush(stdout);
-    }
-    // join ("join", 0, "<ID>", "guest-<ID>")
-    else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "join") && amfin->items[2].type==AMF_NUMBER && amfin->items[3].type==AMF_STRING)
-    {
-      idlist_add(amfin->items[2].number, amfin->items[3].string.string);
-      printf("%s %s entered the channel\n", timestamp(), amfin->items[3].string.string);
+      if(amf_comparestrings_c(&amfin->items[0].string, "joins"))
+      {
+        printf("\n");
+      }else{
+        printf(" entered the channel\n");
+        if(amf_comparestrings_c(&amfin->items[0].string, "registered"))
+        {
+          printf("Connection ID: %i\n", idlist[0].id);
+        }
+      }
       fflush(stdout);
     }
     // quit/part
@@ -898,20 +931,6 @@ int main(int argc, char** argv)
         printf("%s Push to talk request has been sent to non-moderators.\n", timestamp());
         fflush(stdout);
       }
-    }
-    // oper, identifies mods
-    else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "oper") && amfin->items[3].type==AMF_STRING)
-    {
-      idlist_set_op(amfin->items[3].string.string, 1);
-      printf("%s is a moderator.\n", amfin->items[3].string.string);
-      fflush(stdout);
-    }
-    // deop, removes moderator privilege
-    else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "deop") && amfin->items[3].type==AMF_STRING)
-    {
-      idlist_set_op(amfin->items[3].string.string, 0);
-      printf("%s is no longer a moderator.\n", amfin->items[3].string.string);
-      fflush(stdout);
     }
     // nickinuse, the nick we wanted to change to is already taken
     else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING &&  amf_comparestrings_c(&amfin->items[0].string, "nickinuse"))

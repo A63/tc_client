@@ -61,6 +61,8 @@ INSTALLDEPS=tc_client
 
 tc_client: $(OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
+# Make sure client.o gets rebuilt if we change the version number in the Makefile
+client.o: Makefile
 
 utils: $(UTILS) tc_client
 
