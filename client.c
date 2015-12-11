@@ -863,6 +863,21 @@ int main(int argc, char** argv)
         {
           if(idlist[i].op){printf("%s is a moderator.\n", idlist[i].name);}
         }
+        printf("Currently on cam: ");
+        char first=1;
+        for(i = 2; i < amfin->itemcount; ++i)
+        {
+          if(amfin->items[i].type==AMF_OBJECT)
+          {
+            struct amfitem* item=amf_getobjmember(&amfin->items[i].object, "bf");
+            if(item->type!=AMF_BOOL || !item->boolean){continue;}
+            item=amf_getobjmember(&amfin->items[i].object, "nick");
+            if(item->type!=AMF_STRING){continue;}
+            printf("%s%s", (first?"":", "), item->string.string);
+            first=0;
+          }
+        }
+        printf("\n");
       }else{
         printf(" entered the channel\n");
         if(idlist[idlistlen-1].op){printf("%s is a moderator.\n", idlist[idlistlen-1].name);}
@@ -981,22 +996,6 @@ int main(int argc, char** argv)
         printf(" %s\n", amfin->items[i+1].string.string);
       }
       printf("Use /forgive <ID/nick> to unban someone\n");
-      fflush(stdout);
-    }
-    // "avons", 0, "ID1", "nick1", "IDn", "nickn"...
-    else if(amfin->itemcount>1 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "avons"))
-    {
-      printf("Currently on cam: ");
-      int i;
-      // a "numeric" id precedes each nick, so we start on 3 and increment by 2
-      for(i = 3; i < amfin->itemcount; i+=2)
-      {
-        if(amfin->items[i].type==AMF_STRING)
-        {
-          printf("%s%s", (i==3?"":", "), amfin->items[i].string.string);
-        }
-      }
-      printf("\n");
       fflush(stdout);
     }
     else if(amfin->itemcount>4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "notice") && amfin->items[2].type==AMF_STRING && amf_comparestrings_c(&amfin->items[2].string, "avon"))
