@@ -859,8 +859,13 @@ int main(int argc, char** argv)
       if(amf_comparestrings_c(&amfin->items[0].string, "joins"))
       {
         printf("\n");
+        for(i=0; i<idlistlen; ++i)
+        {
+          if(idlist[i].op){printf("%s is a moderator.\n", idlist[i].name);}
+        }
       }else{
         printf(" entered the channel\n");
+        if(idlist[idlistlen-1].op){printf("%s is a moderator.\n", idlist[idlistlen-1].name);}
         if(amf_comparestrings_c(&amfin->items[0].string, "registered"))
         {
           printf("Connection ID: %i\n", idlist[0].id);

@@ -1,3 +1,5 @@
+0.37:
+Reimplemented announcement of moderators.
 0.36:
 Implemented /whois <nick/ID> to check someone's username.
 Changed the /whois output to be more human-readable in cases where the user isn't logged in.
