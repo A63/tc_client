@@ -42,9 +42,8 @@ extern struct camera* camera_find(const char* id);
 extern struct camera* camera_findbynick(const char* nick);
 extern struct camera* camera_new(void);
 extern void camera_cleanup(void);
-#ifdef HAVE_CAM
 extern GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay);
 extern void camselect_change(GtkComboBox* combo, AVCodec* vencoder);
 extern gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2);
 extern void camselect_accept(GtkWidget* widget, AVCodec* vencoder);
-#endif
+extern const char* camselect_file(void);

@@ -25,14 +25,13 @@
 
 typedef struct CAM_t
 {
+  unsigned int type;
   int fd;
   unsigned int framesize;
 } CAM;
 
-char** cam_list(unsigned int* count)
+char** cam_list_v4l2(char** list, unsigned int* count)
 {
-  char** list=0;
-  *count=0;
   DIR* dir=opendir("/dev");
   struct dirent* entry;
   while((entry=readdir(dir)))
@@ -41,22 +40,23 @@ char** cam_list(unsigned int* count)
     {
       ++*count;
       list=realloc(list, sizeof(char*)*(*count));
-      char* path=malloc(strlen("/dev/0")+strlen(entry->d_name));
-      sprintf(path, "/dev/%s", entry->d_name);
+      char* path=malloc(strlen("v4l2:/dev/0")+strlen(entry->d_name));
+      sprintf(path, "v4l2:/dev/%s", entry->d_name);
       list[(*count)-1]=path;
     }
   }
   return list;
 }
 
-CAM* cam_open(const char* name)
+CAM* cam_open_v4l2(const char* name)
 {
   CAM* cam=malloc(sizeof(CAM));
-  cam->fd=v4l2_open(name, O_RDWR);
+  cam->type=CAMTYPE_V4L2;
+  cam->fd=v4l2_open(&name[5], O_RDWR);
   return cam;
 }
 
-void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height)
+void cam_resolution_v4l2(CAM* cam, unsigned int* width, unsigned int* height)
 {
   struct v4l2_format fmt;
   fmt.type=V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -73,12 +73,12 @@ void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height)
   cam->framesize=(*width)*(*height)*3;
 }
 
-void cam_getframe(CAM* cam, void* pixmap)
+void cam_getframe_v4l2(CAM* cam, void* pixmap)
 {
   v4l2_read(cam->fd, pixmap, cam->framesize);
 }
 
-void cam_close(CAM* cam)
+void cam_close_v4l2(CAM* cam)
 {
   v4l2_close(cam->fd);
   free(cam);

@@ -45,9 +45,7 @@
 #endif
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
-#ifdef HAVE_CAM
-  #include "../libcamera/camera.h"
-#endif
+#include "../libcamera/camera.h"
 #include "userlist.h"
 #include "media.h"
 #include "compat.h"
@@ -599,7 +597,6 @@ void audiothread(int fd)
 }
 #endif
 
-#ifdef HAVE_CAM
 unsigned int cameventsource=0;
 void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 {
@@ -623,7 +620,6 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
   GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), data->vencoder, 100000);
   cameventsource=g_io_add_watch(channel, G_IO_IN, handledata, 0);
 }
-#endif
 
 gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddata* data)
 {
@@ -929,7 +925,6 @@ int main(int argc, char** argv)
   gtk_builder_connect_signals(gui, 0);
 
   unsigned int i;
-#ifdef HAVE_CAM
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
   g_signal_connect(item, "toggled", G_CALLBACK(togglecam), data);
   data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
@@ -949,6 +944,8 @@ int main(int argc, char** argv)
   // Signals for switching from preview to streaming
   item=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_ok"));
   g_signal_connect(item, "clicked", G_CALLBACK(camselect_accept), data->vencoder);
+  // Enable the "img" camera
+  cam_img_filepicker=camselect_file;
   // Populate list of cams
   unsigned int count;
   char** cams=cam_list(&count);
@@ -962,10 +959,6 @@ int main(int argc, char** argv)
   gtk_combo_box_set_model(combo, GTK_TREE_MODEL(list));
   g_object_unref(list);
   gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo), gtk_cell_renderer_text_new(), 1);
-#else
-  GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast"));
-  gtk_widget_destroy(item);
-#endif
 
   item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings"));
   g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);

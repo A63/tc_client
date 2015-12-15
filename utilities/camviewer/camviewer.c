@@ -41,7 +41,7 @@
   #include <ao/ao.h>
 #endif
 #include <gtk/gtk.h>
-#ifdef HAVE_CAM
+#ifndef _WIN32
   #include "../libcamera/camera.h"
 #endif
 #include "../compat.h"
@@ -390,7 +390,7 @@ void audiothread(int fd)
 }
 #endif
 
-#ifdef HAVE_CAM
+#ifndef _WIN32
 pid_t camproc=0;
 void togglecam(GtkButton* button, struct viddata* data)
 {
@@ -521,7 +521,7 @@ int main(int argc, char** argv)
   g_signal_connect(w, "destroy", gtk_main_quit, 0);
   data.box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_container_add(GTK_CONTAINER(w), data.box);
-#ifdef HAVE_CAM
+#ifndef _WIN32
   data.vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
   GtkWidget* cambutton=gtk_button_new_with_label("Broadcast cam");
   g_signal_connect(cambutton, "clicked", G_CALLBACK(togglecam), &data);

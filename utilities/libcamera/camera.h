@@ -14,6 +14,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+enum{
+  CAMTYPE_V4L2,
+  CAMTYPE_IMG
+};
 struct CAM_t;
 typedef struct CAM_t CAM;
 extern char** cam_list(unsigned int* count);
@@ -22,3 +26,4 @@ extern CAM* cam_open(const char* name);
 extern void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height);
 extern void cam_getframe(CAM* cam, void* pixmap);
 extern void cam_close(CAM* cam);
+extern const char*(*cam_img_filepicker)(void);

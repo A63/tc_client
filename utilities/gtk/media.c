@@ -18,16 +18,16 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include <libavcodec/avcodec.h>
-#ifdef HAVE_CAM
-  #include <sys/prctl.h>
-  #include <libswscale/swscale.h>
-  #if LIBAVUTIL_VERSION_MAJOR>50 || (LIBAVUTIL_VERSION_MAJOR==50 && LIBAVUTIL_VERSION_MINOR>37)
-    #include <libavutil/imgutils.h>
-  #else
-    #include <libavcore/imgutils.h>
-  #endif
-  #include "../libcamera/camera.h"
+#ifndef _WIN32
+#include <sys/prctl.h>
 #endif
+#include <libswscale/swscale.h>
+#if LIBAVUTIL_VERSION_MAJOR>50 || (LIBAVUTIL_VERSION_MAJOR==50 && LIBAVUTIL_VERSION_MINOR>37)
+  #include <libavutil/imgutils.h>
+#else
+  #include <libavcore/imgutils.h>
+#endif
+#include "../libcamera/camera.h"
 #include "../compat.h"
 #include "compat.h"
 #include "gui.h"
@@ -155,7 +155,11 @@ void camera_cleanup(void)
   free(cams);
 }
 
-#ifdef HAVE_CAM
+unsigned int* camthread_delay;
+void camthread_resetdelay(int x)
+{
+  *camthread_delay=500000;
+}
 extern unsigned int cameventsource;
 GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
 {
@@ -166,15 +170,18 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
     usleep(200000); // Give the previous process some time to shut down
   }
   // Set up a second pipe to be handled by handledata() to avoid overlap with tc_client's output
+  CAM* cam=cam_open(name); // Opening here in case of GUI callbacks
   int campipe[2];
   pipe(campipe);
   camproc=fork();
   if(!camproc)
   {
     close(campipe[0]);
+    if(!cam){_exit(1);}
     prctl(PR_SET_PDEATHSIG, SIGHUP);
+    camthread_delay=&delay;
+    signal(SIGUSR1, camthread_resetdelay);
     // Set up camera
-    CAM* cam=cam_open(name);
     AVCodecContext* ctx=avcodec_alloc_context3(vencoder);
     ctx->width=320;
     ctx->height=240;
@@ -226,6 +233,7 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
     sws_freeContext(swsctx);
     _exit(0);
   }
+  if(cam){cam_close(cam);} // Leave the cam to the child process
   close(campipe[1]);
   GIOChannel* channel=g_io_channel_unix_new(campipe[0]);
   g_io_channel_set_encoding(channel, 0, 0);
@@ -255,10 +263,38 @@ void camselect_accept(GtkWidget* widget, AVCodec* vencoder)
 {
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
   gtk_widget_hide(window);
-  // Restart the cam thread with a high initial delay to workaround the bug in the flash client
-  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
-  GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), vencoder, 500000);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, (void*)&handledata, 0);
+  // Tell the camthread to reset the delay to 500000 as a workaround for a quirk in the flash client
+  kill(camproc, SIGUSR1);
   dprintf(tc_client_in[1], "/camup\n");
 }
-#endif
+
+void camselect_file_preview(GtkFileChooser* dialog, gpointer data)
+{
+  GtkImage* preview=GTK_IMAGE(data);
+  char* file=gtk_file_chooser_get_preview_filename(dialog);
+  GdkPixbuf* img=gdk_pixbuf_new_from_file_at_size(file, 256, 256, 0);
+  g_free(file);
+  gtk_image_set_from_pixbuf(preview, img);
+  if(img){g_object_unref(img);}
+  gtk_file_chooser_set_preview_widget_active(dialog, !!img);
+}
+
+const char* camselect_file(void)
+{
+  GtkWidget* preview=gtk_image_new();
+  GtkWindow* window=GTK_WINDOW(gtk_builder_get_object(gui, "camselection"));
+  GtkWidget* dialog=gtk_file_chooser_dialog_new("Open Image", window, GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, (char*)0);
+  GtkFileFilter* filter=gtk_file_filter_new();
+  gtk_file_filter_add_pixbuf_formats(filter);
+  gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(dialog), filter);
+  gtk_file_chooser_set_preview_widget(GTK_FILE_CHOOSER(dialog), preview);
+  g_signal_connect(dialog, "update-preview", G_CALLBACK(camselect_file_preview), preview);
+  int res=gtk_dialog_run(GTK_DIALOG(dialog));
+  char* file;
+  if(res==GTK_RESPONSE_ACCEPT)
+  {
+    file=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+  }else{file=0;}
+  gtk_widget_destroy(dialog);
+  return file;
+}
