@@ -16,12 +16,37 @@
 */
 #ifdef _WIN32
 #include <wtypes.h>
+#include <fcntl.h>
 extern SECURITY_ATTRIBUTES sa;
+#define kill(pid, x) TerminateProcess(pid, 0)
 #define w32_runcmd(cmd) \
   { \
     char* arg=strchr(cmd,' '); \
     if(arg){arg[0]=0; arg=&arg[1];} \
     ShellExecute(0, "open", cmd, arg, 0, SW_SHOWNORMAL); \
+  }
+#define w32_runcmdpipes(cmd, pipein, pipeout, procinfo) \
+  { \
+    HANDLE h_pipe_in0, h_pipe_in1; \
+    if(pipein) \
+    { \
+      CreatePipe(&h_pipe_in0, &h_pipe_in1, &sa, 0); \
+      pipein[0]=_open_osfhandle(h_pipe_in0, _O_RDONLY); \
+      pipein[1]=_open_osfhandle(h_pipe_in1, _O_WRONLY); \
+    } \
+    HANDLE h_pipe_out0, h_pipe_out1; \
+    if(pipeout) \
+    { \
+      CreatePipe(&h_pipe_out0, &h_pipe_out1, &sa, 0); \
+      pipeout[0]=_open_osfhandle(h_pipe_out0, _O_RDONLY); \
+      pipeout[1]=_open_osfhandle(h_pipe_out1, _O_WRONLY); \
+    } \
+    STARTUPINFO startup; \
+    GetStartupInfo(&startup); \
+    startup.dwFlags|=STARTF_USESTDHANDLES; \
+    if(pipein){startup.hStdInput=h_pipe_in0;} \
+    if(pipeout){startup.hStdOutput=h_pipe_out1;} \
+    CreateProcess(0, cmd, 0, 0, 1, DETACHED_PROCESS, 0, 0, &startup, &procinfo); \
   }
 #endif
 #if GTK_MAJOR_VERSION<3

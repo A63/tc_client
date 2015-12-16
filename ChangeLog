@@ -2,6 +2,7 @@
 Reimplemented announcement of moderators.
 Reimplemented announcement of people cammed up when joining.
 libcamera: added support for a virtual "Image" camera.
+tc_client-gtk: added workarounds for the camera code (with the platform-agnostic "Image" camera) to work on windows.
 0.36:
 Implemented /whois <nick/ID> to check someone's username.
 Changed the /whois output to be more human-readable in cases where the user isn't logged in.

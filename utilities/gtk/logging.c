@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include "config.h"
 #include "../stringutils.h"
+#include "../compat.h"
 
 struct logfile
 {

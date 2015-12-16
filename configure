@@ -13,15 +13,15 @@ done
 
 printf 'Checking for a C compiler... '
 if [ "x$CC" = "x" -a "x$host" != "x" ]; then
-  if which "${host}-cc" > /dev/null 2> /dev/null; then CC="${host}-cc"
-  elif which "${host}-gcc" > /dev/null 2> /dev/null; then CC="${host}-gcc"
+  if which "${host}-gcc" > /dev/null 2> /dev/null; then CC="${host}-gcc"
   elif which "${host}-clang" > /dev/null 2> /dev/null; then CC="${host}-clang"
+  elif which "${host}-cc" > /dev/null 2> /dev/null; then CC="${host}-cc"
   fi
 fi
 if [ "x$CC" = "x" ]; then
-  if which cc > /dev/null 2> /dev/null; then CC=cc
-  elif which gcc > /dev/null 2> /dev/null; then CC=gcc
+  if which gcc > /dev/null 2> /dev/null; then CC=gcc
   elif which clang > /dev/null 2> /dev/null; then CC=clang
+  elif which cc > /dev/null 2> /dev/null; then CC=cc
   fi
 fi
 if [ "x$CC" = "x" ]; then echo "None found"; exit 1; fi

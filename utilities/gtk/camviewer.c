@@ -814,19 +814,6 @@ void startsession(GtkButton* button, void* x)
   const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")));
   const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")));
 #ifdef _WIN32
-  HANDLE h_tc_client0, h_tc_client1;
-  CreatePipe(&h_tc_client0, &h_tc_client1, &sa, 0);
-  HANDLE h_tc_client_in0, h_tc_client_in1;
-  CreatePipe(&h_tc_client_in0, &h_tc_client_in1, &sa, 0);
-  tc_client[0]=_open_osfhandle(h_tc_client0, _O_RDONLY);
-  tc_client[1]=_open_osfhandle(h_tc_client1, _O_WRONLY);
-  tc_client_in[0]=_open_osfhandle(h_tc_client_in0, _O_RDONLY);
-  tc_client_in[1]=_open_osfhandle(h_tc_client_in1, _O_WRONLY);
-  STARTUPINFO startup;
-  GetStartupInfo(&startup);
-  startup.dwFlags|=STARTF_USESTDHANDLES;
-  startup.hStdInput=h_tc_client_in0;
-  startup.hStdOutput=h_tc_client1;
   char cmd[strlen("./tc_client -u    0")+strlen(acc_user)+strlen(channel)+strlen(nick)+strlen(chanpass)];
   strcpy(cmd, "./tc_client ");
   if(acc_user[0])
@@ -841,7 +828,7 @@ void startsession(GtkButton* button, void* x)
   strcat(cmd, " ");
   strcat(cmd, chanpass);
   strcat(cmd, " ");
-  CreateProcess(0, cmd, 0, 0, 1, DETACHED_PROCESS, 0, 0, &startup, &coreprocess);
+  w32_runcmdpipes(cmd, tc_client_in, tc_client, coreprocess);
 #else
   pipe(tc_client);
   pipe(tc_client_in);
@@ -1054,6 +1041,10 @@ int main(int argc, char** argv)
   if(coreprocess.hProcess)
   {
     TerminateProcess(coreprocess.hProcess, 0);
+  }
+  if(camproc)
+  {
+    TerminateProcess(camproc, 0);
   }
 #endif
   camera_cleanup();

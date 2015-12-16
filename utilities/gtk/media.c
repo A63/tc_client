@@ -28,14 +28,18 @@
   #include <libavcore/imgutils.h>
 #endif
 #include "../libcamera/camera.h"
-#include "../compat.h"
 #include "compat.h"
+#include "../compat.h"
 #include "gui.h"
 #include "media.h"
 struct camera campreview;
 struct camera* cams=0;
 unsigned int camcount=0;
-pid_t camproc=0;
+#ifdef _WIN32
+  PROCESS_INFORMATION camprocess={.hProcess=0};
+#else
+  pid_t camproc=0;
+#endif
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 // Experimental mixer, not sure if it really works
@@ -170,17 +174,20 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
     usleep(200000); // Give the previous process some time to shut down
   }
   // Set up a second pipe to be handled by handledata() to avoid overlap with tc_client's output
-  CAM* cam=cam_open(name); // Opening here in case of GUI callbacks
   int campipe[2];
+#ifndef _WIN32
+  CAM* cam=cam_open(name); // Opening here in case of GUI callbacks
   pipe(campipe);
   camproc=fork();
   if(!camproc)
   {
     close(campipe[0]);
     if(!cam){_exit(1);}
+#ifndef _WIN32
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     camthread_delay=&delay;
     signal(SIGUSR1, camthread_resetdelay);
+#endif
     // Set up camera
     AVCodecContext* ctx=avcodec_alloc_context3(vencoder);
     ctx->width=320;
@@ -235,6 +242,11 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
   }
   if(cam){cam_close(cam);} // Leave the cam to the child process
   close(campipe[1]);
+#else
+  char cmd[snprintf(0,0, "./tc_client-gtk-camthread %s %u", name, delay)+1];
+  sprintf(cmd, "./tc_client-gtk-camthread %s %u", name, delay);
+  w32_runcmdpipes(cmd, ((int*)0), campipe, camprocess);
+#endif
   GIOChannel* channel=g_io_channel_unix_new(campipe[0]);
   g_io_channel_set_encoding(channel, 0, 0);
   return channel;
@@ -263,8 +275,15 @@ void camselect_accept(GtkWidget* widget, AVCodec* vencoder)
 {
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
   gtk_widget_hide(window);
+#ifndef _WIN32
   // Tell the camthread to reset the delay to 500000 as a workaround for a quirk in the flash client
   kill(camproc, SIGUSR1);
+#else
+  // For platforms without proper signals, resort to restarting the camthread with the new delay
+  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
+  GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), vencoder, 500000);
+  cameventsource=g_io_add_watch(channel, G_IO_IN, (void*)&handledata, 0);
+#endif
   dprintf(tc_client_in[1], "/camup\n");
 }
 
@@ -282,7 +301,11 @@ void camselect_file_preview(GtkFileChooser* dialog, gpointer data)
 const char* camselect_file(void)
 {
   GtkWidget* preview=gtk_image_new();
+#ifndef _WIN32
   GtkWindow* window=GTK_WINDOW(gtk_builder_get_object(gui, "camselection"));
+#else
+  GtkWindow* window=0;
+#endif
   GtkWidget* dialog=gtk_file_chooser_dialog_new("Open Image", window, GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, (char*)0);
   GtkFileFilter* filter=gtk_file_filter_new();
   gtk_file_filter_add_pixbuf_formats(filter);

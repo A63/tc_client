@@ -23,6 +23,7 @@ extern size_t dprintf(int fd, const char* fmt, ...);
 #ifdef _WIN32
   #define prctl(...)
   #define wait(x)
+  #define mkdir(x,y) mkdir(x)
 #endif
 #if GLIB_MAJOR_VERSION<2 || (GLIB_MAJOR_VERSION==2 && GLIB_MINOR_VERSION<2)
   #define g_io_channel_read_chars(a,b,c,d,e) g_io_channel_read(a,b,c,d)

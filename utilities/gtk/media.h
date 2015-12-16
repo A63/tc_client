@@ -31,7 +31,12 @@ struct camera
 extern struct camera campreview;
 extern struct camera* cams;
 extern unsigned int camcount;
-extern pid_t camproc;
+#ifdef _WIN32
+  extern PROCESS_INFORMATION camprocess;
+  #define camproc camprocess.hProcess
+#else
+  extern pid_t camproc;
+#endif
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);

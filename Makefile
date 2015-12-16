@@ -1,7 +1,8 @@
 VERSION=0.37pre
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
-LIBS=-g3 $(shell curl-config --libs)
+LDFLAGS=-g3
 PREFIX=/usr/local
+CURL_LIBS=$(shell curl-config --libs)
 ifneq ($(wildcard config.mk),)
   include config.mk
 endif
@@ -30,9 +31,14 @@ ifdef SWSCALE_LIBS
   endif
   ifneq ($(findstring MINGW,$(shell uname -s)),)
     LDFLAGS+=-mwindows
-    windowstargets: camviewer tc_client-gtk
+    windowstargets: camviewer tc_client-gtk tc_client-gtk-camthread
 	@echo
-	@echo 'To build the core (tc_client.exe), enter this directory from cygwin and type make'
+	@echo 'To build the core (tc_client.exe), enter this directory from cygwin (or MSYS2 non-MinGW shell) and type make'
+  endif
+  ifneq ($(findstring MSYS,$(shell uname -s)),)
+    msystargets: tc_client
+	@echo
+	@echo 'To build the gtk+ GUI, enter this directory from a MinGW shell and type make'
   endif
   ifdef LIBV4L2_LIBS
     CFLAGS+=-DHAVE_V4L2 $(LIBV4L2_CFLAGS)
@@ -59,7 +65,7 @@ CFLAGS+=-DPREFIX=\"$(PREFIX)\" -DVERSION=\"$(VERSION)\"
 INSTALLDEPS=tc_client
 
 tc_client: $(OBJ)
-	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
+	$(CC) $(LDFLAGS) $^ $(LIBS) $(CURL_LIBS) -o $@
 # Make sure client.o gets rebuilt if we change the version number in the Makefile
 client.o: Makefile
 
@@ -79,6 +85,23 @@ cursedchat: $(CURSEDCHAT_OBJ)
 
 tc_client-gtk: $(TC_CLIENT_GTK_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
+
+# Workaround for windows' lack of fork() and inflexibility of having or not having a terminal
+utilities/gtk/camthread.gen.c: utilities/gtk/media.c
+	sed -n -e '/^ *#/p' utilities/gtk/media.c > $@
+	echo 'int main(int argc, char** argv){' >> $@
+	echo 'avcodec_register_all();' >> $@
+	echo 'AVCodec* vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);' >> $@
+	echo 'cam_img_filepicker=camselect_file;' >> $@
+	echo 'gtk_init(&argc, &argv);' >> $@
+	echo 'int campipe[]={0,1};' >> $@
+	echo 'setmode(1, O_BINARY);' >> $@
+	echo 'CAM* cam=cam_open(argv[1]);' >> $@
+	echo 'unsigned int delay=atoi(argv[2]);' >> $@
+	sed -n -e '/if(!camproc)$$/,/^  }/p' utilities/gtk/media.c | sed -e '1,3d' >> $@
+	sed -n -e '/ camselect_file/,/^}/p' utilities/gtk/media.c >> $@
+tc_client-gtk-camthread: utilities/gtk/camthread.gen.o utilities/compat.o libcamera.a
+	$(CC) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) -o $@
 
 libcamera.a: $(LIBCAMERA_OBJ)
 	$(AR) cru $@ $^
