@@ -14,7 +14,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <string.h>
 #include "camera.h"
+#include "camera_v4l2.h"
+#include "camera_img.h"
 
 struct CAM_t
 {
@@ -38,6 +41,7 @@ CAM* cam_open(const char* name)
   if(!strncmp(name, "v4l2:", 5)){return cam_open_v4l2(name);}
   #endif
   if(!strcmp(name, "Image")){return cam_open_img();}
+  return 0;
 }
 
 void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height)
