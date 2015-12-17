@@ -14,12 +14,12 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "compat.h"
 #if defined(__ANDROID__) || defined(_WIN32)
 // Android and windows have no dprintf, so we make our own
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include "compat.h"
 size_t dprintf(int fd, const char* fmt, ...)
 {
   va_list va;

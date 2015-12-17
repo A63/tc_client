@@ -1,6 +1,7 @@
 0.37:
 Reimplemented announcement of moderators.
 Reimplemented announcement of people cammed up when joining.
+Minor build fixes.
 libcamera: added support for a virtual "Image" camera.
 tc_client-gtk: added workarounds for the camera code (with the platform-agnostic "Image" camera) to work on windows.
 libcamera: fixed compiler warnings.

@@ -145,9 +145,9 @@ char* getkey(int id, const char* channel)
 
 char* getcookie(const char* channel)
 {
-  time_t now=time(0);
-  char url[strlen("http://tinychat.com/cauth?t=&room=0")+snprintf(0,0, "%tu", now)+strlen(channel)];
-  sprintf(url, "http://tinychat.com/cauth?t=%tu&room=%s", now, channel);
+  unsigned long long now=time(0);
+  char url[strlen("http://tinychat.com/cauth?t=&room=0")+snprintf(0,0, "%llu", now)+strlen(channel)];
+  sprintf(url, "http://tinychat.com/cauth?t=%llu&room=%s", now, channel);
   char* response=http_get(url, 0);
   char* cookie=strstr(response, "\"cookie\":\"");
 

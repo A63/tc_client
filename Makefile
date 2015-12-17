@@ -80,7 +80,7 @@ irchack: $(IRCHACK_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
 
 modbot: $(MODBOT_OBJ)
-	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
+	$(CC) $(LDFLAGS) $^ $(LIBS) $(CURL_LIBS) -o $@
 
 camviewer: $(CAMVIEWER_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
