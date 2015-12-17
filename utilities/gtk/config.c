@@ -108,6 +108,16 @@ int config_get_int(const char* name)
   return 0;
 }
 
+char config_get_set(const char* name)
+{
+  unsigned int i;
+  for(i=0; i<configitemcount; ++i)
+  {
+    if(!strcmp(configitems[i].name, name)){return 1;}
+  }
+  return 0;
+}
+
 void config_set(const char* name, const char* value)
 {
   unsigned int i;

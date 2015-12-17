@@ -63,9 +63,11 @@ void settings_reset(GtkBuilder* gui)
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("youtuberadio_cmd"));
   option=GTK_WIDGET(gtk_builder_get_object(gui, "youtubecmd"));
   gtk_entry_set_text(GTK_ENTRY(option), config_get_str("youtubecmd"));
-  // Misc
+  // Cameras
   option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("camdownonjoin"));
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "autoopencams"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_set("autoopencams")?config_get_bool("autoopencams"):1);
 }
 
 void showsettings(GtkMenuItem* item, GtkBuilder* gui)
@@ -95,9 +97,11 @@ void savesettings(GtkButton* button, GtkBuilder* gui)
   config_set("youtubecmd", gtk_entry_get_text(GTK_ENTRY(youtubecmd)));
   GtkWidget* youtuberadio_cmd=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
   config_set("youtuberadio_cmd", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(youtuberadio_cmd))?"True":"False");
-  // Misc
+  // Cameras
   GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
   config_set("camdownonjoin", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "autoopencams"));
+  config_set("autoopencams", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
 
   config_save();
   GtkWidget* settings=GTK_WIDGET(gtk_builder_get_object(gui, "settings"));
