@@ -31,6 +31,11 @@ ifdef SWSCALE_LIBS
   endif
   ifneq ($(findstring MINGW,$(shell uname -s)),)
     LDFLAGS+=-mwindows
+    # Using ESCAPI for cam support on windows, http://sol.gfxile.net/escapi/
+    ifneq ($(wildcard escapi),)
+      CFLAGS+=-DHAVE_ESCAPI
+      LIBCAMERA_OBJ+=utilities/libcamera/camera_escapi.o escapi/escapi.o
+    endif
     windowstargets: camviewer tc_client-gtk tc_client-gtk-camthread
 	@echo
 	@echo 'To build the core (tc_client.exe), enter this directory from cygwin (or MSYS2 non-MinGW shell) and type make'

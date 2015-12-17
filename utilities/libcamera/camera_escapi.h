@@ -14,17 +14,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-enum{
-  CAMTYPE_V4L2,
-  CAMTYPE_ESCAPI,
-  CAMTYPE_IMG
-};
-struct CAM_t;
-typedef struct CAM_t CAM;
-extern char** cam_list(unsigned int* count);
-extern CAM* cam_open(const char* name);
-// Note: cam_resolution both tries to set the resolution and gets what it set it to
-extern void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height);
-extern void cam_getframe(CAM* cam, void* pixmap);
-extern void cam_close(CAM* cam);
-extern const char*(*cam_img_filepicker)(void);
+extern char** cam_list_escapi(char** list, unsigned int* count);
+extern CAM* cam_open_escapi(const char* name);
+extern void cam_resolution_escapi(CAM* cam, unsigned int* width, unsigned int* height);
+extern void cam_getframe_escapi(CAM* cam, void* pixmap);
+extern void cam_close_escapi(CAM* cam);

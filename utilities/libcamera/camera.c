@@ -17,6 +17,7 @@
 #include <string.h>
 #include "camera.h"
 #include "camera_v4l2.h"
+#include "camera_escapi.h"
 #include "camera_img.h"
 
 struct CAM_t
@@ -31,6 +32,9 @@ char** cam_list(unsigned int* count)
   #ifdef HAVE_V4L2
   list=cam_list_v4l2(list, count);
   #endif
+  #ifdef HAVE_ESCAPI
+  list=cam_list_escapi(list, count);
+  #endif
   list=cam_list_img(list, count);
   return list;
 }
@@ -39,6 +43,9 @@ CAM* cam_open(const char* name)
 {
   #ifdef HAVE_V4L2
   if(!strncmp(name, "v4l2:", 5)){return cam_open_v4l2(name);}
+  #endif
+  #ifdef HAVE_ESCAPI
+  if(!strncmp(name, "escapi:", 7)){return cam_open_escapi(name);}
   #endif
   if(!strcmp(name, "Image")){return cam_open_img();}
   return 0;
@@ -51,6 +58,9 @@ void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height)
     #ifdef HAVE_V4L2
     case CAMTYPE_V4L2: cam_resolution_v4l2(cam, width, height); break;
     #endif
+    #ifdef HAVE_ESCAPI
+    case CAMTYPE_ESCAPI: cam_resolution_escapi(cam, width, height); break;
+    #endif
     case CAMTYPE_IMG: cam_resolution_img(cam, width, height); break;
   }
 }
@@ -62,6 +72,9 @@ void cam_getframe(CAM* cam, void* pixmap)
     #ifdef HAVE_V4L2
     case CAMTYPE_V4L2: cam_getframe_v4l2(cam, pixmap); break;
     #endif
+    #ifdef HAVE_ESCAPI
+    case CAMTYPE_ESCAPI: cam_getframe_escapi(cam, pixmap); break;
+    #endif
     case CAMTYPE_IMG: cam_getframe_img(cam, pixmap); break;
   }
 }
@@ -72,6 +85,9 @@ void cam_close(CAM* cam)
   {
     #ifdef HAVE_V4L2
     case CAMTYPE_V4L2: cam_close_v4l2(cam); break;
+    #endif
+    #ifdef HAVE_ESCAPI
+    case CAMTYPE_ESCAPI: cam_close_escapi(cam); break;
     #endif
     case CAMTYPE_IMG: cam_close_img(cam); break;
   }
