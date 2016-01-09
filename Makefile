@@ -14,18 +14,22 @@ CURSEDCHAT_OBJ=utilities/cursedchat/cursedchat.o utilities/cursedchat/buffer.o u
 TC_CLIENT_GTK_OBJ=utilities/gtk/camviewer.o utilities/gtk/userlist.o utilities/gtk/media.o utilities/gtk/compat.o utilities/gtk/config.o utilities/gtk/gui.o utilities/stringutils.o utilities/gtk/logging.o utilities/compat.o libcamera.a
 LIBCAMERA_OBJ=utilities/libcamera/camera.o utilities/libcamera/camera_img.o
 UTILS=irchack modbot
+CONFINFO=|Will enable the IRC utility irchack|Will enable the bot utility modbot
 ifdef GTK_LIBS
 ifdef AVCODEC_LIBS
 ifdef AVUTIL_LIBS
 ifdef SWSCALE_LIBS
+  CONFINFO+=|Will enable the graphical utilities tc_client-gtk and camviewer
   UTILS+=camviewer tc_client-gtk
   CFLAGS+=$(GTK_CFLAGS) $(AVCODEC_CFLAGS) $(AVUTIL_CFLAGS) $(SWSCALE_CFLAGS)
   INSTALLDEPS+=tc_client-gtk gtkgui.glade
   ifdef AO_LIBS
     ifdef AVRESAMPLE_LIBS
+      CONFINFO+=|  Will enable experimental mic support
       CFLAGS+=-DHAVE_AVRESAMPLE=1 $(AVRESAMPLE_CFLAGS) $(AO_CFLAGS)
     endif
     ifdef SWRESAMPLE_LIBS
+      CONFINFO+=|  Will enable experimental mic support
       CFLAGS+=-DHAVE_SWRESAMPLE=1 $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
     endif
   endif
@@ -33,8 +37,11 @@ ifdef SWSCALE_LIBS
     LDFLAGS+=-mwindows
     # Using ESCAPI for cam support on windows, http://sol.gfxile.net/escapi/
     ifneq ($(wildcard escapi),)
+      CONFINFO+=|  Will enable escapi windows camera support
       CFLAGS+=-DHAVE_ESCAPI
       LIBCAMERA_OBJ+=utilities/libcamera/camera_escapi.o escapi/escapi.o
+    else
+      CONFINFO+=|  escapi windows camera support will not be enabled
     endif
     windowstargets: camviewer tc_client-gtk tc_client-gtk-camthread
 	@echo
@@ -46,8 +53,11 @@ ifdef SWSCALE_LIBS
 	@echo 'To build the gtk+ GUI, enter this directory from a MinGW shell and type make'
   endif
   ifdef LIBV4L2_LIBS
+    CONFINFO+=|  Will enable v4l2 camera support
     CFLAGS+=-DHAVE_V4L2 $(LIBV4L2_CFLAGS)
     LIBCAMERA_OBJ+=utilities/libcamera/camera_v4l2.o
+  else
+    CONFINFO+=|  v4l2 camera support will not be enabled
   endif
 endif
 endif
@@ -55,6 +65,7 @@ endif
 endif
 ifdef CURSES_LIBS
 ifdef READLINE_LIBS
+  CONFINFO+=|Will enable the curses utility cursedchat
   UTILS+=cursedchat
   CFLAGS+=$(CURSES_CFLAGS) $(READLINE_CFLAGS)
   INSTALLDEPS+=cursedchat
@@ -143,3 +154,13 @@ ifdef READLINE_LIBS
 	install -m 755 -D cursedchat "$(PREFIX)/bin/tc_client-cursedchat"
 endif
 endif
+
+CONFINFO+=|
+ifeq ($(findstring tc_client-gtk,$(UTILS)),)
+  CONFINFO+=|The graphical utilities tc_client-gtk and camviewer will not be enabled
+endif
+ifeq ($(findstring cursedchat,$(UTILS)),)
+  CONFINFO+=|The curses utility cursedchat will not be enabled
+endif
+confinfo:
+	@echo "$(CONFINFO)" | tr '|' '\n'

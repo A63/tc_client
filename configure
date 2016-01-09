@@ -180,3 +180,4 @@ fi
 rm -f endiantest.c endiantest
 
 echo Done
+make confinfo
