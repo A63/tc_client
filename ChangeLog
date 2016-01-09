@@ -7,6 +7,7 @@ tc_client-gtk: added workarounds for the camera code (with the platform-agnostic
 tc_client-gtk: made automatically opening cam streams an option which can be disabled.
 libcamera: fixed compiler warnings.
 libcamera: added support for cameras on windows through the ESCAPI library.
+testbuilds.sh: added a warning to prevent users from trying to use it to test their build, which is not what it does.
 0.36:
 Implemented /whois <nick/ID> to check someone's username.
 Changed the /whois output to be more human-readable in cases where the user isn't logged in.

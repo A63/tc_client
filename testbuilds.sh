@@ -1,5 +1,9 @@
 #!/bin/sh
 # Utility to make sure that changes did not break the project in certain configurations
+echo "WARNING: this tool is for developers, not users. You have 5 seconds to press Ctrl+C to abort."
+echo
+echo "What it does is to configure and build the project with different features enabled and disabled to make sure that improvements didn't also break stuff in certain cases. This *will* erase anything you've already compiled."
+sleep 5
 make clean > /dev/null 2> /dev/null
 printf "Without mic, with gtk+-2.x, with streaming, without RTMP_DEBUG: "
 res="[31mbroken[0m"
