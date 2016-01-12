@@ -1,4 +1,4 @@
-VERSION=0.37
+VERSION=0.38pre
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LDFLAGS=-g3
 PREFIX=/usr/local
@@ -133,7 +133,7 @@ SOURCES+=utilities/camviewer/camviewer.c
 SOURCES+=utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h
 SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/config.c utilities/gtk/gui.c utilities/gtk/logging.c utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/gtk/config.h utilities/gtk/gui.h utilities/gtk/logging.h gtkgui.glade
 SOURCES+=utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h utilities/stringutils.c utilities/stringutils.h
-SOURCES+=utilities/libcamera/camera.c utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c utilities/libcamera/camera_img.c
+SOURCES+=utilities/libcamera/camera.c utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c utilities/libcamera/camera_v4l2.h utilities/libcamera/camera_img.c utilities/libcamera/camera_img.h utilities/libcamera/camera_escapi.cpp utilities/libcamera/camera_escapi.h
 tarball:
 	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' $(SOURCES)
 
