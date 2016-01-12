@@ -710,7 +710,12 @@ int main(int argc, char** argv)
             list_del(&badvids, vid);
             list_save(&goodvids, "goodvids.txt");
             list_save(&badvids, "badvids.txt");
-            if(!playing && queue.itemcount>0 && !strcmp(vid, queue.items[0].video)){playnext(0);} // Next in queue just got approved, so play it
+            int pos=queue_getpos(&queue, vid);
+            if(!playing && pos>-1) // If nothing is playing and the approved video is in the queue, play it
+            {
+              if(pos>0){queue_movetofront(&queue, pos);} // If it wasn't next in queue, move it to the front
+              playnext(0);
+            }
           }
           else if(!strcmp(msg, "!badvid") || !strcmp(msg, "!badvideo") || !strncmp(msg, "!badvid ", 8) || !strncmp(msg, "!badvideo ", 10))
           {

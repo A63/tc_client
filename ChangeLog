@@ -9,6 +9,7 @@ libcamera: fixed compiler warnings.
 libcamera: added support for cameras on windows through the ESCAPI library.
 testbuilds.sh: added a warning to prevent users from trying to use it to test their build, which is not what it does.
 configure/Makefile: added a summary of utilities and features enabled/available at the end of configure (or manually with 'make confinfo')
+modbot: if nothing is playing when a video gets approved, play it even if it's not first in the queue.
 0.36:
 Implemented /whois <nick/ID> to check someone's username.
 Changed the /whois output to be more human-readable in cases where the user isn't logged in.
