@@ -1,6 +1,7 @@
 0.38:
 Makefile: added missing sourcefiles for the tarball target.
 tc_client-gtk: if HOME is not set use "." instead.
+tc_client-gtk: windows compat: don't try to run empty commands.
 0.37:
 Reimplemented announcement of moderators.
 Reimplemented announcement of people cammed up when joining.

@@ -20,6 +20,7 @@
 extern SECURITY_ATTRIBUTES sa;
 #define kill(pid, x) TerminateProcess(pid, 0)
 #define w32_runcmd(cmd) \
+  if(cmd[0]) \
   { \
     char* arg=strchr(cmd,' '); \
     if(arg){arg[0]=0; arg=&arg[1];} \
