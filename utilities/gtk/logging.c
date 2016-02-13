@@ -34,6 +34,7 @@ unsigned int logfilecount=0;
 void logger_write(const char* line, const char* channel, const char* nick)
 {
   const char* home=getenv("HOME");
+  if(!home){home=".";}
   const char* path=config_get_str(nick?"logpath_pm":"logpath_channel");
   int namelen=strlen(path)+1;
   namelen+=strcount(path, "%h")*(strlen(home)-2);
