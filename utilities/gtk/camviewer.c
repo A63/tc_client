@@ -142,6 +142,7 @@ void printchat(const char* text, const char* pm)
   gtk_text_buffer_get_end_iter(buffer, &end);
   gtk_text_buffer_insert(buffer, &end, "\n", -1);
   gtk_text_buffer_insert(buffer, &end, text, -1);
+  buffer_updatesize(buffer);
   if(bottom){autoscroll_after(scroll);}
 }
 
@@ -166,8 +167,8 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   gtk_text_buffer_insert(buffer, &end, "\n", -1);
   int startnum=gtk_text_iter_get_offset(&end);
   gtk_text_buffer_insert(buffer, &end, text, -1);
-  // Set color if there was one
   GtkTextIter start;
+  // Set color if there was one
   if(color)
   {
     gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum+offset);
@@ -183,6 +184,7 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
     gtk_text_buffer_get_iter_at_offset(buffer, &end, startnum+nicklen);
     gtk_text_buffer_apply_tag_by_name(buffer, "nickname", &start, &end);
   }
+  buffer_updatesize(buffer);
   if(bottom){autoscroll_after(scroll);}
 }
 
@@ -883,6 +885,7 @@ int main(int argc, char** argv)
 #else
   frombuild=1;
 #endif
+  config_load();
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
   #ifdef HAVE_AVRESAMPLE
@@ -978,7 +981,6 @@ int main(int argc, char** argv)
   g_signal_connect(inputfield, "activate", G_CALLBACK(sendmessage), data);
   g_signal_connect(inputfield, "key-press-event", G_CALLBACK(inputkeys), data);
 
-  config_load();
   // Sound
   GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "soundradio_cmd"));
   g_signal_connect(option, "toggled", G_CALLBACK(toggle_soundcmd), gui);

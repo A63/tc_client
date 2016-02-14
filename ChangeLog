@@ -3,6 +3,7 @@ Makefile: added missing sourcefiles for the tarball target.
 tc_client-gtk: if HOME is not set use "." instead.
 tc_client-gtk: windows compat: don't try to run empty commands.
 tc_client-gtk: make timestamps gray and nicknames bold.
+tc_client-gtk: added option to change font size in the chat.
 0.37:
 Reimplemented announcement of moderators.
 Reimplemented announcement of people cammed up when joining.

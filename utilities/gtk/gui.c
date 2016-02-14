@@ -46,8 +46,11 @@ void autoscroll_after(GtkAdjustment* scroll)
 
 void settings_reset(GtkBuilder* gui)
 {
+  // Font
+  GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "fontsize"));
+  gtk_spin_button_set_value(GTK_SPIN_BUTTON(option), config_get_set("fontsize")?config_get_double("fontsize"):8);
   // Sound
-  GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "soundradio_cmd"));
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "soundradio_cmd"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("soundradio_cmd"));
   option=GTK_WIDGET(gtk_builder_get_object(gui, "soundcmd"));
   gtk_entry_set_text(GTK_ENTRY(option), config_get_str("soundcmd"));
@@ -79,6 +82,10 @@ void showsettings(GtkMenuItem* item, GtkBuilder* gui)
 
 void savesettings(GtkButton* button, GtkBuilder* gui)
 {
+  // Font
+  GtkSpinButton* fontsize=GTK_SPIN_BUTTON(gtk_builder_get_object(gui, "fontsize"));
+  config_set_double("fontsize", gtk_spin_button_get_value(fontsize));
+  fontsize_set(gtk_spin_button_get_value(fontsize));
   // Sound
   GtkWidget* soundcmd=GTK_WIDGET(gtk_builder_get_object(gui, "soundcmd"));
   config_set("soundcmd", gtk_entry_get_text(GTK_ENTRY(soundcmd)));
@@ -409,4 +416,39 @@ void buffer_setup_colors(GtkTextBuffer* buffer)
   //colormap("[35;1", "#b9807f");
   colormap("timestamp", "#808080");
   gtk_text_buffer_create_tag(buffer, "nickname", "weight", PANGO_WEIGHT_BOLD, "weight-set", TRUE, (char*)0);
+  // Set size if it's set in config
+  if(config_get_set("fontsize"))
+  {
+    gtk_text_buffer_create_tag(buffer, "size", "size-points", config_get_double("fontsize"), "size-set", TRUE, (char*)0);
+  }else{
+    gtk_text_buffer_create_tag(buffer, "size", "size-set", FALSE, (char*)0);
+  }
+}
+
+void buffer_updatesize(GtkTextBuffer* buffer)
+{
+  GtkTextIter start, end;
+  gtk_text_buffer_get_start_iter(buffer, &start);
+  gtk_text_buffer_get_end_iter(buffer, &end);
+  gtk_text_buffer_remove_tag_by_name(buffer, "size", &start, &end);
+  gtk_text_buffer_apply_tag_by_name(buffer, "size", &start, &end);
+}
+
+void fontsize_set(double size)
+{
+  GtkWidget* chatview=GTK_WIDGET(gtk_builder_get_object(gui, "chatview"));
+  GtkTextBuffer* buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(chatview));
+  GtkTextTagTable* table=gtk_text_buffer_get_tag_table(buffer);
+  GtkTextTag* tag=gtk_text_tag_table_lookup(table, "size");
+  g_object_set(tag, "size-points", size, "size-set", TRUE, (char*)0);
+  buffer_updatesize(buffer);
+  unsigned int i;
+  for(i=0; i<usercount; ++i)
+  {
+    if(!userlist[i].pm_buffer){continue;}
+    table=gtk_text_buffer_get_tag_table(userlist[i].pm_buffer);
+    tag=gtk_text_tag_table_lookup(table, "size");
+    g_object_set(tag, "size-points", size, "size-set", TRUE, (char*)0);
+    buffer_updatesize(userlist[i].pm_buffer);
+  }
 }

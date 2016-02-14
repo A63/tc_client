@@ -36,5 +36,7 @@ extern void pm_open(const char* nick, char select);
 extern void pm_highlight(const char* nick);
 extern char pm_select(GtkNotebook* tabs, GtkWidget* tab, int num, void* x);
 extern void buffer_setup_colors(GtkTextBuffer* buffer);
+extern void buffer_updatesize(GtkTextBuffer* buffer);
+extern void fontsize_set(double size);
 
 extern GtkBuilder* gui;

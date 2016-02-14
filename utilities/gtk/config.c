@@ -108,6 +108,16 @@ int config_get_int(const char* name)
   return 0;
 }
 
+double config_get_double(const char* name)
+{
+  unsigned int i;
+  for(i=0; i<configitemcount; ++i)
+  {
+    if(!strcmp(configitems[i].name, name)){return atof(configitems[i].value);}
+  }
+  return 0;
+}
+
 char config_get_set(const char* name)
 {
   unsigned int i;
@@ -141,5 +151,13 @@ void config_set_int(const char* name, int value)
   int size=snprintf(0,0, "%i", value);
   char buf[size+1];
   sprintf(buf, "%i", value);
+  config_set(name, buf);
+}
+
+void config_set_double(const char* name, double value)
+{
+  int size=snprintf(0,0, "%f", value);
+  char buf[size+1];
+  sprintf(buf, "%f", value);
   config_set(name, buf);
 }
