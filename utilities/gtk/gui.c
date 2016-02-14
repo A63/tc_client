@@ -407,4 +407,6 @@ void buffer_setup_colors(GtkTextBuffer* buffer)
   colormap("[35;1", "#9d5bb5");
   //colormap("[35;1", "#c356a3");
   //colormap("[35;1", "#b9807f");
+  colormap("timestamp", "#808080");
+  gtk_text_buffer_create_tag(buffer, "nickname", "weight", PANGO_WEIGHT_BOLD, "weight-set", TRUE, (char*)0);
 }

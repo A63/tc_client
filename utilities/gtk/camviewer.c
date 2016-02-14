@@ -167,11 +167,21 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   int startnum=gtk_text_iter_get_offset(&end);
   gtk_text_buffer_insert(buffer, &end, text, -1);
   // Set color if there was one
+  GtkTextIter start;
   if(color)
   {
-    GtkTextIter start;
     gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum+offset);
     gtk_text_buffer_apply_tag_by_name(buffer, color, &start, &end);
+  }
+  if(offset==8) // Chat message, has timestamp and nickname, turn them gray and bold
+  {
+    gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum);
+    gtk_text_buffer_get_iter_at_offset(buffer, &end, startnum+offset);
+    gtk_text_buffer_apply_tag_by_name(buffer, "timestamp", &start, &end);
+    unsigned int nicklen=strchr(&text[offset], ' ')-text;
+    gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum+offset);
+    gtk_text_buffer_get_iter_at_offset(buffer, &end, startnum+nicklen);
+    gtk_text_buffer_apply_tag_by_name(buffer, "nickname", &start, &end);
   }
   if(bottom){autoscroll_after(scroll);}
 }
