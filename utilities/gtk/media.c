@@ -140,6 +140,10 @@ struct camera* camera_new(void)
 {
   ++camcount;
   cams=realloc(cams, sizeof(struct camera)*camcount);
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
+  cams[camcount-1].samples=0;
+  cams[camcount-1].samplecount=0;
+#endif
   return &cams[camcount-1];
 }
 
