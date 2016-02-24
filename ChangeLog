@@ -6,6 +6,7 @@ tc_client-gtk: windows compat: don't try to run empty commands.
 tc_client-gtk: make timestamps gray and nicknames bold.
 tc_client-gtk: added option to change font size in the chat.
 tc_client-gtk: initialize audio samples of new cams to 0 (experimental audio support)
+tc_client-gtk: windows compat: do /mbs handling on a duplicated buffer to avoid cutting off the displayed message.
 modbot: use youtube-dl's 'ytsearch:' instead of '--default-search auto', fixes issues with search terms that include slashes.
 0.37:
 Reimplemented announcement of moderators.

@@ -294,6 +294,9 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
       {
 #ifndef _WIN32
         if(!fork())
+#else
+        char* spacetmp=space;
+        space=strdup(space);
 #endif
         {
 // TODO: store the PID and make sure it's dead before starting a new video? and upon /mbc?
@@ -322,6 +325,8 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
           }
 #ifdef _WIN32
           w32_runcmd(cmd);
+          free(space);
+          space=spacetmp;
 #else
           execlp("sh", "sh", "-c", cmd, (char*)0);
           _exit(0);
