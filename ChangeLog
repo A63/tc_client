@@ -1,4 +1,5 @@
 0.38:
+Handle multi-line messages.
 Makefile: added missing sourcefiles for the tarball target.
 tc_client-gtk: if HOME is not set use "." instead.
 tc_client-gtk: windows compat: don't try to run empty commands.

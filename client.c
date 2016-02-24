@@ -754,9 +754,21 @@ int main(int argc, char** argv)
       size_t len;
       char* msg=fromnumlist(amfin->items[3].string.string, &len);
       const char* color=(showcolor?resolvecolor(amfin->items[4].string.string):"0");
-      printf("%s \x1b[%sm%s: ", timestamp(), color, amfin->items[5].string.string);
-      fwrite(msg, len, 1, stdout);
-      printf("\x1b[0m\n");
+      char* line=msg;
+      while(line)
+      {
+        // Handle multi-line messages
+        char* nextline=0;
+        unsigned int linelen;
+        for(linelen=0; linelen<len; ++linelen)
+        {
+          if(line[linelen]=='\r' || line[linelen]=='\n'){nextline=&line[linelen+1]; break;}
+        }
+        printf("%s \x1b[%sm%s: ", timestamp(), color, amfin->items[5].string.string);
+        fwrite(line, linelen, 1, stdout);
+        printf("\x1b[0m\n");
+        line=nextline;
+      }
       char* response=0;
       if(len==18 && !strncmp(msg, "/userinfo $request", 18))
       {
