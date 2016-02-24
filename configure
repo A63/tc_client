@@ -121,12 +121,18 @@ fi
 fi
 
 printf 'Checking for ncurses... '
-libs="`ncursesw5-config --libs 2> /dev/null || ncurses5-config --libs 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "CURSES_LIBS=${libs}" >> config.mk
-  echo "CURSES_CFLAGS=`ncursesw5-config --cflags 2> /dev/null || ncurses5-config --cflags 2> /dev/null`" >> config.mk
-  echo yes
-else
+notfound=true
+for version in 7 6 5 4; do
+  libs="`ncursesw${version}-config --libs 2> /dev/null || ncurses${version}-config --libs 2> /dev/null`"
+  if [ "x$libs" != "x" ]; then
+    echo "CURSES_LIBS=${libs}" >> config.mk
+    echo "CURSES_CFLAGS=`ncursesw${version}-config --cflags 2> /dev/null || ncurses${version}-config --cflags 2> /dev/null`" >> config.mk
+    echo yes
+    notfound=false
+    break
+  fi
+done
+if "$notfound"; then
   echo no
 fi
 
