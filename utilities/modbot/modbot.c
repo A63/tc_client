@@ -119,7 +119,9 @@ void getvidinfo(const char* vid, const char* type, char* buf, char* errbuf, unsi
     close(err[0]);
     dup2(out[1], 1);
     dup2(err[1], 2);
-    execlp("youtube-dl", "youtube-dl", "--default-search", "auto", type, "--", vid, (char*)0);
+    char search[strlen("ytsearch:0")+strlen(vid)];
+    sprintf(search, "ytsearch:%s", vid);
+    execlp("youtube-dl", "youtube-dl", type, "--", search, (char*)0);
     perror("execlp(youtube-dl)");
     _exit(1);
   }
