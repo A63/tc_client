@@ -172,6 +172,15 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   // Set color if there was one
   if(color)
   {
+    GtkTextTagTable* table=gtk_text_buffer_get_tag_table(buffer);
+    if(!gtk_text_tag_table_lookup(table, color)) // Color isn't defined, define it
+    {
+      char colorbuf[8];
+      memcpy(colorbuf, color, 7);
+      colorbuf[7]=0;
+      while(strchr(colorbuf,',')){memmove(&colorbuf[2], &colorbuf[1], 5); colorbuf[1]='0';}
+      gtk_text_buffer_create_tag(buffer, color, "foreground", colorbuf, (char*)0);
+    }
     gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum+offset);
     gtk_text_buffer_apply_tag_by_name(buffer, color, &start, &end);
   }
@@ -257,15 +266,17 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     printchat(buf, 0);
     return 1;
   }
-  // Remove escape codes and pick up the text color while we're at it
   char* color=0;
-  char* esc;
-  char* escend;
-  while((esc=strchr(buf, '\x1b'))&&(escend=strchr(esc, 'm')))
+  // Handle color at start of line (/color and /colors)
+  if(buf[0]=='(' && buf[1]=='#')
   {
-    escend[0]=0;
-    if(!color && strcmp(&esc[1], "[0")){color=strdup(&esc[1]);}
-    memmove(esc, &escend[1], strlen(&escend[1])+1);
+    char* end=strchr(buf, ')');
+    if(end)
+    {
+      end[0]=0;
+      color=strdup(&buf[1]);
+      memmove(buf, &end[1], strlen(&end[1])+1);
+    }
   }
   char* space=strchr(buf, ' ');
   // Timestamped events
@@ -273,6 +284,16 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   {
     char* pm=0;
     char* nick=&buf[8];
+    if(nick[0]=='(' && nick[1]=='#') // Message color
+    {
+      char* end=strchr(nick, ')');
+      if(end)
+      {
+        end[0]=0;
+        color=strdup(&nick[1]);
+        memmove(nick, &end[1], strlen(&end[1])+1);
+      }
+    }
     space=strchr(nick, ' ');
     if(!space){return 1;}
     if(space[-1]==':')
@@ -864,9 +885,9 @@ void startsession(GtkButton* button, void* x)
     dup2(tc_client_in[0], 0);
     if(acc_user[0])
     {
-      execlp(TC_CLIENT, TC_CLIENT, "-u", acc_user, channel, nick, chanpass, (char*)0);
+      execlp(TC_CLIENT, TC_CLIENT, "--hexcolors", "-u", acc_user, channel, nick, chanpass, (char*)0);
     }else{
-      execlp(TC_CLIENT, TC_CLIENT, channel, nick, chanpass, (char*)0);
+      execlp(TC_CLIENT, TC_CLIENT, "--hexcolors", channel, nick, chanpass, (char*)0);
     }
   }
 #endif

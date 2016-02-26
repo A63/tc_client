@@ -11,6 +11,7 @@ tc_client-gtk: initialize audio samples of new cams to 0 (experimental audio sup
 tc_client-gtk: windows compat: do /mbs handling on a duplicated buffer to avoid cutting off the displayed message.
 tc_client-gtk: added input history (up/down arrows)
 tc_client-gtk: set a default position of the cam and nickname list pane handles.
+tc_client-gtk: use --hexcolors to show the full range of colors.
 modbot: use youtube-dl's 'ytsearch:' instead of '--default-search auto', fixes issues with search terms that include slashes.
 configure: check for multiple versions of ncurses.
 0.37:
