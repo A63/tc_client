@@ -5,6 +5,11 @@ PREFIX=/usr/local
 CURL_LIBS=$(shell curl-config --libs)
 ifneq ($(wildcard config.mk),)
   include config.mk
+else
+  ifneq ($(findstring MINGW,$(shell uname -s)),)
+    err:
+	@echo 'Run ./configure first, make sure tc_client-gtk is enabled.'
+  endif
 endif
 OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endian.o media.o
 IRCHACK_OBJ=utilities/irchack/irchack.o utilities/compat.o
@@ -34,6 +39,10 @@ ifdef SWSCALE_LIBS
     endif
   endif
   ifneq ($(findstring MINGW,$(shell uname -s)),)
+    ifeq ($(findstring mingw,$(shell $(CC) -v 2>&1 | grep Target)),)
+    err:
+	@echo "Error, you're in a mingw shell but $(CC) doesn't seem to be a mingw compiler"
+    endif
     LDFLAGS+=-mwindows
     # Using ESCAPI for cam support on windows, http://sol.gfxile.net/escapi/
     ifneq ($(wildcard escapi),)
@@ -48,6 +57,10 @@ ifdef SWSCALE_LIBS
 	@echo 'To build the core (tc_client.exe), enter this directory from cygwin (or MSYS2 non-MinGW shell) and type make'
   endif
   ifneq ($(findstring MSYS,$(shell uname -s)),)
+    ifeq ($(findstring msys,$(shell $(CC) -v 2>&1 | grep Target)),)
+    err:
+	@echo "Error, you're in an msys shell but $(CC) doesn't seem to be an msys compiler"
+    endif
     msystargets: tc_client
 	@echo
 	@echo 'To build the gtk+ GUI, enter this directory from a MinGW shell and type make'
