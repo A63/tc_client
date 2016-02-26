@@ -54,6 +54,7 @@
 #include "logging.h"
 #include "../stringutils.h"
 #include "../compat.h"
+#include "inputhistory.h"
 
 struct viddata
 {
@@ -662,7 +663,11 @@ void handleresizepane(GObject* obj, GParamSpec* spec, struct viddata* data)
 
 gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
 {
-  if(event->keyval==GDK_KEY_Up || event->keyval==GDK_KEY_Down){return 1;}
+  if(event->keyval==GDK_KEY_Up || event->keyval==GDK_KEY_Down)
+  {
+    inputhistory(GTK_ENTRY(widget), event);
+    return 1;
+  }
   if(event->keyval==GDK_KEY_Tab)
   {
     // Tab completion
@@ -712,9 +717,10 @@ gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
   return 0;
 }
 
-void sendmessage(GtkEntry* entry, struct viddata* data)
+void sendmessage(GtkEntry* entry, void* data)
 {
   const char* msg=gtk_entry_get_text(entry);
+  inputhistory_add(msg);
   char* pm=0;
   if(!strncmp(msg, "/pm ", 4))
   {
