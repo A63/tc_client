@@ -16,6 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <string.h>
+#include <stdio.h>
 #include "colors.h"
 
 // Sorted like rainbows
@@ -67,4 +68,25 @@ const char* resolvecolor(const char* tc_color)
     if(!strcmp(colors[i], tc_color)){return termcolors[i];}
   }
   return "0";
+}
+
+char hexcolors=0;
+char showcolor=1;
+char colorbuf[32];
+const char* color_start(const char* hex)
+{
+  if(!showcolor){return "";}
+  if(hexcolors && strlen(hex)<30)
+  {
+    sprintf(colorbuf, "(%s)", hex);
+  }else{
+    sprintf(colorbuf, "\x1b[%sm", resolvecolor(hex));
+  }
+  return colorbuf;
+}
+
+const char* color_end(void)
+{
+  if(!showcolor || hexcolors){return "";}
+  return "\x1b[0m";
 }

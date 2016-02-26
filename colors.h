@@ -18,5 +18,9 @@
 extern const char* colors[];
 extern const char* termcolors[];
 extern unsigned int currentcolor;
+extern char hexcolors;
+extern char showcolor;
 
 extern const char* resolvecolor(const char* tc_color);
+extern const char* color_start(const char* hex);
+extern const char* color_end(void);

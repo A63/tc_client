@@ -42,8 +42,6 @@ struct writebuf
   int len;
 };
 
-char showcolor=1;
-
 void b_read(int sock, void* buf, size_t len)
 {
   while(len>0)
@@ -268,6 +266,7 @@ void usage(const char* me)
          "-u, --user <user>    Username of tinychat account to use.\n"
          "-p, --pass <pass>    Password of tinychat account to use.\n"
          "-c, --color <value>  Color to use in chat.\n"
+         "    --hexcolors      Print hex colors instead of ANSI color codes.\n"
 #ifdef RTMP_DEBUG
          "    --rtmplog <file> Write RTMP input to file.\n"
 #endif
@@ -311,6 +310,7 @@ int main(int argc, char** argv)
 #ifdef RTMP_DEBUG
     else if(!strcmp(argv[i], "--rtmplog")){++i; rtmplog=open(argv[i], O_WRONLY|O_CREAT|O_TRUNC, 0600); if(rtmplog<0){perror("rtmplog: open");}}
 #endif
+    else if(!strcmp(argv[i], "--hexcolors")){hexcolors=1;}
     else if(!channel){channel=argv[i];}
     else if(!nickname){nickname=strdup(argv[i]);}
     else if(!password){password=argv[i];}
@@ -519,9 +519,9 @@ int main(int argc, char** argv)
             if(!strcmp(&buf[7], "off")){showcolor=0; continue;}
             if(!strcmp(&buf[7], "on")){showcolor=1; continue;}
             currentcolor=atoi(&buf[7]);
-            printf("\x1b[%smChanged color\x1b[0m\n", termcolors[currentcolor%COLORCOUNT]);
+            printf("%sChanged color%s\n", color_start(colors[currentcolor%COLORCOUNT]), color_end());
           }else{ // No color specified, state our current color
-            printf("\x1b[%smCurrent color: %i\x1b[0m\n", termcolors[currentcolor%COLORCOUNT], currentcolor%COLORCOUNT);
+            printf("%sCurrent color: %i%s\n", color_start(colors[currentcolor%COLORCOUNT]), currentcolor%COLORCOUNT, color_end());
           }
           fflush(stdout);
           continue;
@@ -531,7 +531,7 @@ int main(int argc, char** argv)
           int i;
           for(i=0; i<COLORCOUNT; ++i)
           {
-            printf("\x1b[%smColor %i\x1b[0m\n", termcolors[i], i);
+            printf("%sColor %i%s\n", color_start(colors[i]), i, color_end());
           }
           fflush(stdout);
           continue;
@@ -753,7 +753,7 @@ int main(int argc, char** argv)
     {
       size_t len;
       char* msg=fromnumlist(amfin->items[3].string.string, &len);
-      const char* color=(showcolor?resolvecolor(amfin->items[4].string.string):"0");
+      const char* color=color_start(amfin->items[4].string.string);
       char* line=msg;
       while(line)
       {
@@ -764,9 +764,9 @@ int main(int argc, char** argv)
         {
           if(line[linelen]=='\r' || line[linelen]=='\n'){nextline=&line[linelen+1]; break;}
         }
-        printf("%s \x1b[%sm%s: ", timestamp(), color, amfin->items[5].string.string);
+        printf("%s %s%s: ", timestamp(), color, amfin->items[5].string.string);
         fwrite(line, linelen, 1, stdout);
-        printf("\x1b[0m\n");
+        printf("%s\n", color_end());
         line=nextline;
       }
       char* response=0;
