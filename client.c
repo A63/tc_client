@@ -760,7 +760,7 @@ int main(int argc, char** argv)
         // Handle multi-line messages
         char* nextline=0;
         unsigned int linelen;
-        for(linelen=0; linelen<len; ++linelen)
+        for(linelen=0; &line[linelen]<&msg[len]; ++linelen)
         {
           if(line[linelen]=='\r' || line[linelen]=='\n'){nextline=&line[linelen+1]; break;}
         }
