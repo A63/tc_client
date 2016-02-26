@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
 
 char** inputhistory_lines=0;
 unsigned int inputhistory_count=0;
