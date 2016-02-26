@@ -119,7 +119,6 @@ void updatescaling(struct viddata* data, unsigned int width, unsigned int height
     if(!pixbuf){continue;}
     pixbuf=gdk_pixbuf_scale_simple(pixbuf, data->scalewidth, data->scaleheight, GDK_INTERP_BILINEAR);
     gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i].cam), pixbuf);
-// TODO: figure out/fix the "static" noise that seems to happen here
   }
 }
 
@@ -197,6 +196,8 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   buffer_updatesize(buffer);
   if(bottom){autoscroll_after(scroll);}
 }
+
+void freebuffer(guchar* pixels, gpointer data){free(pixels);}
 
 char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
@@ -599,17 +600,15 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
 
   // Scale and convert to RGB24 format
   unsigned int bufsize=avpicture_get_size(PIX_FMT_RGB24, scalewidth, scaleheight);
-  unsigned char buf[bufsize];
+  unsigned char* buf=malloc(bufsize);
   cam->dstframe->data[0]=buf;
   cam->dstframe->linesize[0]=scalewidth*3;
   struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, scalewidth, scaleheight, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
 
-  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, scalewidth, scaleheight, cam->dstframe->linesize[0], 0, 0);
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, scalewidth, scaleheight, cam->dstframe->linesize[0], freebuffer, 0);
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
-  // Make sure it gets redrawn in time
-  gdk_window_process_updates(gtk_widget_get_window(cam->cam), 1);
 
   return 1;
 }
