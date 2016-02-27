@@ -117,8 +117,10 @@ void updatescaling(struct viddata* data, unsigned int width, unsigned int height
   {
     GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cams[i].cam));
     if(!pixbuf){continue;}
+    GdkPixbuf* old=pixbuf;
     pixbuf=gdk_pixbuf_scale_simple(pixbuf, data->scalewidth, data->scaleheight, GDK_INTERP_BILINEAR);
     gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i].cam), pixbuf);
+    g_object_unref(old);
   }
 }
 
@@ -607,8 +609,10 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
 
+  GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
   GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, scalewidth, scaleheight, cam->dstframe->linesize[0], freebuffer, 0);
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
+  g_object_unref(oldpixbuf);
 
   return 1;
 }
