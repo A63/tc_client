@@ -857,8 +857,8 @@ void startsession(GtkButton* button, void* x)
   const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")));
   const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")));
 #ifdef _WIN32
-  char cmd[strlen("./tc_client -u    0")+strlen(acc_user)+strlen(channel)+strlen(nick)+strlen(chanpass)];
-  strcpy(cmd, "./tc_client ");
+  char cmd[strlen("./tc_client --hexcolors -u    0")+strlen(acc_user)+strlen(channel)+strlen(nick)+strlen(chanpass)];
+  strcpy(cmd, "./tc_client --hexcolors ");
   if(acc_user[0])
   {
     strcat(cmd, "-u ");
