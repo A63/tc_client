@@ -14,11 +14,12 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#if defined(__ANDROID__) || defined(_WIN32)
+#ifdef NO_DPRINTF
 // Android and windows have no dprintf, so we make our own
 #include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include "compat.h"
 size_t dprintf(int fd, const char* fmt, ...)
 {
@@ -33,5 +34,19 @@ size_t dprintf(int fd, const char* fmt, ...)
   buf[len]=0;
   write(fd, buf, len);
   return len;
+}
+#endif
+
+#ifdef NO_STRNDUP
+char* strndup(const char* in, unsigned int length)
+{
+  char* out=malloc(length+1);
+  unsigned int i;
+  for(i=0; i<length; ++i)
+  {
+    out[i]=in[i];
+  }
+  out[i]=0;
+  return out;
 }
 #endif

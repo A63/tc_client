@@ -39,6 +39,28 @@ else
 fi
 rm -f iconvtest iconvtest.c
 
+printf 'Checking for strndup... '
+echo '#include <string.h>' > apitest.c
+echo 'int main(){char* x=strndup("abc", 2);}' >> apitest.c
+if "$CC" apitest.c -o apitest > /dev/null 2> /dev/null; then
+  echo yes
+else
+  echo 'CFLAGS+=-DNO_STRNDUP' >> config.mk
+  echo no
+fi
+rm -f apitest apitest.c
+
+printf 'Checking for dprintf... '
+echo '#include <stdio.h>' > apitest.c
+echo 'int main(){dprintf(1,"test");}' >> apitest.c
+if "$CC" apitest.c -o apitest > /dev/null 2> /dev/null; then
+  echo yes
+else
+  echo 'CFLAGS+=-DNO_DPRINTF' >> config.mk
+  echo no
+fi
+rm -f apitest apitest.c
+
 printf 'Checking for gtk+-3.0... '
 libs="`pkg-config --libs gtk+-3.0 2> /dev/null`"
 if [ "x$libs" != "x" ]; then

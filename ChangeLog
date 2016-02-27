@@ -1,6 +1,7 @@
 0.38:
 Handle multi-line messages.
 Added option --hexcolors to print hex color codes instead of ANSI color escape codes.
+Added compatibility code for systems lacking strndup() and made configure test for that and dprintf()
 Makefile: added missing sourcefiles for the tarball target.
 Makefile: added some foolproofing for building on windows.
 tc_client-gtk: if HOME is not set use "." instead.

@@ -11,7 +11,7 @@ else
 	@echo 'Run ./configure first, make sure tc_client-gtk is enabled.'
   endif
 endif
-OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endian.o media.o
+OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endian.o media.o utilities/compat.o
 IRCHACK_OBJ=utilities/irchack/irchack.o utilities/compat.o
 MODBOT_OBJ=utilities/modbot/modbot.o utilities/list.o utilities/modbot/queue.o
 CAMVIEWER_OBJ=utilities/camviewer/camviewer.o utilities/compat.o libcamera.a

@@ -35,6 +35,7 @@
 #include "colors.h"
 #include "media.h"
 #include "amfwriter.h"
+#include "utilities/compat.h"
 
 struct writebuf
 {

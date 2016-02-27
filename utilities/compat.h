@@ -17,8 +17,13 @@
 #if defined(__ANDROID__) || defined(_WIN32)
 #include <stdint.h>
 #include <stddef.h>
-extern size_t dprintf(int fd, const char* fmt, ...);
 #define mbtowc(x,y,z) 1
+#endif
+#ifdef NO_DPRINTF
+  extern size_t dprintf(int fd, const char* fmt, ...);
+#endif
+#ifdef NO_STRNDUP
+  extern char* strndup(const char* in, unsigned int length);
 #endif
 #ifdef _WIN32
   #define prctl(...)

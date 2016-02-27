@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h> // For debugging
 #include "endian.h"
+#include "utilities/compat.h"
 #include "amfparser.h"
 
 char amf_comparestrings_c(struct amfstring* a, const char* b)

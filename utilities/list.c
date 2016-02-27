@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "compat.h"
 #include "list.h"
 
 void list_del(struct list* list, const char* item)
