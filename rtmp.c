@@ -153,10 +153,12 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   return 2;
 }
 
+char firstpacket=1;
 void rtmp_send(int sock, struct rtmp* rtmp)
 {
   // Header format and stream ID
   unsigned int fmt=(rtmp->msgid?0:1);
+  if(firstpacket){firstpacket=fmt=0;}
   unsigned char basicheader=(rtmp->chunkid<64?rtmp->chunkid:(rtmp->chunkid<256?0:1)) | (fmt<<6);
   write(sock, &basicheader, sizeof(basicheader));
   if(rtmp->chunkid>=64) // Handle large stream IDs
