@@ -66,6 +66,7 @@ size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
 }
 
 CURL* curl=0;
+const char* cookiefile="";
 char* http_get(const char* url, const char* post)
 {
   if(!curl){curl=curl_easy_init();}
@@ -75,7 +76,8 @@ char* http_get(const char* url, const char* post)
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writehttp);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &writebuf);
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, "");
+  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookiefile);
+  curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookiefile);
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla Firefox");
   if(post){curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post);}
   char err[CURL_ERROR_SIZE];
@@ -268,6 +270,8 @@ void usage(const char* me)
          "-p, --pass <pass>    Password of tinychat account to use.\n"
          "-c, --color <value>  Color to use in chat.\n"
          "    --hexcolors      Print hex colors instead of ANSI color codes.\n"
+         "    --cookies <file> File to store cookies in (not having to solve\n"
+         "                       the captchas every time)\n"
 #ifdef RTMP_DEBUG
          "    --rtmplog <file> Write RTMP input to file.\n"
 #endif
@@ -307,6 +311,11 @@ int main(int argc, char** argv)
     {
       ++i;
       currentcolor=atoi(argv[i]);
+    }
+    else if(!strcmp(argv[i], "--cookies"))
+    {
+      ++i;
+      cookiefile=argv[i];
     }
 #ifdef RTMP_DEBUG
     else if(!strcmp(argv[i], "--rtmplog")){++i; rtmplog=open(argv[i], O_WRONLY|O_CREAT|O_TRUNC, 0600); if(rtmplog<0){perror("rtmplog: open");}}
