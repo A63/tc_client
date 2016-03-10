@@ -420,8 +420,10 @@ int main(int argc, char** argv)
           unsigned int timeoffset=0;
           char* timestr=strstr(&msg[9], "&t=");
           if(!timestr){timestr=strstr(&msg[9], "?t=");}
+          if(!timestr){timestr=strstr(&msg[9], "#t=");}
           if(timestr)
           {
+            timestr[0]=0;
             timestr=&timestr[3];
             while(timestr[0])
             {
@@ -435,7 +437,11 @@ int main(int argc, char** argv)
               timeoffset+=num;
             }
           }
-          getvidinfo(&msg[9], "--get-id", vid, viderr, 1024);
+          char* request=&msg[9];
+          char* yturl;
+          if((yturl=strstr(request, "youtube.com/watch?v="))){request=&yturl[20];}
+          if((yturl=strstr(request, "youtu.be/"))){request=&yturl[9];}
+          getvidinfo(request, "--get-id", vid, viderr, 1024);
           if(!vid[0]) // Nothing found
           {
             say(pm, "No video found, sorry (%s)\n", viderr);
