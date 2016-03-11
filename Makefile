@@ -1,4 +1,4 @@
-VERSION=0.38pre
+VERSION=0.38
 CFLAGS=-g3 -Wall $(shell curl-config --cflags)
 LDFLAGS=-g3
 PREFIX=/usr/local
