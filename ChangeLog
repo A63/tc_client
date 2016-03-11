@@ -20,6 +20,7 @@ tc_client-gtk: fixed a memory leak.
 tc_client-gtk: format timestamps in logs.
 modbot: use youtube-dl's 'ytsearch:' instead of '--default-search auto', fixes issues with search terms that include slashes.
 modbot: if requesting by URL, skip to the ID.
+modbot: when getting information about a video, make up to 3 attempts before giving up (workaround for youtube/youtube-dl issues)
 configure: check for multiple versions of ncurses.
 0.37:
 Reimplemented announcement of moderators.

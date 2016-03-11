@@ -111,42 +111,48 @@ void getvidinfo(const char* vid, const char* type, char* buf, char* errbuf, unsi
 {
   int out[2];
   int err[2];
-  pipe(out);
-  pipe(err);
-  if(!fork())
+  unsigned int tries=3;
+  while(tries)
   {
-    close(out[0]);
-    close(err[0]);
-    dup2(out[1], 1);
-    dup2(err[1], 2);
-    char search[strlen("ytsearch:0")+strlen(vid)];
-    sprintf(search, "ytsearch:%s", vid);
-    execlp("youtube-dl", "youtube-dl", type, "--", search, (char*)0);
-    perror("execlp(youtube-dl)");
-    _exit(1);
-  }
-  wait(0);
-  close(out[1]);
-  close(err[1]);
-  size_t r;
-  // Read output
-  r=read(out[0], buf, len-1);
-  if(r<0){r=0;}
-  while(r>0 && (buf[r-1]=='\r' || buf[r-1]=='\n')){--r;} // Strip newlines
-  buf[r]=0;
-  close(out[0]);
-  // Read any error messages
-  if(errbuf)
-  {
-    r=read(err[0], errbuf, len-1);
+    pipe(out);
+    pipe(err);
+    if(!fork())
+    {
+      close(out[0]);
+      close(err[0]);
+      dup2(out[1], 1);
+      dup2(err[1], 2);
+      char search[strlen("ytsearch:0")+strlen(vid)];
+      sprintf(search, "ytsearch:%s", vid);
+      execlp("youtube-dl", "youtube-dl", type, "--", search, (char*)0);
+      perror("execlp(youtube-dl)");
+      _exit(1);
+    }
+    wait(0);
+    close(out[1]);
+    close(err[1]);
+    size_t r;
+    // Read output
+    r=read(out[0], buf, len-1);
     if(r<0){r=0;}
-    while(r>0 && (errbuf[r-1]=='\r' || errbuf[r-1]=='\n')){--r;} // Strip newlines
-    errbuf[r]=0;
-    char* newline; // No need for newlines in error messages
-    while((newline=strchr(errbuf, '\n'))){newline[0]=' ';}
-    while((newline=strchr(errbuf, '\r'))){newline[0]=' ';}
+    while(r>0 && (buf[r-1]=='\r' || buf[r-1]=='\n')){--r;} // Strip newlines
+    buf[r]=0;
+    close(out[0]);
+    // Read any error messages
+    if(errbuf)
+    {
+      r=read(err[0], errbuf, len-1);
+      if(r<0){r=0;}
+      while(r>0 && (errbuf[r-1]=='\r' || errbuf[r-1]=='\n')){--r;} // Strip newlines
+      errbuf[r]=0;
+      char* newline; // No need for newlines in error messages
+      while((newline=strchr(errbuf, '\n'))){newline[0]=' ';}
+      while((newline=strchr(errbuf, '\r'))){newline[0]=' ';}
+    }
+    close(err[0]);
+    --tries;
+    if(buf[0]){tries=0;}
   }
-  close(err[0]);
 }
 
 unsigned int getduration(const char* vid)
