@@ -17,6 +17,7 @@ tc_client-gtk: set a default position of the cam and nickname list pane handles.
 tc_client-gtk: use --hexcolors to show the full range of colors.
 tc_client-gtk: keep cam pixel buffers on the heap instead of the stack, fixes glitchyness when resizing.
 tc_client-gtk: fixed a memory leak.
+tc_client-gtk: format timestamps in logs.
 modbot: use youtube-dl's 'ytsearch:' instead of '--default-search auto', fixes issues with search terms that include slashes.
 modbot: if requesting by URL, skip to the ID.
 configure: check for multiple versions of ncurses.

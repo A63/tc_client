@@ -80,7 +80,8 @@ void logger_write(const char* line, const char* channel, const char* nick)
       --logfilecount;
       return;
     }
-    fprintf(logfiles[i].f, "Opening logfile on %ti (TODO: format)\n", time(0));
+    time_t timebuf=time(0);
+    fprintf(logfiles[i].f, "Opening logfile on %s\n", ctime(&timebuf));
   }
   fprintf(logfiles[i].f, "%s\n", line);
   fflush(logfiles[i].f);
