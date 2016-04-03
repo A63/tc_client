@@ -1,5 +1,6 @@
 0.39:
 modbot: only use youtube-dl's 'ytsearch:' for --get-id, and only if it doesn't appear to be an ID already.
+tc_client-gtk: handle only one sendmessage event at a time, and don't send empty lines.
 0.38:
 Handle multi-line messages.
 Added option --hexcolors to print hex color codes instead of ANSI color escape codes.

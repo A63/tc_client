@@ -741,15 +741,20 @@ gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
   return 0;
 }
 
+char sendingmsg=0;
 void sendmessage(GtkEntry* entry, void* data)
 {
   const char* msg=gtk_entry_get_text(entry);
+  if(!msg[0]){return;} // Don't send empty lines
+  if(sendingmsg){return;}
+  sendingmsg=1;
   inputhistory_add(msg);
   char* pm=0;
   if(!strncmp(msg, "/pm ", 4))
   {
     pm_open(&msg[4], 1);
     gtk_entry_set_text(entry, "");
+    sendingmsg=0;
     return;
   }
   else if(msg[0]!='/') // If we're in a PM tab, send messages as PMs
@@ -763,6 +768,7 @@ void sendmessage(GtkEntry* entry, void* data)
       if(!user) // Person we were PMing with left
       {
         gtk_entry_set_text(entry, "");
+        sendingmsg=0;
         return;
       }
       pm=strdup(user->nick);
@@ -791,6 +797,7 @@ void sendmessage(GtkEntry* entry, void* data)
      !strncmp(msg, "/topic ", 7))
   {
     gtk_entry_set_text(entry, "");
+    sendingmsg=0;
     return;
   }
   if(!strncmp(msg, "/msg ", 5))
@@ -807,6 +814,7 @@ void sendmessage(GtkEntry* entry, void* data)
         gtk_entry_set_text(entry, "");
         printchat("No such user", 0);
         free(pm);
+        sendingmsg=0;
         return;
       }
     }
@@ -825,6 +833,7 @@ void sendmessage(GtkEntry* entry, void* data)
   printchat_color(text, mycolor, 8, pm);
   gtk_entry_set_text(entry, "");
   free(pm);
+  sendingmsg=0;
 }
 
 void startsession(GtkButton* button, void* x)
