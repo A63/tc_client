@@ -111,6 +111,22 @@ void getvidinfo(const char* vid, const char* type, char* buf, char* errbuf, unsi
 {
   int out[2];
   int err[2];
+  char search[strlen("ytsearch:0")+strlen(vid)];
+  if(!strcmp(type, "--get-id"))
+  {
+    char lookslikeid=(strlen(vid)==11);
+    const char* ch=vid;
+    while(lookslikeid && ch[0])
+    {
+      if(!isalnum(ch[0]) && ch[0]!='-' && ch[0]!='_'){lookslikeid=0;}
+      ch=&ch[1];
+    }
+    if(!lookslikeid)
+    {
+      sprintf(search, "ytsearch:%s", vid);
+      vid=search;
+    }
+  }
   unsigned int tries=3;
   while(tries)
   {
@@ -122,9 +138,7 @@ void getvidinfo(const char* vid, const char* type, char* buf, char* errbuf, unsi
       close(err[0]);
       dup2(out[1], 1);
       dup2(err[1], 2);
-      char search[strlen("ytsearch:0")+strlen(vid)];
-      sprintf(search, "ytsearch:%s", vid);
-      execlp("youtube-dl", "youtube-dl", type, "--", search, (char*)0);
+      execlp("youtube-dl", "youtube-dl", type, "--", vid, (char*)0);
       perror("execlp(youtube-dl)");
       _exit(1);
     }
