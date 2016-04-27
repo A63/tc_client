@@ -601,7 +601,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!gotframe){return 1;}
 
   // Scale and convert to RGB24 format
-  unsigned int bufsize=avpicture_get_size(PIX_FMT_RGB24, scalewidth, scaleheight);
+  unsigned int bufsize=avpicture_get_size(AV_PIX_FMT_RGB24, scalewidth, scaleheight);
   unsigned char* buf=malloc(bufsize);
   cam->dstframe->data[0]=buf;
   cam->dstframe->linesize[0]=scalewidth*3;

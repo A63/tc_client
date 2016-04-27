@@ -351,7 +351,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   if(!gotframe){return 1;}
 
   // Convert to RGB24 format
-  unsigned int bufsize=avpicture_get_size(PIX_FMT_RGB24, cam->frame->width, cam->frame->height);
+  unsigned int bufsize=avpicture_get_size(AV_PIX_FMT_RGB24, cam->frame->width, cam->frame->height);
   unsigned char buf[bufsize];
   cam->dstframe->data[0]=buf;
   cam->dstframe->linesize[0]=cam->frame->width*3;
@@ -424,12 +424,12 @@ void togglecam(GtkButton* button, struct viddata* data)
     ctx->width=320;
     ctx->height=240;
     cam_resolution(cam, (unsigned int*)&ctx->width, (unsigned int*)&ctx->height);
-    ctx->pix_fmt=PIX_FMT_YUV420P;
+    ctx->pix_fmt=AV_PIX_FMT_YUV420P;
     ctx->time_base.num=1;
     ctx->time_base.den=10;
     avcodec_open2(ctx, data->vencoder, 0);
     AVFrame* frame=av_frame_alloc();
-    frame->format=PIX_FMT_RGB24;
+    frame->format=AV_PIX_FMT_RGB24;
     frame->width=ctx->width;
     frame->height=ctx->height;
     av_image_alloc(frame->data, frame->linesize, ctx->width, ctx->height, frame->format, 1);
@@ -447,7 +447,7 @@ void togglecam(GtkButton* button, struct viddata* data)
     dstframe->height=ctx->height;
     av_image_alloc(dstframe->data, dstframe->linesize, ctx->width, ctx->height, ctx->pix_fmt, 1);
 
-    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
+    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, AV_PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
 
     while(1)
     {

@@ -197,12 +197,12 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
     ctx->width=320;
     ctx->height=240;
     cam_resolution(cam, (unsigned int*)&ctx->width, (unsigned int*)&ctx->height);
-    ctx->pix_fmt=PIX_FMT_YUV420P;
+    ctx->pix_fmt=AV_PIX_FMT_YUV420P;
     ctx->time_base.num=1;
     ctx->time_base.den=10;
     avcodec_open2(ctx, vencoder, 0);
     AVFrame* frame=av_frame_alloc();
-    frame->format=PIX_FMT_RGB24;
+    frame->format=AV_PIX_FMT_RGB24;
     frame->width=ctx->width;
     frame->height=ctx->height;
     av_image_alloc(frame->data, frame->linesize, ctx->width, ctx->height, frame->format, 1);
@@ -220,7 +220,7 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
     dstframe->height=ctx->height;
     av_image_alloc(dstframe->data, dstframe->linesize, ctx->width, ctx->height, ctx->pix_fmt, 1);
 
-    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
+    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, AV_PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
 
     while(1)
     {
