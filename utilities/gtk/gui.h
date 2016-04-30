@@ -38,5 +38,10 @@ extern char pm_select(GtkNotebook* tabs, GtkWidget* tab, int num, void* x);
 extern void buffer_setup_colors(GtkTextBuffer* buffer);
 extern void buffer_updatesize(GtkTextBuffer* buffer);
 extern void fontsize_set(double size);
+extern gboolean gui_show_cam_menu(GtkWidget* widget, GdkEventButton* event, const char* id);
+extern void gui_show_camcolors(GtkMenuItem* menuitem, void* x);
+extern void camcolors_adjust_min(GtkAdjustment* adjustment, void* x);
+extern void camcolors_adjust_max(GtkAdjustment* adjustment, void* x);
+extern void camcolors_toggle_auto(GtkToggleButton* button, void* x);
 
 extern GtkBuilder* gui;

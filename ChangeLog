@@ -1,6 +1,7 @@
 0.39:
 modbot: only use youtube-dl's 'ytsearch:' for --get-id, and only if it doesn't appear to be an ID already.
 tc_client-gtk: handle only one sendmessage event at a time, and don't send empty lines.
+tc_client-gtk: added postprocessing options for cams upon right-click, starting with brightness adjustment.
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
 0.38:
 Handle multi-line messages.

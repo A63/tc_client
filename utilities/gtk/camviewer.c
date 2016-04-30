@@ -464,11 +464,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     if(!idend){return 1;}
     idend[0]=0;
     camera_removebynick(nick); // Remove any duplicates
-    struct camera* cam=camera_new();
-    cam->frame=av_frame_alloc();
-    cam->dstframe=av_frame_alloc();
-    cam->nick=strdup(nick);
-    cam->id=strdup(id);
+    struct camera* cam=camera_new(nick, id);
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
     avcodec_open2(cam->vctx, data->vdecoder, 0);
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
@@ -476,12 +472,6 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     avcodec_open2(cam->actx, data->adecoder, 0);
     cam->samples=0;
 #endif
-    cam->cam=gtk_image_new();
-    cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_box_set_homogeneous(GTK_BOX(cam->box), 0);
-    gtk_box_pack_start(GTK_BOX(cam->box), cam->cam, 0, 0, 0);
-    cam->label=gtk_label_new(cam->nick);
-    gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
     gtk_box_pack_start(GTK_BOX(data->box), cam->box, 0, 0, 0);
     gtk_widget_show_all(cam->box);
     updatescaling(data, 0, 0);
@@ -491,19 +481,10 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strcmp(buf, "Starting outgoing media stream"))
   {
-    struct camera* cam=camera_new();
-    cam->frame=av_frame_alloc();
-    cam->dstframe=av_frame_alloc();
-    cam->nick=strdup(nickname);
-    cam->id=strdup("out");
+    struct camera* cam=camera_new(nickname, "out");
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
     avcodec_open2(cam->vctx, data->vdecoder, 0);
     cam->actx=0;
-    cam->cam=gtk_image_new();
-    cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_box_pack_start(GTK_BOX(cam->box), cam->cam, 0, 0, 0);
-    cam->label=gtk_label_new(cam->nick);
-    gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
     gtk_box_pack_start(GTK_BOX(data->box), cam->box, 0, 0, 0);
     gtk_widget_show_all(cam->box);
     updatescaling(data, 0, 0);
@@ -608,6 +589,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, scalewidth, scaleheight, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
+  camera_postproc(cam, buf, scalewidth*scaleheight);
 
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
   GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, scalewidth, scaleheight, cam->dstframe->linesize[0], freebuffer, 0);
@@ -1061,6 +1043,11 @@ int main(int argc, char** argv)
   g_signal_connect(item, "switch-page", G_CALLBACK(pm_select), 0);
   // Connect signal for captcha
   g_signal_connect(gtk_builder_get_object(gui, "captcha_done"), "clicked", G_CALLBACK(captcha_done), 0);
+  // Connect signals for camera postprocessing
+  g_signal_connect(gtk_builder_get_object(gui, "cam_menu_colors"), "activate", G_CALLBACK(gui_show_camcolors), 0);
+  g_signal_connect(gtk_builder_get_object(gui, "camcolors_min_brightness"), "value-changed", G_CALLBACK(camcolors_adjust_min), 0);
+  g_signal_connect(gtk_builder_get_object(gui, "camcolors_max_brightness"), "value-changed", G_CALLBACK(camcolors_adjust_max), 0);
+  g_signal_connect(gtk_builder_get_object(gui, "camcolors_auto"), "toggled", G_CALLBACK(camcolors_toggle_auto), 0);
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");

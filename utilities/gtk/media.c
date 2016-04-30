@@ -32,7 +32,11 @@
 #include "../compat.h"
 #include "gui.h"
 #include "media.h"
-struct camera campreview;
+struct camera campreview={
+  .postproc.min_brightness=0,
+  .postproc.max_brightness=255,
+  .postproc.autoadjust=0
+};
 struct camera* cams=0;
 unsigned int camcount=0;
 #ifdef _WIN32
@@ -136,15 +140,35 @@ struct camera* camera_findbynick(const char* nick)
   return 0;
 }
 
-struct camera* camera_new(void)
+struct camera* camera_new(const char* nick, const char* id)
 {
   ++camcount;
   cams=realloc(cams, sizeof(struct camera)*camcount);
+  struct camera* cam=&cams[camcount-1];
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-  cams[camcount-1].samples=0;
-  cams[camcount-1].samplecount=0;
+  cam->samples=0;
+  cam->samplecount=0;
 #endif
-  return &cams[camcount-1];
+  cam->nick=strdup(nick);
+  cam->id=strdup(id);
+  cam->frame=av_frame_alloc();
+  cam->dstframe=av_frame_alloc();
+  cam->cam=gtk_image_new();
+  cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+  gtk_box_set_homogeneous(GTK_BOX(cam->box), 0);
+  // Wrap cam image in an event box to catch (right) clicks
+  GtkWidget* eventbox=gtk_event_box_new();
+  gtk_container_add(GTK_CONTAINER(eventbox), cam->cam);
+  gtk_event_box_set_above_child(GTK_EVENT_BOX(eventbox), 1);
+  cam->label=gtk_label_new(cam->nick);
+  gtk_box_pack_start(GTK_BOX(cam->box), eventbox, 0, 0, 0);
+  gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
+  g_signal_connect(eventbox, "button-release-event", G_CALLBACK(gui_show_cam_menu), cam->id);
+  // Initialize postprocessing values
+  cam->postproc.min_brightness=0;
+  cam->postproc.max_brightness=255;
+  cam->postproc.autoadjust=0;
+  return cam;
 }
 
 void camera_cleanup(void)
@@ -324,4 +348,29 @@ const char* camselect_file(void)
   }else{file=0;}
   gtk_widget_destroy(dialog);
   return file;
+}
+
+void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int count)
+{
+  if(cam->postproc.min_brightness==0 && cam->postproc.max_brightness==255 && !cam->postproc.autoadjust){return;}
+  unsigned char min=255;
+  unsigned char max=0;
+  unsigned int i;
+  for(i=0; i<count*3; ++i)
+  {
+    if(cam->postproc.autoadjust)
+    {
+      if(buf[i]<min){min=buf[i];}
+      if(buf[i]>max){max=buf[i];}
+    }
+    double v=((double)buf[i]-cam->postproc.min_brightness)*255/(cam->postproc.max_brightness-cam->postproc.min_brightness);
+    if(v<0){v=0;}
+    if(v>255){v=255;}
+    buf[i]=v;
+  }
+  if(cam->postproc.autoadjust)
+  {
+    cam->postproc.min_brightness=min;
+    cam->postproc.max_brightness=max;
+  }
 }

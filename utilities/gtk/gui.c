@@ -18,11 +18,12 @@
 #include <string.h>
 #include <stdint.h>
 #include <gtk/gtk.h>
-#include "gui.h"
 #include "config.h"
 #include "logging.h"
 #include "compat.h"
 #include "userlist.h"
+#include "media.h"
+#include "gui.h"
 
 extern void startsession(GtkButton* button, void* x);
 GtkBuilder* gui;
@@ -451,4 +452,64 @@ void fontsize_set(double size)
     g_object_set(tag, "size-points", size, "size-set", TRUE, (char*)0);
     buffer_updatesize(userlist[i].pm_buffer);
   }
+}
+
+const char* menu_context_cam=0;
+gboolean gui_show_cam_menu(GtkWidget* widget, GdkEventButton* event, const char* id)
+{
+  if(event->button!=3){return 0;} // Only act on right-click
+  struct camera* cam=camera_find(id);
+  free((void*)menu_context_cam);
+  menu_context_cam=strdup(cam->id);
+  GtkMenu* menu=GTK_MENU(gtk_builder_get_object(gui, "cam_menu"));
+  gtk_menu_popup(menu, 0, 0, 0, 0, event->button, event->time);
+  return 1;
+}
+
+void gui_show_camcolors(GtkMenuItem* menuitem, void* x)
+{
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "cam_colors")));
+  GtkAdjustment* adjustment=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_min_brightness"));
+  gtk_adjustment_set_value(adjustment, cam->postproc.min_brightness);
+  adjustment=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_max_brightness"));
+  gtk_adjustment_set_value(adjustment, cam->postproc.max_brightness);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_auto")), cam->postproc.autoadjust);
+}
+
+void camcolors_adjust_min(GtkAdjustment* adjustment, void* x)
+{
+  GtkAdjustment* other=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_max_brightness"));
+  double value=gtk_adjustment_get_value(adjustment);
+  if(value>gtk_adjustment_get_value(other))
+  {
+    gtk_adjustment_set_value(other, value);
+  }
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  cam->postproc.min_brightness=value;
+}
+
+void camcolors_adjust_max(GtkAdjustment* adjustment, void* x)
+{
+  GtkAdjustment* other=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_min_brightness"));
+  double value=gtk_adjustment_get_value(adjustment);
+  if(value<gtk_adjustment_get_value(other))
+  {
+    gtk_adjustment_set_value(other, value);
+  }
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  cam->postproc.max_brightness=value;
+}
+
+void camcolors_toggle_auto(GtkToggleButton* button, void* x)
+{
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  cam->postproc.autoadjust=gtk_toggle_button_get_active(button);
 }

@@ -14,6 +14,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <libavcodec/avcodec.h>
 struct camera
 {
   AVFrame* frame;
@@ -27,6 +28,12 @@ struct camera
   char* nick;
   GtkWidget* box; // holds label and cam
   GtkWidget* label;
+  struct
+  {
+    double min_brightness;
+    double max_brightness;
+    char autoadjust;
+  } postproc;
 };
 extern struct camera campreview;
 extern struct camera* cams;
@@ -45,10 +52,11 @@ extern void camera_remove(const char* nick);
 extern void camera_removebynick(const char* nick);
 extern struct camera* camera_find(const char* id);
 extern struct camera* camera_findbynick(const char* nick);
-extern struct camera* camera_new(void);
+extern struct camera* camera_new(const char* nick, const char* id);
 extern void camera_cleanup(void);
 extern GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay);
 extern void camselect_change(GtkComboBox* combo, AVCodec* vencoder);
 extern gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2);
 extern void camselect_accept(GtkWidget* widget, AVCodec* vencoder);
 extern const char* camselect_file(void);
+extern void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int count);
