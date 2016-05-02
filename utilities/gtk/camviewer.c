@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
     Copyright (C) 2015  Pamela Hiatt
 
     This program is free software: you can redistribute it and/or modify
@@ -62,8 +62,6 @@ struct viddata
   AVCodec* vdecoder;
   AVCodec* vencoder;
   AVCodec* adecoder;
-  int scalewidth;
-  int scaleheight;
 #ifdef HAVE_AVRESAMPLE
   int audiopipe;
   AVAudioResampleContext* resamplectx;
@@ -93,9 +91,9 @@ void updatescaling(struct viddata* data, unsigned int width, unsigned int height
   if(!camcount){return;}
   if(!width){width=gtk_widget_get_allocated_width(data->box);}
   if(!height){height=gtk_widget_get_allocated_height(data->box);}
-  data->scalewidth=width/camcount;
+  camsize_scale.width=width/camcount;
   // 3/4 ratio
-  data->scaleheight=data->scalewidth*3/4;
+  camsize_scale.height=camsize_scale.width*3/4;
   unsigned int i;
   unsigned int labelsize=0;
   for(i=0; i<camcount; ++i)
@@ -104,13 +102,13 @@ void updatescaling(struct viddata* data, unsigned int width, unsigned int height
       labelsize=gtk_widget_get_allocated_height(cams[i].label);
   }
   // Fit by height
-  if(height<data->scaleheight+labelsize)
+  if(height<camsize_scale.height+labelsize)
   {
-    data->scaleheight=height-labelsize;
-    data->scalewidth=data->scaleheight*4/3;
+    camsize_scale.height=height-labelsize;
+    camsize_scale.width=camsize_scale.height*4/3;
   }
-  if(data->scalewidth<8){data->scalewidth=8;}
-  if(data->scaleheight<1){data->scaleheight=1;}
+  if(camsize_scale.width<8){camsize_scale.width=8;}
+  if(camsize_scale.height<1){camsize_scale.height=1;}
   // TODO: wrapping and stuff
   // Rescale current images to fit
   for(i=0; i<camcount; ++i)
@@ -118,7 +116,7 @@ void updatescaling(struct viddata* data, unsigned int width, unsigned int height
     GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cams[i].cam));
     if(!pixbuf){continue;}
     GdkPixbuf* old=pixbuf;
-    pixbuf=gdk_pixbuf_scale_simple(pixbuf, data->scalewidth, data->scaleheight, GDK_INTERP_BILINEAR);
+    pixbuf=gdk_pixbuf_scale_simple(pixbuf, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
     gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i].cam), pixbuf);
     g_object_unref(old);
   }
@@ -198,8 +196,6 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   buffer_updatesize(buffer);
   if(bottom){autoscroll_after(scroll);}
 }
-
-void freebuffer(guchar* pixels, gpointer data){free(pixels);}
 
 char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
@@ -482,8 +478,16 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!strcmp(buf, "Starting outgoing media stream"))
   {
     struct camera* cam=camera_new(nickname, "out");
-    cam->vctx=avcodec_alloc_context3(data->vdecoder);
-    avcodec_open2(cam->vctx, data->vdecoder, 0);
+    cam->vctx=avcodec_alloc_context3(data->vencoder);
+    cam->vctx->pix_fmt=AV_PIX_FMT_YUV420P;
+    cam->vctx->time_base.num=1;
+    cam->vctx->time_base.den=10;
+    cam->vctx->width=camsize_out.width;
+    cam->vctx->height=camsize_out.height;
+    avcodec_open2(cam->vctx, data->vencoder, 0);
+    cam->frame->data[0]=0;
+    cam->dstframe->data[0]=0;
+
     cam->actx=0;
     gtk_box_pack_start(GTK_BOX(data->box), cam->box, 0, 0, 0);
     gtk_widget_show_all(cam->box);
@@ -559,21 +563,6 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
     pos+=r;
   }
-  unsigned int scalewidth=data->scalewidth;
-  unsigned int scaleheight=data->scaleheight;
-  if(!strcmp(&buf[7], "out"))
-  {
-    if(cam)
-    {
-      dprintf(tc_client_in[1], "/video %i\n", size+1);
-      write(tc_client_in[1], &frameinfo, 1);
-      write(tc_client_in[1], pkt.data, size);
-    }else{
-      cam=&campreview;
-      scalewidth=320;
-      scaleheight=240;
-    }
-  }
   if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
   if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
   pkt.size=size;
@@ -582,17 +571,17 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!gotframe){return 1;}
 
   // Scale and convert to RGB24 format
-  unsigned int bufsize=avpicture_get_size(AV_PIX_FMT_RGB24, scalewidth, scaleheight);
+  unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, camsize_scale.width, camsize_scale.height, 1);
   unsigned char* buf=malloc(bufsize);
   cam->dstframe->data[0]=buf;
-  cam->dstframe->linesize[0]=scalewidth*3;
-  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, scalewidth, scaleheight, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
+  cam->dstframe->linesize[0]=camsize_scale.width*3;
+  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, camsize_scale.width, camsize_scale.height, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
-  camera_postproc(cam, buf, scalewidth*scaleheight);
+  camera_postproc(cam, cam->dstframe->data[0], camsize_scale.width*camsize_scale.height);
 
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
-  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, scalewidth, scaleheight, cam->dstframe->linesize[0], freebuffer, 0);
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
   g_object_unref(oldpixbuf);
 
@@ -642,7 +631,7 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
   // Start a cam thread for the selected cam
   GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
   GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), data->vencoder, 100000);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, handledata, 0);
+  cameventsource=g_io_add_watch(channel, G_IO_IN, cam_encode, 0);
 }
 
 gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddata* data)
@@ -957,9 +946,7 @@ int main(int argc, char** argv)
   // Set up cam selection and preview
   campreview.cam=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_preview"));
   campreview.frame=av_frame_alloc();
-  campreview.dstframe=av_frame_alloc();
-  campreview.vctx=avcodec_alloc_context3(data->vdecoder);
-  avcodec_open2(campreview.vctx, data->vdecoder, 0);
+  campreview.frame->data[0]=0;
   GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
   g_signal_connect(combo, "changed", G_CALLBACK(camselect_change), data->vencoder);
   // Signals for cancelling

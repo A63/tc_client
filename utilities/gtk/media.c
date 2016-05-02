@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -32,6 +32,7 @@
 #include "../compat.h"
 #include "gui.h"
 #include "media.h"
+extern int tc_client_in[2];
 struct camera campreview={
   .postproc.min_brightness=0,
   .postproc.max_brightness=255,
@@ -44,6 +45,8 @@ unsigned int camcount=0;
 #else
   pid_t camproc=0;
 #endif
+struct size camsize_out={.width=320, .height=240};
+struct size camsize_scale={.width=320, .height=240};
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 // Experimental mixer, not sure if it really works
@@ -187,6 +190,72 @@ void camera_cleanup(void)
   free(cams);
 }
 
+void freebuffer(guchar* pixels, gpointer data){free(pixels);}
+
+gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
+{
+  struct camera* cam=camera_find("out");
+  char preview=0;
+  if(!cam)
+  {
+    cam=&campreview;
+    preview=1;
+  }else{
+    cam->vctx->width=camsize_out.width;
+    cam->vctx->height=camsize_out.height;
+    if(!cam->dstframe->data[0])
+    {
+      cam->dstframe->format=AV_PIX_FMT_YUV420P;
+      cam->dstframe->width=camsize_out.width;
+      cam->dstframe->height=camsize_out.height;
+      av_image_alloc(cam->dstframe->data, cam->dstframe->linesize, camsize_out.width, camsize_out.height, cam->dstframe->format, 1);
+    }
+  }
+  if(!cam->frame->data[0])
+  {
+    cam->frame->format=AV_PIX_FMT_RGB24;
+    cam->frame->width=camsize_out.width;
+    cam->frame->height=camsize_out.height;
+    cam->frame->linesize[0]=cam->frame->width*3;
+    av_image_alloc(cam->frame->data, cam->frame->linesize, camsize_out.width, camsize_out.height, cam->frame->format, 1);
+  }
+  g_io_channel_read_chars(iochannel, (void*)cam->frame->data[0], camsize_out.width*camsize_out.height*3, 0, 0);
+  camera_postproc(cam, cam->frame->data[0], cam->frame->width*cam->frame->height);
+  // Update our local display
+  GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->frame->data[0], GDK_COLORSPACE_RGB, 0, 8, cam->frame->width, cam->frame->height, cam->frame->linesize[0], 0, 0);
+  if(!preview) // Scale, unless we're previewing
+  {
+    gdkframe=gdk_pixbuf_scale_simple(gdkframe, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
+  }
+  gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
+  g_object_unref(oldpixbuf);
+  if(preview){return 1;}
+  // Encode
+  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, cam->frame->width, cam->frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
+  sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
+  sws_freeContext(swsctx);
+  int gotpacket;
+  AVPacket packet={
+    .buf=0,
+    .data=0,
+    .size=0,
+    .dts=AV_NOPTS_VALUE,
+    .pts=AV_NOPTS_VALUE
+  };
+  av_init_packet(&packet);
+  avcodec_encode_video2(cam->vctx, &packet, cam->dstframe, &gotpacket);
+  unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
+  // Send video
+  dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
+  write(tc_client_in[1], &frameinfo, 1);
+  ssize_t w=write(tc_client_in[1], packet.data, packet.size);
+if(w!=packet.size){printf("Error: wrote %li of %i bytes\n", w, packet.size);}
+
+  av_packet_unref(&packet);
+  return 1;
+}
+
 unsigned int* camthread_delay;
 void camthread_resetdelay(int x)
 {
@@ -201,10 +270,11 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
     kill(camproc, SIGINT);
     usleep(200000); // Give the previous process some time to shut down
   }
-  // Set up a second pipe to be handled by handledata() to avoid overlap with tc_client's output
+  // Set up a pipe to be handled by cam_encode()
   int campipe[2];
 #ifndef _WIN32
   CAM* cam=cam_open(name); // Opening here in case of GUI callbacks
+  cam_resolution(cam, &camsize_out.width, &camsize_out.height);
   pipe(campipe);
   camproc=fork();
   if(!camproc)
@@ -216,56 +286,14 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
     camthread_delay=&delay;
     signal(SIGUSR1, camthread_resetdelay);
 #endif
-    // Set up camera
-    AVCodecContext* ctx=avcodec_alloc_context3(vencoder);
-    ctx->width=320;
-    ctx->height=240;
-    cam_resolution(cam, (unsigned int*)&ctx->width, (unsigned int*)&ctx->height);
-    ctx->pix_fmt=AV_PIX_FMT_YUV420P;
-    ctx->time_base.num=1;
-    ctx->time_base.den=10;
-    avcodec_open2(ctx, vencoder, 0);
-    AVFrame* frame=av_frame_alloc();
-    frame->format=AV_PIX_FMT_RGB24;
-    frame->width=ctx->width;
-    frame->height=ctx->height;
-    av_image_alloc(frame->data, frame->linesize, ctx->width, ctx->height, frame->format, 1);
-    AVPacket packet;
-    packet.buf=0;
-    packet.data=0;
-    packet.size=0;
-    packet.dts=AV_NOPTS_VALUE;
-    packet.pts=AV_NOPTS_VALUE;
-
-    // Set up frame for conversion from the camera's format to a format the encoder can use
-    AVFrame* dstframe=av_frame_alloc();
-    dstframe->format=ctx->pix_fmt;
-    dstframe->width=ctx->width;
-    dstframe->height=ctx->height;
-    av_image_alloc(dstframe->data, dstframe->linesize, ctx->width, ctx->height, ctx->pix_fmt, 1);
-
-    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, AV_PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
-
+    unsigned char img[camsize_out.width*camsize_out.height*3];
     while(1)
     {
       usleep(delay);
       if(delay>100000){delay-=50000;}
-      cam_getframe(cam, frame->data[0]);
-      int gotpacket;
-      sws_scale(swsctx, (const uint8_t*const*)frame->data, frame->linesize, 0, frame->height, dstframe->data, dstframe->linesize);
-      av_init_packet(&packet);
-      packet.data=0;
-      packet.size=0;
-      avcodec_encode_video2(ctx, &packet, dstframe, &gotpacket);
-      unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
-      // Send the packet to our main thread so we can see ourselves (the main thread also sends it to the server)
-      dprintf(campipe[1], "Video: out %i\n", packet.size+1);
-      write(campipe[1], &frameinfo, 1);
-      write(campipe[1], packet.data, packet.size);
-
-      av_free_packet(&packet);
+      cam_getframe(cam, img);
+      write(campipe[1], img, camsize_out.width*camsize_out.height*3);
     }
-    sws_freeContext(swsctx);
     _exit(0);
   }
   if(cam){cam_close(cam);} // Leave the cam to the child process
@@ -280,12 +308,11 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
   return channel;
 }
 
-extern GIOFunc handledata;
 void camselect_change(GtkComboBox* combo, AVCodec* vencoder)
 {
   if(!camproc){return;} // If there isn't a camthread already, it will be started elsewhere
   GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), vencoder, 100000);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, (void*)&handledata, 0);
+  cameventsource=g_io_add_watch(channel, G_IO_IN, cam_encode, 0);
 }
 
 gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2)
@@ -310,7 +337,7 @@ void camselect_accept(GtkWidget* widget, AVCodec* vencoder)
   // For platforms without proper signals, resort to restarting the camthread with the new delay
   GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
   GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), vencoder, 500000);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, (void*)&handledata, 0);
+  cameventsource=g_io_add_watch(channel, G_IO_IN, cam_encode, 0);
 #endif
   dprintf(tc_client_in[1], "/camup\n");
 }

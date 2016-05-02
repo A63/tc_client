@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -35,6 +35,11 @@ struct camera
     char autoadjust;
   } postproc;
 };
+struct size
+{
+  unsigned int width;
+  unsigned int height;
+};
 extern struct camera campreview;
 extern struct camera* cams;
 extern unsigned int camcount;
@@ -44,6 +49,8 @@ extern unsigned int camcount;
 #else
   extern pid_t camproc;
 #endif
+extern struct size camsize_out;
+extern struct size camsize_scale;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);
@@ -54,6 +61,8 @@ extern struct camera* camera_find(const char* id);
 extern struct camera* camera_findbynick(const char* nick);
 extern struct camera* camera_new(const char* nick, const char* id);
 extern void camera_cleanup(void);
+extern void freebuffer(guchar* pixels, gpointer data);
+extern gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer datap);
 extern GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay);
 extern void camselect_change(GtkComboBox* combo, AVCodec* vencoder);
 extern gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2);
