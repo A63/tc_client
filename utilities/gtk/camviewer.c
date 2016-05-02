@@ -578,7 +578,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, camsize_scale.width, camsize_scale.height, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
-  camera_postproc(cam, cam->dstframe->data[0], camsize_scale.width*camsize_scale.height);
+  camera_postproc(cam, cam->dstframe->data[0], camsize_scale.width, camsize_scale.height);
 
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
   GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);
@@ -1035,6 +1035,8 @@ int main(int argc, char** argv)
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_min_brightness"), "value-changed", G_CALLBACK(camcolors_adjust_min), 0);
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_max_brightness"), "value-changed", G_CALLBACK(camcolors_adjust_max), 0);
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_auto"), "toggled", G_CALLBACK(camcolors_toggle_auto), 0);
+  g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_horizontal"), "toggled", G_CALLBACK(camcolors_toggle_flip), 0);
+  g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_vertical"), "toggled", G_CALLBACK(camcolors_toggle_flip), (void*)1);
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");

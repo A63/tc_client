@@ -33,6 +33,8 @@ struct camera
     double min_brightness;
     double max_brightness;
     char autoadjust;
+    char flip_horizontal;
+    char flip_vertical;
   } postproc;
 };
 struct size
@@ -68,4 +70,4 @@ extern void camselect_change(GtkComboBox* combo, AVCodec* vencoder);
 extern gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2);
 extern void camselect_accept(GtkWidget* widget, AVCodec* vencoder);
 extern const char* camselect_file(void);
-extern void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int count);
+extern void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int width, unsigned int height);

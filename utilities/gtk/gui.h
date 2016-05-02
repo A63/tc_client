@@ -43,5 +43,6 @@ extern void gui_show_camcolors(GtkMenuItem* menuitem, void* x);
 extern void camcolors_adjust_min(GtkAdjustment* adjustment, void* x);
 extern void camcolors_adjust_max(GtkAdjustment* adjustment, void* x);
 extern void camcolors_toggle_auto(GtkToggleButton* button, void* x);
+extern void camcolors_toggle_flip(GtkToggleButton* button, void* vertical);
 
 extern GtkBuilder* gui;

@@ -513,3 +513,17 @@ void camcolors_toggle_auto(GtkToggleButton* button, void* x)
   if(!cam){return;}
   cam->postproc.autoadjust=gtk_toggle_button_get_active(button);
 }
+
+void camcolors_toggle_flip(GtkToggleButton* button, void* vertical)
+{
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  char v=gtk_toggle_button_get_active(button);
+  if(vertical)
+  {
+    cam->postproc.flip_vertical=v;
+  }else{
+    cam->postproc.flip_horizontal=v;
+  }
+}
