@@ -476,6 +476,8 @@ void gui_show_camcolors(GtkMenuItem* menuitem, void* x)
   adjustment=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_max_brightness"));
   gtk_adjustment_set_value(adjustment, cam->postproc.max_brightness);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_auto")), cam->postproc.autoadjust);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_flip_horizontal")), cam->postproc.flip_horizontal);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_flip_vertical")), cam->postproc.flip_vertical);
 }
 
 void camcolors_adjust_min(GtkAdjustment* adjustment, void* x)
