@@ -72,6 +72,9 @@ void settings_reset(GtkBuilder* gui)
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("camdownonjoin"));
   option=GTK_WIDGET(gtk_builder_get_object(gui, "autoopencams"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_set("autoopencams")?config_get_bool("autoopencams"):1);
+  // Misc/cookies
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "storecookiecheckbox"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("storecookies"));
 }
 
 void showsettings(GtkMenuItem* item, GtkBuilder* gui)
@@ -110,6 +113,9 @@ void savesettings(GtkButton* button, GtkBuilder* gui)
   config_set("camdownonjoin", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
   option=GTK_WIDGET(gtk_builder_get_object(gui, "autoopencams"));
   config_set("autoopencams", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
+  // Misc/cookies
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "storecookiecheckbox"));
+  config_set("storecookies", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
 
   config_save();
   GtkWidget* settings=GTK_WIDGET(gtk_builder_get_object(gui, "settings"));
