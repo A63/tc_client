@@ -486,6 +486,8 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     cam->vctx->height=camsize_out.height;
     avcodec_open2(cam->vctx, data->vencoder, 0);
     cam->frame->data[0]=0;
+    cam->frame->width=0;
+    cam->frame->height=0;
     cam->dstframe->data[0]=0;
 
     cam->actx=0;

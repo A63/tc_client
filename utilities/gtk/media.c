@@ -213,12 +213,13 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
       av_image_alloc(cam->dstframe->data, cam->dstframe->linesize, camsize_out.width, camsize_out.height, cam->dstframe->format, 1);
     }
   }
-  if(!cam->frame->data[0])
+  if(cam->frame->width!=camsize_out.width || cam->frame->height!=camsize_out.height)
   {
     cam->frame->format=AV_PIX_FMT_RGB24;
     cam->frame->width=camsize_out.width;
     cam->frame->height=camsize_out.height;
     cam->frame->linesize[0]=cam->frame->width*3;
+    av_freep(cam->frame->data);
     av_image_alloc(cam->frame->data, cam->frame->linesize, camsize_out.width, camsize_out.height, cam->frame->format, 1);
   }
   g_io_channel_read_chars(iochannel, (void*)cam->frame->data[0], camsize_out.width*camsize_out.height*3, 0, 0);
