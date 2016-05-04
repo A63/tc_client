@@ -5,6 +5,7 @@ tc_client-gtk: added postprocessing options for cams upon right-click, starting 
 tc_client-gtk: moved encoding out of the cam thread, allowing postprocessing to be applied to the broadcasted frame.
 tc_client-gtk: added horizontal and vertical flip as postprocessing options.
 tc_client-gtk: reallocate frame when camera input size changes.
+tc_client-gtk: if we failed to open the camera, just give a grey screen.
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
 0.38:
 Handle multi-line messages.

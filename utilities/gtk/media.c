@@ -277,19 +277,24 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
   int campipe[2];
 #ifndef _WIN32
   CAM* cam=cam_open(name); // Opening here in case of GUI callbacks
-  cam_resolution(cam, &camsize_out.width, &camsize_out.height);
+  if(cam){cam_resolution(cam, &camsize_out.width, &camsize_out.height);}
   pipe(campipe);
   camproc=fork();
   if(!camproc)
   {
     close(campipe[0]);
-    if(!cam){_exit(1);}
+    unsigned char img[camsize_out.width*camsize_out.height*3];
+    if(!cam) // If it failed to open, just give some grey before quitting
+    {
+      memset(img, 0x7f, camsize_out.width*camsize_out.height*3);
+      write(campipe[1], img, camsize_out.width*camsize_out.height*3);
+      _exit(1);
+    }
 #ifndef _WIN32
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     camthread_delay=&delay;
     signal(SIGUSR1, camthread_resetdelay);
 #endif
-    unsigned char img[camsize_out.width*camsize_out.height*3];
     while(1)
     {
       usleep(delay);
