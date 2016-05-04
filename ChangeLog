@@ -11,6 +11,7 @@ tc_client-gtk: added an option to use the --cookies parameter of the core to kee
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
 tc_client-gtk and camviewer: added compatibility fallbacks for av_image_get_buffer_size() and av_packet_unref()
 libcamera(v4l2): if we failed to read the frame, give grey instead.
+irchack: fixed the order of messages around joining a channel (should fix compatibility with IRC clients a bit pickier than irssi)
 0.38:
 Handle multi-line messages.
 Added option --hexcolors to print hex color codes instead of ANSI color escape codes.

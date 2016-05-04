@@ -219,6 +219,7 @@ char session(int sock, const char* nick, const char* channel, const char* pass, 
   pfd[1].revents=0;
   char buf[2048];
   char joins=0;
+  char gotconnectionid=0;
   while(1)
   {
     poll(pfd, 2, -1);
@@ -279,6 +280,7 @@ printf("Got from tc_client: '%s'\n", buf);
       }
       if(!strncmp(buf, "Connection ID: ", 15))
       {
+        gotconnectionid=1;
         dprintf(sock, ":%s!user@host NICK :guest-%s\n", nick, &buf[15]);
         continue;
       }
@@ -291,7 +293,7 @@ printf("Got from tc_client: '%s'\n", buf);
       if(space && !strcmp(space, " is a moderator."))
       {
         space[0]=0;
-        dprintf(sock, ":irchack MODE #%s +o %s\n", channel, buf);
+        dprintf(sock, ":irchack MODE #%s +o %s\n", channel, gotconnectionid?buf:nick);
         continue;
       }
       if(space && !strcmp(space, " is no longer a moderator."))
@@ -369,7 +371,11 @@ printf("Got from tc_client: '%s'\n", buf);
         msg=&msg[1];
         if(!strcmp(msg, "entered the channel"))
         {
-          dprintf(sock, ":%s!user@host JOIN #%s\n", name, channel);
+          dprintf(sock, ":%s!user@host JOIN #%s\n", gotconnectionid?name:nick, channel);
+          if(!gotconnectionid)
+          {
+            dprintf(sock, ":irchack 353 %s = #%s :%s\n", nick, channel, nick);
+          }
         }
         else if(!strncmp(msg, "changed nickname to ", 20))
         {
