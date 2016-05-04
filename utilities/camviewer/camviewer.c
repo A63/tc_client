@@ -351,7 +351,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   if(!gotframe){return 1;}
 
   // Convert to RGB24 format
-  unsigned int bufsize=avpicture_get_size(AV_PIX_FMT_RGB24, cam->frame->width, cam->frame->height);
+  unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, cam->frame->width, cam->frame->height, 1);
   unsigned char buf[bufsize];
   cam->dstframe->data[0]=buf;
   cam->dstframe->linesize[0]=cam->frame->width*3;
@@ -469,7 +469,7 @@ packet.size=0;
       write(campipe[1], &frameinfo, 1);
       write(campipe[1], packet.data, packet.size);
 
-      av_free_packet(&packet);
+      av_packet_unref(&packet);
     }
     sws_freeContext(swsctx);
     _exit(0);

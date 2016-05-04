@@ -58,3 +58,9 @@
     av_freep(x); \
   }
 #endif
+#if LIBAVCODEC_VERSION_MAJOR<54 || (LIBAVCODEC_VERSION_MAJOR==54 && LIBAVCODEC_VERSION_MINOR<6)
+  #define av_image_get_buffer_size(a,b,c,d) avpicture_get_size(a,b,c)
+#endif
+#if LIBAVCODEC_VERSION_MAJOR<55 || (LIBAVCODEC_VERSION_MAJOR==55 && LIBAVCODEC_VERSION_MINOR<16)
+  #define av_packet_unref av_free_packet
+#endif
