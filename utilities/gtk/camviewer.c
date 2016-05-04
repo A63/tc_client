@@ -977,6 +977,8 @@ int main(int argc, char** argv)
 
   item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings"));
   g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings2"));
+  g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
   
   data->box=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
   userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));

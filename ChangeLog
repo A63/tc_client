@@ -6,6 +6,7 @@ tc_client-gtk: moved encoding out of the cam thread, allowing postprocessing to 
 tc_client-gtk: added horizontal and vertical flip as postprocessing options.
 tc_client-gtk: reallocate frame when camera input size changes.
 tc_client-gtk: if we failed to open the camera, just give a grey screen.
+tc_client-gtk: made the settings accessible from the start window (previously only accessible from the main window, after already joining a channel)
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
 tc_client-gtk and camviewer: added compatibility fallbacks for av_image_get_buffer_size() and av_packet_unref()
 libcamera(v4l2): if we failed to read the frame, give grey instead.
