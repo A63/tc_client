@@ -1,6 +1,6 @@
 /*
     libcamera, a camera access abstraction library
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -50,9 +50,11 @@ char** cam_list_v4l2(char** list, unsigned int* count)
 
 CAM* cam_open_v4l2(const char* name)
 {
+  int fd=v4l2_open(&name[5], O_RDWR);
+  if(fd<0){return 0;}
   CAM* cam=malloc(sizeof(CAM));
   cam->type=CAMTYPE_V4L2;
-  cam->fd=v4l2_open(&name[5], O_RDWR);
+  cam->fd=fd;
   return cam;
 }
 
@@ -75,7 +77,10 @@ void cam_resolution_v4l2(CAM* cam, unsigned int* width, unsigned int* height)
 
 void cam_getframe_v4l2(CAM* cam, void* pixmap)
 {
-  v4l2_read(cam->fd, pixmap, cam->framesize);
+  if(v4l2_read(cam->fd, pixmap, cam->framesize)<0)
+  {
+    memset(pixmap, 0x7f, cam->framesize);
+  }
 }
 
 void cam_close_v4l2(CAM* cam)

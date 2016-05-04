@@ -7,6 +7,7 @@ tc_client-gtk: added horizontal and vertical flip as postprocessing options.
 tc_client-gtk: reallocate frame when camera input size changes.
 tc_client-gtk: if we failed to open the camera, just give a grey screen.
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
+libcamera(v4l2): if we failed to read the frame, give grey instead.
 0.38:
 Handle multi-line messages.
 Added option --hexcolors to print hex color codes instead of ANSI color escape codes.
