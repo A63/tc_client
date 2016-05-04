@@ -507,6 +507,7 @@ int main(int argc, char** argv)
                  "/nick <newnick> = changes your nickname\n"
                  "/msg <to> <msg> = send a private message\n"
                  "/opencam <nick> = see someone's cam/mic (Warning: writes binary data to stdout)\n"
+                 "/closecam <nick> = stop receiving someone's cam stream\n"
                  "/close <nick>   = close someone's cam/mic stream (as a mod)\n"
                  "/ban <nick>     = ban someone\n"
                  "/banlist        = list who is banned\n"
@@ -578,6 +579,11 @@ int main(int argc, char** argv)
         else if(!strncmp(buf, "/opencam ", 9))
         {
           stream_start(&buf[9], sock);
+          continue;
+        }
+        else if(!strncmp(buf, "/closecam ", 10))
+        {
+          stream_stopvideo(sock, idlist_get(&buf[10]));
           continue;
         }
         else if(!strncmp(buf, "/close ", 7)) // Stop someone's cam/mic broadcast
@@ -680,7 +686,7 @@ int main(int argc, char** argv)
         }
         else if(!strcmp(buf, "/camdown"))
         {
-          stream_stopvideo(sock);
+          stream_stopvideo(sock, idlist_get(nickname));
           continue;
         }
         else if(!strncmp(buf, "/video ", 7)) // Send video data

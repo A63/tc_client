@@ -129,26 +129,7 @@ void stream_handlestatus(struct amf* amf, int sock)
   if(!strcmp(code->string.string, "NetStream.Play.Stop"))
   {
     unsigned int id=strtoul(details->string.string, 0, 0);
-    unsigned int i;
-    for(i=0; i<streamcount; ++i)
-    {
-      if(streams[i].userid==id)
-      {
-        printf("VideoEnd: %u\n", streams[i].userid);
-        // Delete the stream
-        struct rtmp amf;
-        amfinit(&amf, 3);
-        amfstring(&amf, "deleteStream");
-        amfnum(&amf, 0);
-        amfnull(&amf);
-        amfnum(&amf, streams[i].streamid);
-        amfsend(&amf, sock);
-        // Remove from list of streams
-        --streamcount;
-        memmove(&streams[i], &streams[i+1], sizeof(struct stream)*(streamcount-i));
-        return;
-      }
-    }
+    stream_stopvideo(sock, id);
   }
 }
 
@@ -171,12 +152,12 @@ void stream_sendvideo(int sock, void* buf, size_t len)
   }
 }
 
-void stream_stopvideo(int sock)
+void stream_stopvideo(int sock, unsigned int id)
 {
   unsigned int i;
   for(i=0; i<streamcount; ++i)
   {
-    if(streams[i].outgoing)
+    if(streams[i].userid==id)
     {
       struct rtmp amf;
       // Close the stream

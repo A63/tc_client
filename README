@@ -10,6 +10,7 @@ Commands supported by tc_client:
 /colors         = list the available colors
 /nick <newnick> = change nickname
 /opencam <nick> = see someone's cam/mic (Warning: writes binary data to stdout)
+/closecam <nick> = stop receiving someone's cam stream
 /close <nick>   = close someone's cam/mic stream (as a mod)
 /ban <nick>     = ban someone
 /banlist        = list who is banned

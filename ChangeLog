@@ -1,4 +1,5 @@
 0.39:
+Added a /closecam command to stop receiving a cam stream.
 modbot: only use youtube-dl's 'ytsearch:' for --get-id, and only if it doesn't appear to be an ID already.
 tc_client-gtk: handle only one sendmessage event at a time, and don't send empty lines.
 tc_client-gtk: added postprocessing options for cams upon right-click, starting with brightness adjustment.

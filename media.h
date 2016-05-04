@@ -32,4 +32,4 @@ extern void stream_play(struct amf* amf, int sock); // called upon _result
 extern void stream_handledata(struct rtmp* rtmp);
 extern void stream_handlestatus(struct amf* amf, int sock);
 extern void stream_sendvideo(int sock, void* buf, size_t len);
-extern void stream_stopvideo(int sock);
+extern void stream_stopvideo(int sock, unsigned int id);
