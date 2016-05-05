@@ -26,6 +26,7 @@
 #include "gui.h"
 
 extern void startsession(GtkButton* button, void* x);
+extern int tc_client_in[2];
 GtkBuilder* gui;
 
 char autoscroll_before(GtkAdjustment* scroll)
@@ -534,4 +535,13 @@ void camcolors_toggle_flip(GtkToggleButton* button, void* vertical)
   }else{
     cam->postproc.flip_horizontal=v;
   }
+}
+
+void gui_hide_cam(GtkMenuItem* menuitem, void* x)
+{
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  dprintf(tc_client_in[1], "/closecam %s\n", cam->nick);
+  camera_remove(menu_context_cam);
 }

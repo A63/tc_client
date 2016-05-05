@@ -1063,6 +1063,8 @@ int main(int argc, char** argv)
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_auto"), "toggled", G_CALLBACK(camcolors_toggle_auto), 0);
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_horizontal"), "toggled", G_CALLBACK(camcolors_toggle_flip), 0);
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_vertical"), "toggled", G_CALLBACK(camcolors_toggle_flip), (void*)1);
+  // Connect signal for hiding cameras
+  g_signal_connect(gtk_builder_get_object(gui, "cam_menu_hide"), "activate", G_CALLBACK(gui_hide_cam), 0);
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");
