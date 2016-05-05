@@ -243,6 +243,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!strncmp(buf, "Currently on cam: ", 18))
   {
     printchat(buf, 0);
+    if(!config_get_bool("autoopencams") && config_get_set("autoopencams")){return 1;}
     char* next=&buf[16];
     while(next)
     {
@@ -443,10 +444,14 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     return 1;
   }
   // Start a stream when someone cams up
-  if(space && !strcmp(space, " cammed up") && (config_get_bool("autoopencams") || !config_get_set("autoopencams")))
+  if(space && !strcmp(space, " cammed up"))
   {
-    space[0]=0;
-    dprintf(tc_client_in[1], "/opencam %s\n", buf);
+    printchat(buf, 0);
+    if(config_get_bool("autoopencams") || !config_get_set("autoopencams"))
+    {
+      space[0]=0;
+      dprintf(tc_client_in[1], "/opencam %s\n", buf);
+    }
     return 1;
   }
   if(!strncmp(buf, "Starting media stream for ", 26))
