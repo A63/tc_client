@@ -129,6 +129,7 @@ void stream_handlestatus(struct amf* amf, int sock)
   if(!strcmp(code->string.string, "NetStream.Play.Stop"))
   {
     unsigned int id=strtoul(details->string.string, 0, 0);
+    printf("VideoEnd: %u\n", id);
     stream_stopvideo(sock, id);
   }
 }
