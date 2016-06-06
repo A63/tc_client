@@ -16,7 +16,7 @@
 */
 #include "endian.h"
 
-unsigned long long be64(unsigned long long in)
+uint64_t be64(uint64_t in)
 {
 #if(__BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__)
   return ((in&0xff)<<56) |
@@ -32,7 +32,7 @@ unsigned long long be64(unsigned long long in)
 #endif
 }
 
-unsigned long be32(unsigned long in)
+uint32_t be32(uint32_t in)
 {
 #if(__BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__)
   return ((in&0xff)<<24) |
@@ -44,7 +44,7 @@ unsigned long be32(unsigned long in)
 #endif
 }
 
-unsigned long le32(unsigned long in)
+uint32_t le32(uint32_t in)
 {
 #if(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__)
   return ((in&0xff)<<24) |
@@ -56,7 +56,7 @@ unsigned long le32(unsigned long in)
 #endif
 }
 
-unsigned short be16(unsigned short in)
+uint16_t be16(uint16_t in)
 {
 #if(__BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__)
   return ((in&0xff)<<8) |
@@ -66,7 +66,7 @@ unsigned short be16(unsigned short in)
 #endif
 }
 
-unsigned short le16(unsigned short in)
+uint16_t le16(uint16_t in)
 {
 #if(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__)
   return ((in&0xff00)<<8) |

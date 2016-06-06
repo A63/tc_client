@@ -14,8 +14,9 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-extern unsigned long long be64(unsigned long long in);
-extern unsigned long be32(unsigned long in);
-extern unsigned long le32(unsigned long in);
-extern unsigned short be16(unsigned short in);
-extern unsigned short le16(unsigned short in);
+#include <stdint.h>
+extern uint64_t be64(uint64_t in);
+extern uint32_t be32(uint32_t in);
+extern uint32_t le32(uint32_t in);
+extern uint16_t be16(uint16_t in);
+extern uint16_t le16(uint16_t in);
