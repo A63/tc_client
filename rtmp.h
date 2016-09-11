@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -15,6 +15,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #define RTMP_SET_PACKET_SIZE 0x01
+#define RTMP_ACKNOWLEDGEMENT 0x03
 #define RTMP_PING            0x04
 #define RTMP_SERVER_BW       0x05
 #define RTMP_CLIENT_BW       0x06
