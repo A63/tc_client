@@ -30,6 +30,7 @@ struct chunk
   unsigned int streamid;
   unsigned int pos;
   void* buf;
+  char exttimestamp;
 };
 struct chunk* chunks=0;
 unsigned int chunkcount=0;
@@ -77,6 +78,7 @@ struct chunk* chunk_get(unsigned int id)
   chunks[i].timestamp=0;
   chunks[i].length=0;
   chunks[i].type=0;
+  chunks[i].exttimestamp=0;
   return &chunks[i];
 }
 
@@ -101,6 +103,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
     x=0;
     fullread(sock, ((void*)&x)+1, 3);
     chunk->timestamp=be32(x);
+    chunk->exttimestamp=(chunk->timestamp==0xffffff);
     if(fmt<2)
     {
       // Length
@@ -122,7 +125,7 @@ char rtmp_get(int sock, struct rtmp* rtmp)
     }
   }
   // Extended timestamp
-  if(chunk->timestamp==0xffffff)
+  if(chunk->exttimestamp)
   {
     fullread(sock, &x, sizeof(x));
     chunk->timestamp=be32(x);
