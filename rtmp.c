@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -37,6 +37,10 @@ unsigned int chunksize_in=128;
 #ifdef RTMP_DEBUG
 int rtmplog=-1;
 #endif
+
+#define ackwindow 0x20200
+uint32_t rtmpsent=0;
+uint32_t rtmpack=ackwindow;
 
 size_t fullread(int fd, void* buf, size_t len)
 {
@@ -84,13 +88,13 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   x=le32(x);
   unsigned int chunkid=x&0x3f;
   unsigned int fmt=(x&0xc0)>>6;
-  struct chunk* chunk=chunk_get(chunkid);
   // Handle extended stream IDs
   if(chunkid<2) // (0=1 extra byte, 1=2 extra bytes)
   {
     fullread(sock, &x, chunkid+1);
     chunkid=64+x;
   }
+  struct chunk* chunk=chunk_get(chunkid);
   if(fmt<3)
   {
     // Timestamp
@@ -139,6 +143,12 @@ char rtmp_get(int sock, struct rtmp* rtmp)
       chunksize_in=be32(chunksize_in);
 //      printf("Server set chunk size to %u (packet size: %u)\n", chunksize_in, chunk->length);
     }
+    else if(chunk->type==RTMP_ACKNOWLEDGEMENT && chunk->length==4)
+    {
+      uint32_t bytes=*(unsigned int*)chunk->buf;
+      rtmpack=be32(bytes)+ackwindow;
+      return 2;
+    }
 // printf("Got chunk: chunkid=%u, type=%u, length=%u, streamid=%u\n", chunk->id, chunk->type, chunk->length, chunk->streamid);
     rtmp->type=chunk->type;
     rtmp->chunkid=chunk->id;
@@ -156,33 +166,35 @@ char rtmp_get(int sock, struct rtmp* rtmp)
 char firstpacket=1;
 void rtmp_send(int sock, struct rtmp* rtmp)
 {
+  #define rwrite(x,y,z) write(x,y,z); rtmpsent+=z // Add to the data sent counter
+  if(rtmpsent>rtmpack && rtmp->type==RTMP_VIDEO){return;}
   // Header format and stream ID
   unsigned int fmt=(rtmp->msgid?0:1);
   if(firstpacket){firstpacket=fmt=0;}
   unsigned char basicheader=(rtmp->chunkid<64?rtmp->chunkid:(rtmp->chunkid<256?0:1)) | (fmt<<6);
-  write(sock, &basicheader, sizeof(basicheader));
+  rwrite(sock, &basicheader, sizeof(basicheader));
   if(rtmp->chunkid>=64) // Handle large stream IDs
   {
     if(rtmp->chunkid<256)
     {
       unsigned char chunkid=rtmp->chunkid-64;
-      write(sock, &chunkid, sizeof(chunkid));
+      rwrite(sock, &chunkid, sizeof(chunkid));
     }else{
       unsigned short chunkid=le16(rtmp->chunkid-64);
-      write(sock, &chunkid, sizeof(chunkid));
+      rwrite(sock, &chunkid, sizeof(chunkid));
     }
   }
   unsigned int x=0;
   // Timestamp
-  write(sock, &x, 3); // Time is irrelevant
+  rwrite(sock, &x, 3); // Time is irrelevant
   // Length
   x=be32(rtmp->length);
-  write(sock, ((void*)&x)+1, 3);
+  rwrite(sock, ((void*)&x)+1, 3);
   // Type
-  write(sock, &rtmp->type, sizeof(rtmp->type));
+  rwrite(sock, &rtmp->type, sizeof(rtmp->type));
   if(fmt<1) // Send message ID if there is one (that isn't 0)
   {
-    write(sock, &rtmp->msgid, sizeof(rtmp->msgid));
+    rwrite(sock, &rtmp->msgid, sizeof(rtmp->msgid));
   }
   // Send 128 bytes at a time separated by a "continuation header", the 0xc3 byte for chunk 3
   void* pos=rtmp->buf;
@@ -203,4 +215,5 @@ void rtmp_send(int sock, struct rtmp* rtmp)
 // printf("Wrote %i bytes\n", w);
     pos+=128;
   }
+  rtmpsent+=rtmp->length;
 }

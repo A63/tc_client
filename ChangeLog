@@ -1,6 +1,7 @@
 0.39:
 Added a /closecam command to stop receiving a cam stream.
 Use uintX_t for endianness functions instead of unsigned long*x int.
+Implemented RTMP acknowledgement on outgoing data, with dropping video packets if necessary.
 bugfix: brought back announcing when a cam stream ends.
 modbot: only use youtube-dl's 'ytsearch:' for --get-id, and only if it doesn't appear to be an ID already.
 tc_client-gtk: handle only one sendmessage event at a time, and don't send empty lines.
