@@ -32,6 +32,9 @@
 #include "../compat.h"
 #include "gui.h"
 #include "media.h"
+
+#define PREVIEW_MAX_WIDTH 640
+#define PREVIEW_MAX_HEIGHT 480
 extern int tc_client_in[2];
 struct camera campreview={
   .postproc.min_brightness=0,
@@ -230,6 +233,16 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!preview) // Scale, unless we're previewing
   {
     gdkframe=gdk_pixbuf_scale_simple(gdkframe, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
+  }else if(gdk_pixbuf_get_height(gdkframe)>PREVIEW_MAX_HEIGHT || gdk_pixbuf_get_width(gdkframe)>PREVIEW_MAX_WIDTH) // Scale anyway if the input is huge
+  {
+    unsigned int width=gdk_pixbuf_get_width(gdkframe);
+    unsigned int height=gdk_pixbuf_get_height(gdkframe);
+    if(height*PREVIEW_MAX_WIDTH/width>PREVIEW_MAX_HEIGHT)
+    {
+      gdkframe=gdk_pixbuf_scale_simple(gdkframe, width*PREVIEW_MAX_HEIGHT/height, PREVIEW_MAX_HEIGHT, GDK_INTERP_BILINEAR);
+    }else{
+      gdkframe=gdk_pixbuf_scale_simple(gdkframe, PREVIEW_MAX_WIDTH, height*PREVIEW_MAX_WIDTH/width, GDK_INTERP_BILINEAR);
+    }
   }
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
   g_object_unref(oldpixbuf);
