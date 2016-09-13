@@ -5,6 +5,7 @@ Implemented RTMP acknowledgement on outgoing data, with dropping video packets i
 Fixed RTMP extended timestamps (read extended timestamps for subsequent format 3 chunks with the same chunk ID)
 Reorganized configure, changing many of the version comparisons for API compatibility into direct checks for availability.
 bugfix: brought back announcing when a cam stream ends.
+bugfix: take cflags into account when performing API tests in configure.
 modbot: only use youtube-dl's 'ytsearch:' for --get-id, and only if it doesn't appear to be an ID already.
 tc_client-gtk: handle only one sendmessage event at a time, and don't send empty lines.
 tc_client-gtk: added postprocessing options for cams upon right-click, starting with brightness adjustment.

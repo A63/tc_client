@@ -103,23 +103,24 @@ printf 'Checking for libavcodec... '
 avcodeclibs="`pkg-config --libs libavcodec 2> /dev/null`"
 if [ "x$avcodeclibs" != "x" ]; then
   echo yes
+  avcodecflags="${avcodeclibs} `pkg-config --cflags libavcodec`"
   # AV_CODEC_ID_FLV1
-  if ! testbuild 'AV_CODEC_ID_FLV1' 'int x=AV_CODEC_ID_FLV1;' 'libavcodec/avcodec.h'; then
-    if testbuild 'CODEC_ID_FLV1' 'int x=CODEC_ID_FLV1;' 'libavcodec/avcodec.h'; then
+  if ! testbuild 'AV_CODEC_ID_FLV1' 'int x=AV_CODEC_ID_FLV1;' 'libavcodec/avcodec.h' "$avcodecflags"; then
+    if testbuild 'CODEC_ID_FLV1' 'int x=CODEC_ID_FLV1;' 'libavcodec/avcodec.h' "$avcodecflags"; then
       echo '#define AV_CODEC_ID_FLV1 CODEC_ID_FLV1' >> config.h
       echo '#define AV_CODEC_ID_NELLYMOSER CODEC_ID_NELLYMOSER' >> config.h
     else avcodeclibs=''; fi
   fi
   # av_packet_unref
-  if ! testbuild 'av_packet_unref' 'void* x=av_packet_unref;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
-    if testbuild 'av_free_packet' 'void* x=av_free_packet;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+  if ! testbuild 'av_packet_unref' 'void* x=av_packet_unref;' 'libavcodec/avcodec.h' "$avcodecflags"; then
+    if testbuild 'av_free_packet' 'void* x=av_free_packet;' 'libavcodec/avcodec.h' "$avcodecflags"; then
       echo '#define av_packet_unref av_free_packet' >> config.h
     else avcodeclibs=''; fi
   fi
   if [ "x$avcodeclibs" != "x" ]; then
     echo "AVCODEC_LIBS=${avcodeclibs}" >> config.mk
     echo "AVCODEC_CFLAGS=`pkg-config --cflags libavcodec`" >> config.mk
-    if ! testbuild 'avcodec_free_context' 'void* x=avcodec_free_context;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+    if ! testbuild 'avcodec_free_context' 'void* x=avcodec_free_context;' 'libavcodec/avcodec.h' "$avcodecflags"; then
       echo '#define avcodec_free_context(x) \' >> config.h
       echo '{ \' >> config.h
       echo '  avcodec_close(*x); \' >> config.h
@@ -128,7 +129,7 @@ if [ "x$avcodeclibs" != "x" ]; then
       echo '  av_freep(x); \' >> config.h
       echo '}' >> config.h
     fi
-    if testbuild 'buf in AVPacket' 'AVPacket x; x.buf=0;' 'libavcodec/avcodec.h'; then echo '#define AVPACKET_HAS_BUF 1' >> config.h; fi
+    if testbuild 'buf in AVPacket' 'AVPacket x; x.buf=0;' 'libavcodec/avcodec.h' "$avcodecflags"; then echo '#define AVPACKET_HAS_BUF 1' >> config.h; fi
   fi
 else
   echo no
@@ -148,30 +149,31 @@ printf 'Checking for libavutil... '
 avutillibs="`pkg-config --libs libavutil 2> /dev/null`"
 if [ "x$avutillibs" != "x" ]; then
   echo yes
+  avutilflags="${avutillibs} `pkg-config --cflags libavutil`"
   # AV_PIX_FMT_RGB24 and AV_PIX_FMT_YUV420P
-  if ! testbuild 'AV_PIX_FMT_RGB24 and AV_PIX_FMT_YUV420P' 'int x=AV_PIX_FMT_RGB24; x=AV_PIX_FMT_YUV420P;' 'libavutil/pixfmt.h'; then
-    if testbuild 'PIX_FMT_RGB24 and PIX_FMT_YUV420P' 'int x=PIX_FMT_RGB24; x=PIX_FMT_YUV420P;' 'libavutil/pixfmt.h'; then
+  if ! testbuild 'AV_PIX_FMT_RGB24 and AV_PIX_FMT_YUV420P' 'int x=AV_PIX_FMT_RGB24; x=AV_PIX_FMT_YUV420P;' 'libavutil/pixfmt.h' "$avutilflags"; then
+    if testbuild 'PIX_FMT_RGB24 and PIX_FMT_YUV420P' 'int x=PIX_FMT_RGB24; x=PIX_FMT_YUV420P;' 'libavutil/pixfmt.h' "$avutilflags"; then
       echo '#define AV_PIX_FMT_RGB24 PIX_FMT_RGB24' >> config.h
       echo '#define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P' >> config.h
     else avutillibs=''; fi
   fi
   # av_frame_alloc
-  if ! testbuild 'av_frame_alloc' 'void* x=av_frame_alloc;' 'libavutil/frame.h' "$avutillibs"; then
-    if testbuild 'avcodec_alloc_frame' 'void* x=avcodec_alloc_frame;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+  if ! testbuild 'av_frame_alloc' 'void* x=av_frame_alloc;' 'libavutil/frame.h' "$avutilflags"; then
+    if testbuild 'avcodec_alloc_frame' 'void* x=avcodec_alloc_frame;' 'libavcodec/avcodec.h' "$avcodecflags"; then
       echo '#define av_frame_alloc avcodec_alloc_frame' >> config.h
     else avutillibs=''; fi
   fi
   # av_frame_free
-  if ! testbuild 'av_frame_free' 'void* x=av_frame_free;' 'libavutil/frame.h' "$avutillibs"; then
-    if testbuild 'avcodec_free_frame' 'void* x=avcodec_free_frame;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+  if ! testbuild 'av_frame_free' 'void* x=av_frame_free;' 'libavutil/frame.h' "$avutilflags"; then
+    if testbuild 'avcodec_free_frame' 'void* x=avcodec_free_frame;' 'libavcodec/avcodec.h' "$avcodecflags"; then
       echo '#define av_frame_free avcodec_free_frame' >> config.h
-    elif testbuild 'av_free' 'void* x=av_free;' 'libavutil/frame.h' "$avutillibs"; then
+    elif testbuild 'av_free' 'void* x=av_free;' 'libavutil/frame.h' "$avutilflags"; then
       echo '#define av_frame_free av_free' >> config.h
     else avutillibs=''; fi
   fi
   # av_image_get_buffer_size
-  if ! testbuild 'av_image_get_buffer_size' 'void* x=av_image_get_buffer_size;' 'libavutil/imgutils.h' "$avutillibs"; then
-    if testbuild 'avpicture_get_size' 'void* x=avpicture_get_size;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+  if ! testbuild 'av_image_get_buffer_size' 'void* x=av_image_get_buffer_size;' 'libavutil/imgutils.h' "$avutilflags"; then
+    if testbuild 'avpicture_get_size' 'void* x=avpicture_get_size;' 'libavcodec/avcodec.h' "$avcodecflags"; then
       echo '#define av_image_get_buffer_size(a,b,c,d) avpicture_get_size(a,b,c)' >> config.h
     else avutillibs=''; fi
   fi
