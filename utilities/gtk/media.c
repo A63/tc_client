@@ -253,7 +253,9 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
   sws_freeContext(swsctx);
   int gotpacket;
   AVPacket packet={
+#ifdef AVPACKET_HAS_BUF
     .buf=0,
+#endif
     .data=0,
     .size=0,
     .dts=AV_NOPTS_VALUE,

@@ -434,7 +434,9 @@ void togglecam(GtkButton* button, struct viddata* data)
     frame->height=ctx->height;
     av_image_alloc(frame->data, frame->linesize, ctx->width, ctx->height, frame->format, 1);
     AVPacket packet;
+#ifdef AVPACKET_HAS_BUF
     packet.buf=0;
+#endif
     packet.data=0;
     packet.size=0;
     packet.dts=AV_NOPTS_VALUE;

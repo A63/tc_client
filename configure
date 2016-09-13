@@ -1,15 +1,26 @@
 #!/bin/sh
 # Just a simple handwritten configure
-rm -f config.mk
 
 host=''
+prefix=''
+enable_mic=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
   --host=*) host="`echo "$1" | sed -e 's/--host=//'`";;
-  --prefix=*) echo "$1" | sed -e 's/--prefix=/PREFIX=/' >> config.mk;;
+  --prefix=*) prefix="`echo "$1" | sed -e 's/--prefix=//'`";;
+  --enable-mic) enable_mic=true;;
+  *)
+    echo 'Available options:'
+    echo '--host=...    = Specify the host triplet to build for'
+    echo '--prefix=...  = Specify the prefix to install to'
+    echo '--enable-mic  = Enable experimental mic support (incoming)'
+    exit;;
   esac
   shift
 done
+rm -f config.mk
+true > config.h
+if [ -n "$prefix" ]; then echo "PREFIX=${prefix}" >> config.mk; fi
 
 printf 'Checking for a C compiler... '
 if [ "x$CC" = "x" -a "x$host" != "x" ]; then
@@ -39,40 +50,48 @@ else
 fi
 rm -f iconvtest iconvtest.c
 
-printf 'Checking for strndup... '
-echo '#include <string.h>' > apitest.c
-echo 'int main(){char* x=strndup("abc", 2);}' >> apitest.c
-if "$CC" apitest.c -o apitest > /dev/null 2> /dev/null; then
-  echo yes
-else
-  echo 'CFLAGS+=-DNO_STRNDUP' >> config.mk
-  echo no
-fi
-rm -f apitest apitest.c
+testbuild()
+{
+  printf "Checking for ${1}... "
+  code="$2"
+  headers="$3"
+  libs="$4"
+  rm -f apitest.c
+  for x in ${headers}; do
+    echo "#include <${x}>" >> apitest.c
+  done
+  echo "int main(){${code}}" >> apitest.c
+  if "$CC" apitest.c ${libs} -o apitest > /dev/null 2> /dev/null; then
+    echo yes
+    rm -f apitest.c apitest
+    return 0
+  else
+    echo no
+    rm -f apitest.c
+    return 1
+  fi
+}
 
-printf 'Checking for dprintf... '
-echo '#include <stdio.h>' > apitest.c
-echo 'int main(){dprintf(1,"test");}' >> apitest.c
-if "$CC" apitest.c -o apitest > /dev/null 2> /dev/null; then
-  echo yes
-else
-  echo 'CFLAGS+=-DNO_DPRINTF' >> config.mk
-  echo no
+if ! testbuild 'strndup' 'char* x=strndup("abc", 2);' 'string.h'; then
+  echo '#define NO_STRNDUP 1' >> config.h
 fi
-rm -f apitest apitest.c
+
+if ! testbuild 'dprintf' 'dprintf(1,"test");' 'stdio.h'; then
+  echo '#define NO_DPRINTF 1' >> config.h
+fi
 
 printf 'Checking for gtk+-3.0... '
-libs="`pkg-config --libs gtk+-3.0 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "GTK_LIBS=${libs}" >> config.mk
+gtklibs="`pkg-config --libs gtk+-3.0 2> /dev/null`"
+if [ "x$gtklibs" != "x" ]; then
+  echo "GTK_LIBS=${gtklibs}" >> config.mk
   echo "GTK_CFLAGS=`pkg-config --cflags gtk+-3.0`" >> config.mk
   echo yes
 else
   echo no
   printf 'Checking for gtk+-2.0... '
-  libs="`pkg-config --libs gtk+-2.0 2> /dev/null`"
-  if [ "x$libs" != "x" ]; then
-    echo "GTK_LIBS=${libs}" >> config.mk
+  gtklibs="`pkg-config --libs gtk+-2.0 2> /dev/null`"
+  if [ "x$gtklibs" != "x" ]; then
+    echo "GTK_LIBS=${gtklibs}" >> config.mk
     echo "GTK_CFLAGS=`pkg-config --cflags gtk+-2.0`" >> config.mk
     echo yes
   else
@@ -81,19 +100,44 @@ else
 fi
 
 printf 'Checking for libavcodec... '
-libs="`pkg-config --libs libavcodec 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "AVCODEC_LIBS=${libs}" >> config.mk
-  echo "AVCODEC_CFLAGS=`pkg-config --cflags libavcodec`" >> config.mk
+avcodeclibs="`pkg-config --libs libavcodec 2> /dev/null`"
+if [ "x$avcodeclibs" != "x" ]; then
   echo yes
+  # AV_CODEC_ID_FLV1
+  if ! testbuild 'AV_CODEC_ID_FLV1' 'int x=AV_CODEC_ID_FLV1;' 'libavcodec/avcodec.h'; then
+    if testbuild 'CODEC_ID_FLV1' 'int x=CODEC_ID_FLV1;' 'libavcodec/avcodec.h'; then
+      echo '#define AV_CODEC_ID_FLV1 CODEC_ID_FLV1' >> config.h
+      echo '#define AV_CODEC_ID_NELLYMOSER CODEC_ID_NELLYMOSER' >> config.h
+    else avcodeclibs=''; fi
+  fi
+  # av_packet_unref
+  if ! testbuild 'av_packet_unref' 'void* x=av_packet_unref;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+    if testbuild 'av_free_packet' 'void* x=av_free_packet;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+      echo '#define av_packet_unref av_free_packet' >> config.h
+    else avcodeclibs=''; fi
+  fi
+  if [ "x$avcodeclibs" != "x" ]; then
+    echo "AVCODEC_LIBS=${avcodeclibs}" >> config.mk
+    echo "AVCODEC_CFLAGS=`pkg-config --cflags libavcodec`" >> config.mk
+    if ! testbuild 'avcodec_free_context' 'void* x=avcodec_free_context;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+      echo '#define avcodec_free_context(x) \' >> config.h
+      echo '{ \' >> config.h
+      echo '  avcodec_close(*x); \' >> config.h
+      echo '  av_freep(&(*x)->extradata); \' >> config.h
+      echo '  av_freep(&(*x)->subtitle_header); \' >> config.h
+      echo '  av_freep(x); \' >> config.h
+      echo '}' >> config.h
+    fi
+    if testbuild 'buf in AVPacket' 'AVPacket x; x.buf=0;' 'libavcodec/avcodec.h'; then echo '#define AVPACKET_HAS_BUF 1' >> config.h; fi
+  fi
 else
   echo no
 fi
 
 printf 'Checking for libswscale... '
-libs="`pkg-config --libs libswscale 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "SWSCALE_LIBS=${libs}" >> config.mk
+swscalelibs="`pkg-config --libs libswscale 2> /dev/null`"
+if [ "x$swscalelibs" != "x" ]; then
+  echo "SWSCALE_LIBS=${swscalelibs}" >> config.mk
   echo "SWSCALE_CFLAGS=`pkg-config --cflags libswscale`" >> config.mk
   echo yes
 else
@@ -101,30 +145,63 @@ else
 fi
 
 printf 'Checking for libavutil... '
-libs="`pkg-config --libs libavutil 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "AVUTIL_LIBS=${libs}" >> config.mk
-  echo "AVUTIL_CFLAGS=`pkg-config --cflags libavutil`" >> config.mk
+avutillibs="`pkg-config --libs libavutil 2> /dev/null`"
+if [ "x$avutillibs" != "x" ]; then
   echo yes
+  # AV_PIX_FMT_RGB24 and AV_PIX_FMT_YUV420P
+  if ! testbuild 'AV_PIX_FMT_RGB24 and AV_PIX_FMT_YUV420P' 'int x=AV_PIX_FMT_RGB24; x=AV_PIX_FMT_YUV420P;' 'libavutil/pixfmt.h'; then
+    if testbuild 'PIX_FMT_RGB24 and PIX_FMT_YUV420P' 'int x=PIX_FMT_RGB24; x=PIX_FMT_YUV420P;' 'libavutil/pixfmt.h'; then
+      echo '#define AV_PIX_FMT_RGB24 PIX_FMT_RGB24' >> config.h
+      echo '#define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P' >> config.h
+    else avutillibs=''; fi
+  fi
+  # av_frame_alloc
+  if ! testbuild 'av_frame_alloc' 'void* x=av_frame_alloc;' 'libavutil/frame.h' "$avutillibs"; then
+    if testbuild 'avcodec_alloc_frame' 'void* x=avcodec_alloc_frame;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+      echo '#define av_frame_alloc avcodec_alloc_frame' >> config.h
+    else avutillibs=''; fi
+  fi
+  # av_frame_free
+  if ! testbuild 'av_frame_free' 'void* x=av_frame_free;' 'libavutil/frame.h' "$avutillibs"; then
+    if testbuild 'avcodec_free_frame' 'void* x=avcodec_free_frame;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+      echo '#define av_frame_free avcodec_free_frame' >> config.h
+    elif testbuild 'av_free' 'void* x=av_free;' 'libavutil/frame.h' "$avutillibs"; then
+      echo '#define av_frame_free av_free' >> config.h
+    else avutillibs=''; fi
+  fi
+  # av_image_get_buffer_size
+  if ! testbuild 'av_image_get_buffer_size' 'void* x=av_image_get_buffer_size;' 'libavutil/imgutils.h' "$avutillibs"; then
+    if testbuild 'avpicture_get_size' 'void* x=avpicture_get_size;' 'libavcodec/avcodec.h' "$avcodeclibs"; then
+      echo '#define av_image_get_buffer_size(a,b,c,d) avpicture_get_size(a,b,c)' >> config.h
+    else avutillibs=''; fi
+  fi
+  if [ "x$avutillibs" != "x" ]; then
+    echo "AVUTIL_LIBS=${avutillibs}" >> config.mk
+    echo "AVUTIL_CFLAGS=`pkg-config --cflags libavutil`" >> config.mk
+  fi
 else
   echo no
 fi
 
 # TODO: Figure out how to mix sound sources so that this doesn't sound horrible with more than one person on mic, having it disabled by default until then
-if [ "x${ENABLE_MIC}" != "x" ]; then
+if "$enable_mic"; then
 printf 'Checking for libavresample... '
-libs="`pkg-config --libs libavresample 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "AVRESAMPLE_LIBS=${libs}" >> config.mk
+avresamplelibs="`pkg-config --libs libavresample 2> /dev/null`"
+if [ "x$avresamplelibs" != "x" ]; then
+  echo "AVRESAMPLE_LIBS=${avresamplelibs}" >> config.mk
   echo "AVRESAMPLE_CFLAGS=`pkg-config --cflags libavresample`" >> config.mk
   echo yes
 else
   echo no
   printf 'Checking for libswresample... '
-  libs="`pkg-config --libs libswresample 2> /dev/null`"
-  if [ "x$libs" != "x" ]; then
-    echo "SWRESAMPLE_LIBS=${libs}" >> config.mk
+  swresamplelibs="`pkg-config --libs libswresample 2> /dev/null`"
+  if [ "x$swresamplelibs" != "x" ]; then
+    echo "SWRESAMPLE_LIBS=${swresamplelibs}" >> config.mk
     echo "SWRESAMPLE_CFLAGS=`pkg-config --cflags libswresample`" >> config.mk
+    echo '#define avresample_convert swresample_convert' >> config.h
+    echo '#define avresample_alloc_context swresample_alloc_context' >> config.h
+    echo '#define avresample_open swresample_open' >> config.h
+    echo '#define avresample_free swresample_free' >> config.h
     echo yes
   else
     echo no
@@ -132,9 +209,9 @@ else
 fi
 
 printf 'Checking for libao... '
-libs="`pkg-config --libs ao 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "AO_LIBS=${libs}" >> config.mk
+aolibs="`pkg-config --libs ao 2> /dev/null`"
+if [ "x$aolibs" != "x" ]; then
+  echo "AO_LIBS=${aolibs}" >> config.mk
   echo "AO_CFLAGS=`pkg-config --cflags ao`" >> config.mk
   echo yes
 else
@@ -145,9 +222,9 @@ fi
 printf 'Checking for ncurses... '
 notfound=true
 for version in 7 6 5 4; do
-  libs="`ncursesw${version}-config --libs 2> /dev/null || ncurses${version}-config --libs 2> /dev/null`"
-  if [ "x$libs" != "x" ]; then
-    echo "CURSES_LIBS=${libs}" >> config.mk
+  ncurseslibs="`ncursesw${version}-config --libs 2> /dev/null || ncurses${version}-config --libs 2> /dev/null`"
+  if [ "x$ncurseslibs" != "x" ]; then
+    echo "CURSES_LIBS=${ncurseslibs}" >> config.mk
     echo "CURSES_CFLAGS=`ncursesw${version}-config --cflags 2> /dev/null || ncurses${version}-config --cflags 2> /dev/null`" >> config.mk
     echo yes
     notfound=false
@@ -158,22 +235,14 @@ if "$notfound"; then
   echo no
 fi
 
-printf 'Checking for readline... '
-echo '#include <stdio.h>' > readlinetest.c
-echo '#include <readline/readline.h>' >> readlinetest.c
-echo 'int main(){rl_initialize();return 0;}' >> readlinetest.c
-if "$CC" readlinetest.c -lreadline ${libs} -o readlinetest > /dev/null 2> /dev/null; then
+if testbuild 'readline' 'rl_initialize();return 0;' 'stdio.h readline/readline.h' '-lreadline'; then
   echo "READLINE_LIBS=-lreadline" >> config.mk
-  echo yes
-else
-  echo no
 fi
-rm -f readlinetest.c readlinetest
 
 printf 'Checking for libv4l2... '
-libs="`pkg-config --libs libv4l2 2> /dev/null`"
-if [ "x$libs" != "x" ]; then
-  echo "LIBV4L2_LIBS=${libs}" >> config.mk
+v4l2libs="`pkg-config --libs libv4l2 2> /dev/null`"
+if [ "x$v4l2libs" != "x" ]; then
+  echo "LIBV4L2_LIBS=${v4l2libs}" >> config.mk
   echo "LIBV4L2_CFLAGS=`pkg-config --cflags libv4l2`" >> config.mk
   echo yes
 else

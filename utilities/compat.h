@@ -14,6 +14,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include "../config.h"
 #if defined(__ANDROID__) || defined(_WIN32)
 #include <stdint.h>
 #include <stddef.h>
@@ -32,35 +33,4 @@
 #endif
 #if GLIB_MAJOR_VERSION<2 || (GLIB_MAJOR_VERSION==2 && GLIB_MINOR_VERSION<2)
   #define g_io_channel_read_chars(a,b,c,d,e) g_io_channel_read(a,b,c,d)
-#endif
-#if LIBAVCODEC_VERSION_MAJOR<54 || (LIBAVCODEC_VERSION_MAJOR==54 && LIBAVCODEC_VERSION_MINOR<25)
-  #define AV_CODEC_ID_FLV1 CODEC_ID_FLV1
-  #define AV_CODEC_ID_NELLYMOSER CODEC_ID_NELLYMOSER
-#endif
-#if LIBAVUTIL_VERSION_MAJOR<51 || (LIBAVUTIL_VERSION_MAJOR==51 && LIBAVUTIL_VERSION_MINOR<42)
-  #define AV_PIX_FMT_RGB24 PIX_FMT_RGB24
-  #define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
-#endif
-#if LIBAVUTIL_VERSION_MAJOR<52
-  #define av_frame_alloc avcodec_alloc_frame
-  #if LIBAVCODEC_VERSION_MAJOR<54 || (LIBAVCODEC_VERSION_MAJOR==54 && LIBAVCODEC_VERSION_MINOR<28)
-    #define av_frame_free av_free
-  #else
-    #define av_frame_free avcodec_free_frame
-  #endif
-#endif
-#if LIBAVCODEC_VERSION_MAJOR<55 || (LIBAVCODEC_VERSION_MAJOR==55 && LIBAVCODEC_VERSION_MINOR<52)
-  #define avcodec_free_context(x) \
-  { \
-    avcodec_close(*x); \
-    av_freep(&(*x)->extradata); \
-    av_freep(&(*x)->subtitle_header); \
-    av_freep(x); \
-  }
-#endif
-#if LIBAVCODEC_VERSION_MAJOR<54 || (LIBAVCODEC_VERSION_MAJOR==54 && LIBAVCODEC_VERSION_MINOR<6)
-  #define av_image_get_buffer_size(a,b,c,d) avpicture_get_size(a,b,c)
-#endif
-#if LIBAVCODEC_VERSION_MAJOR<55 || (LIBAVCODEC_VERSION_MAJOR==55 && LIBAVCODEC_VERSION_MINOR<16)
-  #define av_packet_unref av_free_packet
 #endif
