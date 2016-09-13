@@ -20,6 +20,7 @@ tc_client-gtk: limit the camera preview to 640 by 480, scaling down if the input
 tc_client-gtk: when resizing the window, resize the camera pane before the chat pane.
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
 tc_client-gtk and camviewer: added compatibility fallbacks for av_image_get_buffer_size() and av_packet_unref()
+tc_client-gtk and camviewer: specify a scaling algorithm for libswscale (mandatory for older versions of libswscale)
 libcamera(v4l2): if we failed to read the frame, give grey instead.
 irchack: fixed the order of messages around joining a channel (should fix compatibility with IRC clients a bit pickier than irssi)
 0.38:

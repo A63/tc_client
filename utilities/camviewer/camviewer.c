@@ -355,7 +355,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   unsigned char buf[bufsize];
   cam->dstframe->data[0]=buf;
   cam->dstframe->linesize[0]=cam->frame->width*3;
-  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, cam->frame->width, cam->frame->height, AV_PIX_FMT_RGB24, 0, 0, 0, 0);
+  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, cam->frame->width, cam->frame->height, AV_PIX_FMT_RGB24, SWS_FAST_BILINEAR, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
 
@@ -449,7 +449,7 @@ void togglecam(GtkButton* button, struct viddata* data)
     dstframe->height=ctx->height;
     av_image_alloc(dstframe->data, dstframe->linesize, ctx->width, ctx->height, ctx->pix_fmt, 1);
 
-    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, AV_PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, 0, 0, 0, 0);
+    struct SwsContext* swsctx=sws_getContext(frame->width, frame->height, AV_PIX_FMT_RGB24, frame->width, frame->height, AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0);
 
     while(1)
     {
