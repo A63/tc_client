@@ -159,6 +159,7 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   if(bottom){autoscroll_after(scroll);}
 }
 
+unsigned int cameventsource=0;
 char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
 {
@@ -464,6 +465,17 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     camera_remove(&buf[10]);
     return 1;
   }
+  if(!strcmp(buf, "Server disconnected"))
+  {
+    printchat(buf, 0);
+    if(camproc)
+    {
+      g_source_remove(cameventsource);
+      kill(camproc, SIGINT);
+      camproc=0;
+    }
+    return 1;
+  }
   if(!strncmp(buf, "Audio: ", 7))
   {
     char* sizestr=strchr(&buf[7], ' ');
@@ -572,7 +584,6 @@ void audiothread(int fd)
 }
 #endif
 
-unsigned int cameventsource=0;
 void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 {
   if(!gtk_check_menu_item_get_active(item))
