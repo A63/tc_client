@@ -91,7 +91,7 @@ void printchat(const char* text, const char* pm)
   struct user* user;
   if(pm && (user=finduser(pm)))
   {
-    pm_open(pm, 0);
+    pm_open(pm, 0, data->scroll);
     scroll=user->pm_scroll;
     buffer=user->pm_buffer;
   }else{
@@ -115,7 +115,7 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   struct user* user;
   if(pm && (user=finduser(pm)))
   {
-    pm_open(pm, 0);
+    pm_open(pm, 0, data->scroll);
     scroll=user->pm_scroll;
     buffer=user->pm_buffer;
   }else{
@@ -675,7 +675,7 @@ gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
 }
 
 char sendingmsg=0;
-void sendmessage(GtkEntry* entry, void* data)
+void sendmessage(GtkEntry* entry, void* x)
 {
   const char* msg=gtk_entry_get_text(entry);
   if(!msg[0]){return;} // Don't send empty lines
@@ -685,7 +685,7 @@ void sendmessage(GtkEntry* entry, void* data)
   char* pm=0;
   if(!strncmp(msg, "/pm ", 4))
   {
-    pm_open(&msg[4], 1);
+    pm_open(&msg[4], 1, data->scroll);
     gtk_entry_set_text(entry, "");
     sendingmsg=0;
     return;

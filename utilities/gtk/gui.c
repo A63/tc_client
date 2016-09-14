@@ -338,7 +338,7 @@ void pm_close(GtkButton* btn, GtkWidget* tab)
   user->pm_highlight=0;
 }
 
-void pm_open(const char* nick, char select)
+void pm_open(const char* nick, char select, GtkAdjustment* scroll)
 {
   struct user* user=finduser(nick);
   if(!user){return;}
@@ -350,6 +350,7 @@ void pm_open(const char* nick, char select)
     gtk_notebook_set_current_page(tabs, num);
     return;
   }
+  char bottom=autoscroll_before(scroll); // If PM tabs (with close buttons) are taller we need to make sure pushing down the chat field doesn't make it stop scrolling
   GtkWidget* textview=gtk_text_view_new();
   user->pm_tab=gtk_scrolled_window_new(0, 0);
   user->pm_buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
@@ -376,6 +377,7 @@ void pm_open(const char* nick, char select)
   {
     gtk_notebook_set_current_page(tabs, num);
   }
+  if(bottom){autoscroll_after(scroll);}
 }
 
 void pm_highlight(const char* nick)
