@@ -23,6 +23,7 @@ tc_client-gtk: break the cameras into two or more rows if it means they can be l
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
 tc_client-gtk and camviewer: added compatibility fallbacks for av_image_get_buffer_size() and av_packet_unref()
 tc_client-gtk and camviewer: specify a scaling algorithm for libswscale (mandatory for older versions of libswscale)
+tc_client-gtk and camviewer: don't try to play audio if the resampling failed (experimental mic support)
 libcamera(v4l2): if we failed to read the frame, give grey instead.
 irchack: fixed the order of messages around joining a channel (should fix compatibility with IRC clients a bit pickier than irssi)
 0.38:

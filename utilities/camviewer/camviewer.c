@@ -311,7 +311,7 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   #else
     int outlen=swr_convert(data->swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
   #endif
-    camera_playsnd(data, cam, (short*)cam->frame->data[0], outlen);
+    if(outlen>0){camera_playsnd(data, cam, (short*)cam->frame->data[0], outlen);}
 #endif
     return 1;
   }
