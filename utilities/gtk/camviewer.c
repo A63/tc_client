@@ -172,6 +172,91 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     if(buf[i]=='\r'||buf[i]=='\n'){break;}
   }
   buf[i]=0;
+  if(!strncmp(buf, "Video: ", 7))
+  {
+    char* sizestr=strchr(&buf[7], ' ');
+    if(!sizestr){return 1;}
+    sizestr[0]=0;
+    // Find the camera representation for the given ID
+    struct camera* cam=camera_find(&buf[7]);
+    unsigned int size=strtoul(&sizestr[1], 0, 0);
+    if(!size){return 1;}
+    // Mostly ignore the first byte (contains frame type (e.g. keyframe etc.) in 4 bits and codec in the other 4)
+    --size;
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    unsigned char databuf[size+4];
+    pkt.data=databuf;
+    unsigned char frameinfo;
+    g_io_channel_read_chars(iochannel, (gchar*)&frameinfo, 1, 0, 0);
+//   printf("Frametype-frame: %x\n", ((unsigned int)frameinfo&0xf0)/16);
+//   printf("Frametype-codec: %x\n", (unsigned int)frameinfo&0xf);
+    unsigned int pos=0;
+    while(pos<size)
+    {
+      g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
+      pos+=r;
+    }
+    if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
+    if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
+    pkt.size=size;
+    int gotframe;
+    avcodec_decode_video2(cam->vctx, cam->frame, &gotframe, &pkt);
+    if(!gotframe){return 1;}
+
+    // Scale and convert to RGB24 format
+    unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, camsize_scale.width, camsize_scale.height, 1);
+    unsigned char* buf=malloc(bufsize);
+    cam->dstframe->data[0]=buf;
+    cam->dstframe->linesize[0]=camsize_scale.width*3;
+    struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, camsize_scale.width, camsize_scale.height, AV_PIX_FMT_RGB24, SWS_BICUBIC, 0, 0, 0);
+    sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
+    sws_freeContext(swsctx);
+    camera_postproc(cam, cam->dstframe->data[0], camsize_scale.width, camsize_scale.height);
+
+    GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
+    GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);
+    gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
+    g_object_unref(oldpixbuf);
+    return 1;
+  }
+  if(!strncmp(buf, "Audio: ", 7))
+  {
+    char* sizestr=strchr(&buf[7], ' ');
+    if(!sizestr){return 1;}
+    sizestr[0]=0;
+    unsigned int size=strtoul(&sizestr[1], 0, 0);
+    if(!size){return 1;}
+    unsigned char frameinfo;
+    g_io_channel_read_chars(iochannel, (gchar*)&frameinfo, 1, 0, 0);
+    --size; // For the byte we read above
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    unsigned char databuf[size];
+    pkt.data=databuf;
+    pkt.size=size;
+    unsigned int pos=0;
+    while(pos<size)
+    {
+      g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
+      pos+=r;
+    }
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
+    // Find the camera representation for the given ID (for decoder context)
+    struct camera* cam=camera_find(&buf[7]);
+    if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
+    int gotframe;
+    avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
+    if(!gotframe){return 1;}
+  #ifdef HAVE_AVRESAMPLE
+    int outlen=avresample_convert(data->resamplectx, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
+  #else
+    int outlen=swr_convert(data->swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+  #endif
+    if(outlen>0){camera_playsnd(data->audiopipe, cam, (short*)cam->frame->data[0], outlen);}
+#endif
+    return 1;
+  }
   if(!strncmp(buf, "Currently online: ", 18))
   {
     printchat(buf, 0);
@@ -476,89 +561,8 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     }
     return 1;
   }
-  if(!strncmp(buf, "Audio: ", 7))
-  {
-    char* sizestr=strchr(&buf[7], ' ');
-    if(!sizestr){return 1;}
-    sizestr[0]=0;
-    unsigned int size=strtoul(&sizestr[1], 0, 0);
-    if(!size){return 1;}
-    unsigned char frameinfo;
-    g_io_channel_read_chars(iochannel, (gchar*)&frameinfo, 1, 0, 0);
-    --size; // For the byte we read above
-    AVPacket pkt;
-    av_init_packet(&pkt);
-    unsigned char databuf[size];
-    pkt.data=databuf;
-    pkt.size=size;
-    unsigned int pos=0;
-    while(pos<size)
-    {
-      g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
-      pos+=r;
-    }
-#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-    // Find the camera representation for the given ID (for decoder context)
-    struct camera* cam=camera_find(&buf[7]);
-    if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
-    int gotframe;
-    avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
-    if(!gotframe){return 1;}
-  #ifdef HAVE_AVRESAMPLE
-    int outlen=avresample_convert(data->resamplectx, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
-  #else
-    int outlen=swr_convert(data->swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
-  #endif
-    if(outlen>0){camera_playsnd(data->audiopipe, cam, (short*)cam->frame->data[0], outlen);}
-#endif
-    return 1;
-  }
-  if(strncmp(buf, "Video: ", 7)){printf("Got '%s'\n", buf); fflush(stdout); return 1;} // Ignore anything else that isn't video
-  char* sizestr=strchr(&buf[7], ' ');
-  if(!sizestr){return 1;}
-  sizestr[0]=0;
-  // Find the camera representation for the given ID
-  struct camera* cam=camera_find(&buf[7]);
-  unsigned int size=strtoul(&sizestr[1], 0, 0);
-  if(!size){return 1;}
-  // Mostly ignore the first byte (contains frame type (e.g. keyframe etc.) in 4 bits and codec in the other 4)
-  --size;
-  AVPacket pkt;
-  av_init_packet(&pkt);
-  unsigned char databuf[size+4];
-  pkt.data=databuf;
-  unsigned char frameinfo;
-  g_io_channel_read_chars(iochannel, (gchar*)&frameinfo, 1, 0, 0);
-// printf("Frametype-frame: %x\n", ((unsigned int)frameinfo&0xf0)/16);
-// printf("Frametype-codec: %x\n", (unsigned int)frameinfo&0xf);
-  unsigned int pos=0;
-  while(pos<size)
-  {
-    g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
-    pos+=r;
-  }
-  if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
-  if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
-  pkt.size=size;
-  int gotframe;
-  avcodec_decode_video2(cam->vctx, cam->frame, &gotframe, &pkt);
-  if(!gotframe){return 1;}
-
-  // Scale and convert to RGB24 format
-  unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, camsize_scale.width, camsize_scale.height, 1);
-  unsigned char* buf=malloc(bufsize);
-  cam->dstframe->data[0]=buf;
-  cam->dstframe->linesize[0]=camsize_scale.width*3;
-  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, camsize_scale.width, camsize_scale.height, AV_PIX_FMT_RGB24, SWS_BICUBIC, 0, 0, 0);
-  sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
-  sws_freeContext(swsctx);
-  camera_postproc(cam, cam->dstframe->data[0], camsize_scale.width, camsize_scale.height);
-
-  GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
-  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);
-  gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
-  g_object_unref(oldpixbuf);
-
+  printf("Got '%s'\n", buf);
+  fflush(stdout);
   return 1;
 }
 
@@ -967,7 +971,7 @@ int main(int argc, char** argv)
   g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
   item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings2"));
   g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
-  
+
   cambox=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
   userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));
   GtkWidget* chatview=GTK_WIDGET(gtk_builder_get_object(gui, "chatview"));
