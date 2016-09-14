@@ -50,6 +50,9 @@ unsigned int camcount=0;
 #endif
 struct size camsize_out={.width=320, .height=240};
 struct size camsize_scale={.width=320, .height=240};
+GtkWidget* cambox;
+GtkWidget** camrows=0;
+unsigned int camrowcount=0;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 // Experimental mixer, not sure if it really works
@@ -102,6 +105,7 @@ void camera_remove(const char* id)
       break;
     }
   }
+  updatescaling(0, 0, 1);
 }
 
 void camera_removebynick(const char* nick)
@@ -124,6 +128,7 @@ void camera_removebynick(const char* nick)
       break;
     }
   }
+  updatescaling(0, 0, 1);
 }
 
 struct camera* camera_find(const char* id)
@@ -292,7 +297,7 @@ GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
   int campipe[2];
 #ifndef _WIN32
   CAM* cam=cam_open(name); // Opening here in case of GUI callbacks
-  if(cam){cam_resolution(cam, &camsize_out.width, &camsize_out.height);}
+  if(cam){cam_resolution(cam, (unsigned int*)&camsize_out.width, (unsigned int*)&camsize_out.height);}
   pipe(campipe);
   camproc=fork();
   if(!camproc)
@@ -451,5 +456,81 @@ void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int width,
       memcpy(&buf[(y*width+x)*3], &buf[((height-y-1)*width+x)*3], 3);
       memcpy(&buf[((height-y-1)*width+x)*3], pixel, 3);
     }
+  }
+}
+
+void updatescaling(unsigned int width, unsigned int height, char changedcams)
+{
+  if(!camcount){return;}
+  if(!width){width=gtk_widget_get_allocated_width(GTK_WIDGET(gtk_builder_get_object(gui, "main")));}
+  if(!height){height=gtk_widget_get_allocated_height(GTK_WIDGET(gtk_builder_get_object(gui, "camerascroll")));}
+
+  GtkRequisition label;
+  gtk_widget_get_preferred_size(cams[0].label, &label, 0);
+  camsize_scale.width=1;
+  camsize_scale.height=1;
+  unsigned int rowcount=1;
+  unsigned int rows;
+  for(rows=1; rows<=camcount; ++rows)
+  {
+    struct size scale;
+    unsigned int cams_per_row=camcount/rows;
+    if(camcount%rows){++cams_per_row;}
+    scale.width=width/cams_per_row;
+    // 3/4 ratio
+    scale.height=scale.width*3/4;
+    unsigned int rowheight=height/rows;
+    // Fit by height
+    if(rowheight<scale.height+label.height)
+    {
+      scale.height=rowheight-label.height;
+      scale.width=scale.height*4/3;
+    }
+    if(scale.width>camsize_scale.width) // Check if this number of rows will fit larger cams
+    {
+      camsize_scale.width=scale.width;
+      camsize_scale.height=scale.height;
+      rowcount=rows;
+    }else if(scale.width<camsize_scale.width){break;} // Only getting smaller from here, use the last one that increased
+  }
+
+  unsigned int i;
+  if(rowcount!=camrowcount || changedcams) // Changed the number of rows, shuffle everything around to fit. Or added/removed a camera, in which case we need to shuffle things around anyway
+  {
+    for(i=0; i<camcount; ++i)
+    {
+      g_object_ref(cams[i].box); // Increase reference counts so that they are not deallocated while they are temporarily detached from the rows
+      gtk_container_remove(GTK_CONTAINER(gtk_widget_get_parent(cams[i].box)), cams[i].box);
+    }
+    for(i=0; i<camrowcount; ++i){gtk_widget_destroy(camrows[i]);} // Erase old rows
+    camrowcount=rowcount;
+    camrows=realloc(camrows, sizeof(GtkWidget*)*camrowcount);
+    for(i=0; i<camrowcount; ++i)
+    {
+      camrows[i]=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+      gtk_box_pack_start(GTK_BOX(cambox), camrows[i], 1, 0, 0);
+      gtk_widget_set_halign(camrows[i], GTK_ALIGN_CENTER);
+      gtk_widget_show(camrows[i]);
+    }
+    unsigned int cams_per_row=camcount/camrowcount;
+    if(camcount%camrowcount){++cams_per_row;}
+    for(i=0; i<camcount; ++i)
+    {
+      gtk_box_pack_start(GTK_BOX(camrows[i/cams_per_row]), cams[i].box, 0, 0, 0);
+      g_object_unref(cams[i].box); // Decrease reference counts once they're attached again
+    }
+  }
+  // libswscale doesn't handle unreasonably small sizes well
+  if(camsize_scale.width<8){camsize_scale.width=8;}
+  if(camsize_scale.height<1){camsize_scale.height=1;}
+  // Rescale current images to fit
+  for(i=0; i<camcount; ++i)
+  {
+    GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cams[i].cam));
+    if(!pixbuf){continue;}
+    GdkPixbuf* old=pixbuf;
+    pixbuf=gdk_pixbuf_scale_simple(pixbuf, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
+    gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i].cam), pixbuf);
+    g_object_unref(old);
   }
 }

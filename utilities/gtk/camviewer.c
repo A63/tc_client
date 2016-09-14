@@ -58,7 +58,6 @@
 
 struct viddata
 {
-  GtkWidget* box;
   AVCodec* vdecoder;
   AVCodec* vencoder;
   AVCodec* adecoder;
@@ -84,43 +83,6 @@ char frombuild=0; // Running from the build directory
 #ifdef _WIN32
   PROCESS_INFORMATION coreprocess={.hProcess=0};
 #endif
-
-void updatescaling(struct viddata* data, unsigned int width, unsigned int height)
-{
-// TODO: Move updatescaling into media.c?
-  if(!camcount){return;}
-  if(!width){width=gtk_widget_get_allocated_width(data->box);}
-  if(!height){height=gtk_widget_get_allocated_height(data->box);}
-  camsize_scale.width=width/camcount;
-  // 3/4 ratio
-  camsize_scale.height=camsize_scale.width*3/4;
-  unsigned int i;
-  unsigned int labelsize=0;
-  for(i=0; i<camcount; ++i)
-  {
-    if(gtk_widget_get_allocated_height(cams[i].label)>labelsize)
-      labelsize=gtk_widget_get_allocated_height(cams[i].label);
-  }
-  // Fit by height
-  if(height<camsize_scale.height+labelsize)
-  {
-    camsize_scale.height=height-labelsize;
-    camsize_scale.width=camsize_scale.height*4/3;
-  }
-  if(camsize_scale.width<8){camsize_scale.width=8;}
-  if(camsize_scale.height<1){camsize_scale.height=1;}
-  // TODO: wrapping and stuff
-  // Rescale current images to fit
-  for(i=0; i<camcount; ++i)
-  {
-    GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cams[i].cam));
-    if(!pixbuf){continue;}
-    GdkPixbuf* old=pixbuf;
-    pixbuf=gdk_pixbuf_scale_simple(pixbuf, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
-    gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i].cam), pixbuf);
-    g_object_unref(old);
-  }
-}
 
 void printchat(const char* text, const char* pm)
 {
@@ -473,11 +435,8 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     avcodec_open2(cam->actx, data->adecoder, 0);
     cam->samples=0;
 #endif
-    gtk_box_pack_start(GTK_BOX(data->box), cam->box, 0, 0, 0);
+    updatescaling(0, 0, 1);
     gtk_widget_show_all(cam->box);
-    updatescaling(data, 0, 0);
-    while(gtk_events_pending()){gtk_main_iteration();} // Make sure the label gets its size before we calculate scaling
-    updatescaling(data, 0, 0);
     return 1;
   }
   if(!strcmp(buf, "Starting outgoing media stream"))
@@ -496,17 +455,13 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     cam->dstframe->data[0]=0;
 
     cam->actx=0;
-    gtk_box_pack_start(GTK_BOX(data->box), cam->box, 0, 0, 0);
+    updatescaling(0, 0, 1);
     gtk_widget_show_all(cam->box);
-    updatescaling(data, 0, 0);
-    while(gtk_events_pending()){gtk_main_iteration();} // Make sure the label gets its size before we calculate scaling
-    updatescaling(data, 0, 0);
     return 1;
   }
   if(!strncmp(buf, "VideoEnd: ", 10))
   {
     camera_remove(&buf[10]);
-    updatescaling(data, 0, 0);
     return 1;
   }
   if(!strncmp(buf, "Audio: ", 7))
@@ -644,9 +599,9 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddata* data)
 {
   char bottom=autoscroll_before(data->scroll);
-  if(event->width!=gtk_widget_get_allocated_width(data->box))
+  if(event->width!=gtk_widget_get_allocated_width(cambox))
   {
-    updatescaling(data, event->width, 0);
+    updatescaling(event->width, 0, 0);
   }
 #ifndef _WIN32 // For some reason scrolling as a response to resizing freezes windows
   if(bottom){autoscroll_after(data->scroll);}
@@ -657,7 +612,7 @@ gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddat
 void handleresizepane(GObject* obj, GParamSpec* spec, struct viddata* data)
 {
   char bottom=autoscroll_before(data->scroll);
-  updatescaling(data, 0, gtk_paned_get_position(GTK_PANED(obj)));
+  updatescaling(0, gtk_paned_get_position(GTK_PANED(obj)), 0);
 #ifndef _WIN32
   if(bottom){autoscroll_after(data->scroll);}
 #endif
@@ -1002,7 +957,7 @@ int main(int argc, char** argv)
   item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings2"));
   g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
   
-  data->box=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
+  cambox=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
   userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));
   GtkWidget* chatview=GTK_WIDGET(gtk_builder_get_object(gui, "chatview"));
   data->scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(gtk_builder_get_object(gui, "chatscroll")));

@@ -39,8 +39,8 @@ struct camera
 };
 struct size
 {
-  unsigned int width;
-  unsigned int height;
+  int width;
+  int height;
 };
 extern struct camera campreview;
 extern struct camera* cams;
@@ -53,6 +53,7 @@ extern unsigned int camcount;
 #endif
 extern struct size camsize_out;
 extern struct size camsize_scale;
+extern GtkWidget* cambox;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);
@@ -71,3 +72,4 @@ extern gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2);
 extern void camselect_accept(GtkWidget* widget, AVCodec* vencoder);
 extern const char* camselect_file(void);
 extern void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int width, unsigned int height);
+extern void updatescaling(unsigned int width, unsigned int height, char changedcams);
