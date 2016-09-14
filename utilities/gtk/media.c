@@ -500,7 +500,8 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
     for(i=0; i<camcount; ++i)
     {
       g_object_ref(cams[i].box); // Increase reference counts so that they are not deallocated while they are temporarily detached from the rows
-      gtk_container_remove(GTK_CONTAINER(gtk_widget_get_parent(cams[i].box)), cams[i].box);
+      GtkContainer* parent=GTK_CONTAINER(gtk_widget_get_parent(cams[i].box));
+      if(parent){gtk_container_remove(parent, cams[i].box);}
     }
     for(i=0; i<camrowcount; ++i){gtk_widget_destroy(camrows[i]);} // Erase old rows
     camrowcount=rowcount;
