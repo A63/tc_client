@@ -395,11 +395,16 @@ void pm_highlight(const char* nick)
 
 char pm_select(GtkNotebook* tabs, GtkWidget* tab, int num, void* x)
 {
-  struct user* user=user_find_by_tab(tab);
-  if(!user){return 0;}
+  if(num<1){return 0;} // Don't try to unhighlight Main
   // Reset highlighting
-  gtk_label_set_text(GTK_LABEL(user->pm_tablabel), user->nick);
-  user->pm_highlight=0;
+  GtkContainer* box=GTK_CONTAINER(gtk_notebook_get_tab_label(tabs, tab));
+  GList* list=gtk_container_get_children(box);
+  GtkLabel* label=list->data; // Should be the first item
+  g_list_free(list);
+  const char* text=gtk_label_get_text(label);
+  gtk_label_set_text(label, text);
+  struct user* user=user_find_by_tab(tab);
+  if(user){user->pm_highlight=0;}
   return 0;
 }
 
