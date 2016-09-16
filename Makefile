@@ -127,6 +127,7 @@ utilities/gtk/camthread.gen.c: utilities/gtk/media.c
 	echo 'setmode(1, O_BINARY);' >> $@
 	echo 'CAM* cam=cam_open(argv[1]);' >> $@
 	echo 'unsigned int delay=atoi(argv[2]);' >> $@
+	echo 'struct size camsize_out={.width=320, .height=240};' >> $@
 	sed -n -e '/if(!camproc)$$/,/^  }/p' utilities/gtk/media.c | sed -e '1,3d' >> $@
 	sed -n -e '/ camselect_file/,/^}/p' utilities/gtk/media.c >> $@
 tc_client-gtk-camthread: utilities/gtk/camthread.gen.o utilities/compat.o libcamera.a
