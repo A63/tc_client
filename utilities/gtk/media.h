@@ -36,6 +36,7 @@ struct camera
     char flip_horizontal;
     char flip_vertical;
   } postproc;
+  unsigned int placeholder;
 };
 struct size
 {
@@ -54,6 +55,8 @@ extern unsigned int camcount;
 extern struct size camsize_out;
 extern struct size camsize_scale;
 extern GtkWidget* cambox;
+extern GdkPixbufAnimation* camplaceholder;
+extern GdkPixbufAnimationIter* camplaceholder_iter;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);
@@ -73,3 +76,4 @@ extern void camselect_accept(GtkWidget* widget, AVCodec* vencoder);
 extern const char* camselect_file(void);
 extern void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int width, unsigned int height);
 extern void updatescaling(unsigned int width, unsigned int height, char changedcams);
+extern gboolean camplaceholder_update(void* id);

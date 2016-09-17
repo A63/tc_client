@@ -204,6 +204,11 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     avcodec_decode_video2(cam->vctx, cam->frame, &gotframe, &pkt);
     if(!gotframe){return 1;}
 
+    if(cam->placeholder) // Remove the placeholder animation if it has it
+    {
+      g_source_remove(cam->placeholder);
+      cam->placeholder=0;
+    }
     // Scale and convert to RGB24 format
     unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, camsize_scale.width, camsize_scale.height, 1);
     unsigned char* buf=malloc(bufsize);
@@ -514,6 +519,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     idend[0]=0;
     camera_removebynick(nick); // Remove any duplicates
     struct camera* cam=camera_new(nick, id);
+    cam->placeholder=g_timeout_add(100, camplaceholder_update, cam->id);
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
     avcodec_open2(cam->vctx, data->vdecoder, 0);
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
@@ -1035,6 +1041,14 @@ int main(int argc, char** argv)
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_vertical"), "toggled", G_CALLBACK(camcolors_toggle_flip), (void*)1);
   // Connect signal for hiding cameras
   g_signal_connect(gtk_builder_get_object(gui, "cam_menu_hide"), "activate", G_CALLBACK(gui_hide_cam), 0);
+  // Load placeholder animation for cameras (no video data yet or mic only)
+  if(frombuild)
+  {
+    camplaceholder=gdk_pixbuf_animation_new_from_file("camplaceholder.gif", 0);
+  }else{
+    camplaceholder=gdk_pixbuf_animation_new_from_file(PREFIX "/share/tc_client/camplaceholder.gif", 0);
+  }
+  camplaceholder_iter=gdk_pixbuf_animation_get_iter(camplaceholder, 0);
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");

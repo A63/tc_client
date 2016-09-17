@@ -112,8 +112,11 @@ camviewer: $(CAMVIEWER_OBJ)
 cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
 
-tc_client-gtk: $(TC_CLIENT_GTK_OBJ)
-	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
+tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif
+	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
+
+camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
+	utilities/gtk/gencamplaceholder.sh
 
 # Workaround for windows' lack of fork() and inflexibility of having or not having a terminal
 utilities/gtk/camthread.gen.c: utilities/gtk/media.c
@@ -138,7 +141,7 @@ libcamera.a: $(LIBCAMERA_OBJ)
 	$(RANLIB) $@
 
 clean:
-	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk
+	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk camplaceholder.gif
 
 SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure
 SOURCES+=utilities/irchack/irchack.c
@@ -146,6 +149,7 @@ SOURCES+=utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/que
 SOURCES+=utilities/camviewer/camviewer.c
 SOURCES+=utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h
 SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/config.c utilities/gtk/gui.c utilities/gtk/logging.c utilities/gtk/inputhistory.c utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/gtk/config.h utilities/gtk/gui.h utilities/gtk/logging.h utilities/gtk/inputhistory.h gtkgui.glade
+SOURCES+=utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 SOURCES+=utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h utilities/stringutils.c utilities/stringutils.h
 SOURCES+=utilities/libcamera/camera.c utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c utilities/libcamera/camera_v4l2.h utilities/libcamera/camera_img.c utilities/libcamera/camera_img.h utilities/libcamera/camera_escapi.cpp utilities/libcamera/camera_escapi.h
 tarball:

@@ -53,6 +53,8 @@ struct size camsize_scale={.width=320, .height=240};
 GtkWidget* cambox;
 GtkWidget** camrows=0;
 unsigned int camrowcount=0;
+GdkPixbufAnimation* camplaceholder=0;
+GdkPixbufAnimationIter* camplaceholder_iter=0;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 // Experimental mixer, not sure if it really works
@@ -92,6 +94,10 @@ void camera_remove(const char* id)
   {
     if(!strcmp(cams[i].id, id))
     {
+      if(cams[i].placeholder) // Remove the placeholder animation if it has it
+      {
+        g_source_remove(cams[i].placeholder);
+      }
       gtk_widget_destroy(cams[i].box);
       av_frame_free(&cams[i].frame);
       avcodec_free_context(&cams[i].vctx);
@@ -534,4 +540,18 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
     gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i].cam), pixbuf);
     g_object_unref(old);
   }
+}
+
+gboolean camplaceholder_update(void* id)
+{
+  struct camera* cam=camera_find(id);
+  GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
+  // Get the current frame of the animation
+  gdk_pixbuf_animation_iter_advance(camplaceholder_iter, 0);
+  GdkPixbuf* frame=gdk_pixbuf_animation_iter_get_pixbuf(camplaceholder_iter);
+  // Scale and replace the current image on camera
+  GdkPixbuf* pixbuf=gdk_pixbuf_scale_simple(frame, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
+  gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), pixbuf);
+  g_object_unref(oldpixbuf);
+  return G_SOURCE_CONTINUE;
 }
