@@ -34,6 +34,7 @@ tc_client-gtk and camviewer: specify a scaling algorithm for libswscale (mandato
 tc_client-gtk and camviewer: don't try to play audio if the resampling failed (experimental mic support)
 libcamera(v4l2): if we failed to read the frame, give grey instead.
 irchack: fixed the order of messages around joining a channel (should fix compatibility with IRC clients a bit pickier than irssi)
+testbuilds.sh: adapted to the changes in configure and made it check if builds succeed without -Werror rather than unforgivingly marking it as broken, instead marking it as working but with warnings.
 0.38:
 Handle multi-line messages.
 Added option --hexcolors to print hex color codes instead of ANSI color escape codes.
