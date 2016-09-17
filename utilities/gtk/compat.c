@@ -68,12 +68,12 @@ SECURITY_ATTRIBUTES sa={
     for(i=0; line[i] && line[i]!='\n' && line[i]!='\r'; ++i);
     return &line[i];
   }
-  // Hack to let us load a glade GUI designed for gtk+-3.x
+  // Hack to let us load a glade GUI designed for gtk+-3.x in gtk+-2.x
   GtkBuilder* gtk_builder_new_from_file(const char* filename)
   {
     struct stat st;
     if(stat(filename, &st)){return 0;}
-    char buf[st.st_size+10];
+    char buf[st.st_size+128];
     int f=open(filename, O_RDONLY);
     read(f, buf, st.st_size);
     close(f);
@@ -99,8 +99,8 @@ SECURITY_ATTRIBUTES sa={
         pos[10]=dir;
       }
     }
-    // Convert remaining GtkBoxes and GtkPaneds with the default orientation
-    while((pos=strstr(buf, "class=\"GtkBox\"")) || (pos=strstr(buf, "class=\"GtkPaned\"")))
+    // Convert remaining GtkBoxes, GtkPaneds, GtkScales and GtkSeparators with the default orientation
+    while((pos=strstr(buf, "class=\"GtkBox\"")) || (pos=strstr(buf, "class=\"GtkPaned\"")) || (pos=strstr(buf, "class=\"GtkScale\"")) || (pos=strstr(buf, "class=\"GtkSeparator\"")))
     {
       memmove(&pos[11], &pos[10], strlen(&pos[10])+1);
       pos[10]='H'; // Default is horizontal

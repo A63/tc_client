@@ -53,6 +53,8 @@ extern SECURITY_ATTRIBUTES sa;
 #if GTK_MAJOR_VERSION<3
   #define GTK_ORIENTATION_HORIZONTAL 0
   #define GTK_ORIENTATION_VERTICAL 1
+  #define gtk_widget_set_halign(x,y)
+  #define gtk_widget_get_preferred_size(x,y,z) (y)->height=gtk_widget_get_allocated_height(x)
   extern GtkWidget* gtk_box_new(int vertical, int spacing);
   extern int gtk_widget_get_allocated_width(GtkWidget* widget);
   extern int gtk_widget_get_allocated_height(GtkWidget* widget);
