@@ -4,6 +4,7 @@ Use uintX_t for endianness functions instead of unsigned long*x int.
 Implemented RTMP acknowledgement on outgoing data, with dropping video packets if necessary.
 Fixed RTMP extended timestamps (read extended timestamps for subsequent format 3 chunks with the same chunk ID)
 Reorganized configure, changing many of the version comparisons for API compatibility into direct checks for availability.
+Added missing generated files to the clean target.
 bugfix: brought back announcing when a cam stream ends.
 bugfix: take cflags into account when performing API tests in configure.
 bugfix: tc_client-gtk: when rearranging cameras, don't try to remove it from the parent container if the camera doesn't have one yet.

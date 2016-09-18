@@ -141,7 +141,7 @@ libcamera.a: $(LIBCAMERA_OBJ)
 	$(RANLIB) $@
 
 clean:
-	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk camplaceholder.gif
+	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk camplaceholder.gif utilities/gtk/camthread.gen.c utilities/gtk/camthread.gen.o tc_client-gtk-camthread
 
 SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure
 SOURCES+=utilities/irchack/irchack.c
