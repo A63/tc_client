@@ -28,6 +28,7 @@ tc_client-gtk: if the server disconnects, print the notification and stop any ou
 tc_client-gtk: optimized incoming audio/video by checking for "Video:" and "Audio:" first when handling lines from the tc_client core.
 tc_client-gtk: added a placeholder animation for cameras, shown for audio-only streams and streams that haven't sent any video data yet.
 tc_client-gtk: added GTK+2 compatibility code for the incompatibilities that have been introduced over time.
+tc_client-gtk: print the topic and /whois responses to the GUI.
 tc_client-gtk and camviewer: fixed compatibility with newer libavutil.
 tc_client-gtk and camviewer: added compatibility fallbacks for av_image_get_buffer_size() and av_packet_unref()
 tc_client-gtk and camviewer: specify a scaling algorithm for libswscale (mandatory for older versions of libswscale)

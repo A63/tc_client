@@ -556,6 +556,12 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     camera_remove(&buf[10]);
     return 1;
   }
+  if(!strncmp(buf, "Room topic: ", 12) ||
+     (space && (!strcmp(space, " is not logged in") || !strncmp(space, " is logged in as ", 17))))
+  {
+    printchat(buf, 0);
+    return 1;
+  }
   if(!strcmp(buf, "Server disconnected"))
   {
     printchat(buf, 0);
