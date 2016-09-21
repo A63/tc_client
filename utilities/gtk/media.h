@@ -15,6 +15,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <libavcodec/avcodec.h>
+#include "postproc.h"
 struct camera
 {
   AVFrame* frame;
@@ -28,14 +29,7 @@ struct camera
   char* nick;
   GtkWidget* box; // holds label and cam
   GtkWidget* label;
-  struct
-  {
-    double min_brightness;
-    double max_brightness;
-    char autoadjust;
-    char flip_horizontal;
-    char flip_vertical;
-  } postproc;
+  struct postproc_ctx postproc;
   unsigned int placeholder;
 };
 struct size

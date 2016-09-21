@@ -217,7 +217,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, camsize_scale.width, camsize_scale.height, AV_PIX_FMT_RGB24, SWS_BICUBIC, 0, 0, 0);
     sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
     sws_freeContext(swsctx);
-    camera_postproc(cam, cam->dstframe->data[0], camsize_scale.width, camsize_scale.height);
+    postprocess(&cam->postproc, cam->dstframe->data[0], camsize_scale.width, camsize_scale.height);
 
     GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
     GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);

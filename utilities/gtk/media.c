@@ -98,8 +98,7 @@ void camera_free(struct camera* cam)
   free(cam->id);
   free(cam->nick);
 
-  if(cam->postproc.greenscreen){img_free(cam->postproc.greenscreen);}
-  free((void*)cam->postproc.greenscreen_filename);
+  postproc_free(&cam->postproc);
 }
 
 void camera_remove(const char* id, char isnick)
@@ -164,11 +163,7 @@ struct camera* camera_new(const char* nick, const char* id)
   gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
   g_signal_connect(eventbox, "button-release-event", G_CALLBACK(gui_show_cam_menu), cam->id);
   // Initialize postprocessing values
-  cam->postproc.min_brightness=0;
-  cam->postproc.max_brightness=255;
-  cam->postproc.autoadjust=0;
-  cam->postproc.flip_horizontal=0;
-  cam->postproc.flip_vertical=0;
+  postproc_init(&cam->postproc);
   return cam;
 }
 
@@ -213,7 +208,7 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
     av_image_alloc(cam->frame->data, cam->frame->linesize, camsize_out.width, camsize_out.height, cam->frame->format, 1);
   }
   g_io_channel_read_chars(iochannel, (void*)cam->frame->data[0], camsize_out.width*camsize_out.height*3, 0, 0);
-  camera_postproc(cam, cam->frame->data[0], cam->frame->width, cam->frame->height);
+  postprocess(&cam->postproc, cam->frame->data[0], cam->frame->width, cam->frame->height);
   // Update our local display
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
   GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->frame->data[0], GDK_COLORSPACE_RGB, 0, 8, cam->frame->width, cam->frame->height, cam->frame->linesize[0], 0, 0);
@@ -385,60 +380,6 @@ const char* camselect_file(void)
   }else{file=0;}
   gtk_widget_destroy(dialog);
   return file;
-}
-
-void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int width, unsigned int height)
-{
-  if(cam->postproc.min_brightness!=0 || cam->postproc.max_brightness!=255 || cam->postproc.autoadjust)
-  {
-    unsigned char min=255;
-    unsigned char max=0;
-    unsigned int count=width*height;
-    unsigned int i;
-    for(i=0; i<count*3; ++i)
-    {
-      if(cam->postproc.autoadjust)
-      {
-        if(buf[i]<min){min=buf[i];}
-        if(buf[i]>max){max=buf[i];}
-      }
-      double v=((double)buf[i]-cam->postproc.min_brightness)*255/(cam->postproc.max_brightness-cam->postproc.min_brightness);
-      if(v<0){v=0;}
-      if(v>255){v=255;}
-      buf[i]=v;
-    }
-    if(cam->postproc.autoadjust)
-    {
-      cam->postproc.min_brightness=min;
-      cam->postproc.max_brightness=max;
-    }
-  }
-  if(cam->postproc.flip_horizontal)
-  {
-    unsigned int x;
-    unsigned int y;
-    for(y=0; y<height; ++y)
-    for(x=0; x<width/2; ++x)
-    {
-      unsigned char pixel[3];
-      memcpy(pixel, &buf[(y*width+x)*3], 3);
-      memcpy(&buf[(y*width+x)*3], &buf[(y*width+(width-x-1))*3], 3);
-      memcpy(&buf[(y*width+(width-x-1))*3], pixel, 3);
-    }
-  }
-  if(cam->postproc.flip_vertical)
-  {
-    unsigned int x;
-    unsigned int y;
-    for(y=0; y<height/2; ++y)
-    for(x=0; x<width; ++x)
-    {
-      unsigned char pixel[3];
-      memcpy(pixel, &buf[(y*width+x)*3], 3);
-      memcpy(&buf[(y*width+x)*3], &buf[((height-y-1)*width+x)*3], 3);
-      memcpy(&buf[((height-y-1)*width+x)*3], pixel, 3);
-    }
-  }
 }
 
 void updatescaling(unsigned int width, unsigned int height, char changedcams)
