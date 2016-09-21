@@ -87,48 +87,30 @@ void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned 
 }
 #endif
 
-void camera_remove(const char* id)
+void camera_free(struct camera* cam)
 {
-  unsigned int i;
-  for(i=0; i<camcount; ++i)
-  {
-    if(!strcmp(cams[i].id, id))
-    {
-      if(cams[i].placeholder) // Remove the placeholder animation if it has it
-      {
-        g_source_remove(cams[i].placeholder);
-      }
-      gtk_widget_destroy(cams[i].box);
-      av_frame_free(&cams[i].frame);
-      avcodec_free_context(&cams[i].vctx);
+  if(cam->placeholder){g_source_remove(cam->placeholder);}
+  av_frame_free(&cam->frame);
+  avcodec_free_context(&cam->vctx);
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-      avcodec_free_context(&cams[i].actx);
+  avcodec_free_context(&cam->actx);
 #endif
-      free(cams[i].id);
-      free(cams[i].nick);
-      --camcount;
-      memmove(&cams[i], &cams[i+1], (camcount-i)*sizeof(struct camera));
-      break;
-    }
-  }
-  updatescaling(0, 0, 1);
+  free(cam->id);
+  free(cam->nick);
+
+  if(cam->postproc.greenscreen){img_free(cam->postproc.greenscreen);}
+  free((void*)cam->postproc.greenscreen_filename);
 }
 
-void camera_removebynick(const char* nick)
+void camera_remove(const char* id, char isnick)
 {
   unsigned int i;
   for(i=0; i<camcount; ++i)
   {
-    if(!strcmp(cams[i].nick, nick))
+    if(!strcmp(isnick?cams[i].nick:cams[i].id, id))
     {
       gtk_widget_destroy(cams[i].box);
-      av_frame_free(&cams[i].frame);
-      avcodec_free_context(&cams[i].vctx);
-#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-      avcodec_free_context(&cams[i].actx);
-#endif
-      free(cams[i].id);
-      free(cams[i].nick);
+      camera_free(&cams[i]);
       --camcount;
       memmove(&cams[i], &cams[i+1], (camcount-i)*sizeof(struct camera));
       break;
@@ -195,13 +177,7 @@ void camera_cleanup(void)
   unsigned int i;
   for(i=0; i<camcount; ++i)
   {
-    av_frame_free(&cams[i].frame);
-    avcodec_free_context(&cams[i].vctx);
-#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-    avcodec_free_context(&cams[i].actx);
-#endif
-    free(cams[i].id);
-    free(cams[i].nick);
+    camera_free(&cams[i]);
   }
   free(cams);
 }

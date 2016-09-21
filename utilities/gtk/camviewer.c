@@ -442,7 +442,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
       {
         space[0]=0;
         removeuser(nick);
-        camera_removebynick(nick);
+        camera_remove(nick, 1);
       }
       else if(!strncmp(space, " changed nickname to ", 21))
       {
@@ -517,7 +517,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     char* idend=strchr(id, ')');
     if(!idend){return 1;}
     idend[0]=0;
-    camera_removebynick(nick); // Remove any duplicates
+    camera_remove(nick, 1); // Remove any duplicates
     struct camera* cam=camera_new(nick, id);
     cam->placeholder=g_timeout_add(100, camplaceholder_update, cam->id);
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
@@ -553,7 +553,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strncmp(buf, "VideoEnd: ", 10))
   {
-    camera_remove(&buf[10]);
+    camera_remove(&buf[10], 0);
     return 1;
   }
   if(!strncmp(buf, "Room topic: ", 12) ||

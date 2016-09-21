@@ -61,8 +61,7 @@ extern GdkPixbufAnimationIter* camplaceholder_iter;
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);
 #endif
-extern void camera_remove(const char* nick);
-extern void camera_removebynick(const char* nick);
+extern void camera_remove(const char* id, char isnick);
 extern struct camera* camera_find(const char* id);
 extern struct camera* camera_findbynick(const char* nick);
 extern struct camera* camera_new(const char* nick, const char* id);

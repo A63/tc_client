@@ -1,3 +1,5 @@
+0.40:
+tc_client-gtk: merged camera_remove() and camera_removebynick() into a single function, merged the deallocation of camera data into camera_free()
 0.39:
 Added a /closecam command to stop receiving a cam stream.
 Use uintX_t for endianness functions instead of unsigned long*x int.
