@@ -485,13 +485,25 @@ void gui_show_camcolors(GtkMenuItem* menuitem, void* x)
   struct camera* cam=camera_find(menu_context_cam);
   if(!cam){return;}
   gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "cam_colors")));
+  // Set brightness controls
   GtkAdjustment* adjustment=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_min_brightness"));
   gtk_adjustment_set_value(adjustment, cam->postproc.min_brightness);
   adjustment=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_max_brightness"));
   gtk_adjustment_set_value(adjustment, cam->postproc.max_brightness);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_auto")), cam->postproc.autoadjust);
+  // Flip controls
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_flip_horizontal")), cam->postproc.flip_horizontal);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_flip_vertical")), cam->postproc.flip_vertical);
+  // Greenscreen controls
+  gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(gtk_builder_get_object(gui, "greenscreen_filechooser")), cam->postproc.greenscreen_filename);
+  GdkRGBA color={.red=(double)cam->postproc.greenscreen_color[0]/255,
+                  .green=(double)cam->postproc.greenscreen_color[1]/255,
+                  .blue=(double)cam->postproc.greenscreen_color[2]/255,
+                  .alpha=1.0};
+  gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(gtk_builder_get_object(gui, "greenscreen_colorpicker")), &color);
+  gtk_adjustment_set_value(GTK_ADJUSTMENT(gtk_builder_get_object(gui, "greenscreen_tolerance_h")), cam->postproc.greenscreen_tolerance[0]);
+  gtk_adjustment_set_value(GTK_ADJUSTMENT(gtk_builder_get_object(gui, "greenscreen_tolerance_s")), cam->postproc.greenscreen_tolerance[1]);
+  gtk_adjustment_set_value(GTK_ADJUSTMENT(gtk_builder_get_object(gui, "greenscreen_tolerance_v")), cam->postproc.greenscreen_tolerance[2]);
 }
 
 void camcolors_adjust_min(GtkAdjustment* adjustment, void* x)
@@ -551,4 +563,39 @@ void gui_hide_cam(GtkMenuItem* menuitem, void* x)
   if(!cam){return;}
   dprintf(tc_client_in[1], "/closecam %s\n", cam->nick);
   camera_remove(menu_context_cam, 0);
+}
+
+void gui_set_greenscreen_img(GtkFileChooserButton* button, void* x)
+{
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  gchar* file=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(button));
+  if(cam->postproc.greenscreen){img_free(cam->postproc.greenscreen);}
+  free((void*)cam->postproc.greenscreen_filename);
+  cam->postproc.greenscreen=img_load(file);
+  cam->postproc.greenscreen_filename=strdup(file);
+  g_free(file);
+}
+
+void gui_set_greenscreen_color(GtkColorButton* button, void* x)
+{
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  GdkRGBA color;
+  gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(button), &color);
+  // Convert to HSV but also keep the RGB for later
+  cam->postproc.greenscreen_color[0]=(color.red*255);
+  cam->postproc.greenscreen_color[1]=(color.green*255);
+  cam->postproc.greenscreen_color[2]=(color.blue*255);
+  rgb_to_hsv(cam->postproc.greenscreen_color[0], cam->postproc.greenscreen_color[1], cam->postproc.greenscreen_color[2], &cam->postproc.greenscreen_hsv[0], &cam->postproc.greenscreen_hsv[1], &cam->postproc.greenscreen_hsv[2]);
+}
+
+void gui_set_greenscreen_tolerance(GtkAdjustment* adjustment, void* x)
+{
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  cam->postproc.greenscreen_tolerance[(intptr_t)x]=gtk_adjustment_get_value(adjustment);
 }

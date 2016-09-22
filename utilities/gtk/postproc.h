@@ -14,6 +14,13 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+struct img
+{
+  GdkPixbufAnimation* animation;
+  GdkPixbufAnimationIter* iter;
+  GdkPixbuf* img;
+};
+
 struct postproc_ctx
 {
   double min_brightness;
@@ -21,8 +28,17 @@ struct postproc_ctx
   char autoadjust;
   char flip_horizontal;
   char flip_vertical;
+  struct img* greenscreen;
+  int greenscreen_tolerance[3];
+  unsigned char greenscreen_color[3];
+  unsigned char greenscreen_hsv[3];
+  const char* greenscreen_filename;
 };
 
+extern struct img* img_load(const char* filename);
+extern GdkPixbuf* img_get(struct img* this);
+extern void img_free(struct img* this);
+extern void rgb_to_hsv(int r, int g, int b, unsigned char* h, unsigned char* s, unsigned char* v);
 extern void postproc_init(struct postproc_ctx* pp);
 extern void postprocess(struct postproc_ctx* pp, unsigned char* buf, unsigned int width, unsigned int height);
 extern void postproc_free(struct postproc_ctx* pp);

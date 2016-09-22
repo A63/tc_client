@@ -45,5 +45,8 @@ extern void camcolors_adjust_max(GtkAdjustment* adjustment, void* x);
 extern void camcolors_toggle_auto(GtkToggleButton* button, void* x);
 extern void camcolors_toggle_flip(GtkToggleButton* button, void* vertical);
 extern void gui_hide_cam(GtkMenuItem* menuitem, void* x);
+extern void gui_set_greenscreen_img(GtkFileChooserButton* button, void* x);
+extern void gui_set_greenscreen_color(GtkColorButton* button, void* x);
+extern void gui_set_greenscreen_tolerance(GtkAdjustment* adjustment, void* x);
 
 extern GtkBuilder* gui;
