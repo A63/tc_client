@@ -55,6 +55,23 @@ extern SECURITY_ATTRIBUTES sa;
   #define GTK_ORIENTATION_VERTICAL 1
   #define gtk_widget_set_halign(x,y)
   #define gtk_widget_get_preferred_size(x,y,z) (y)->height=gtk_widget_get_allocated_height(x)
+  typedef struct{double red; double green; double blue; double alpha;} GdkRGBA;
+  #define gtk_color_chooser_set_rgba(x,c) \
+  {\
+    GdkColor gdkc={.red=(c)->red*65535,\
+                   .green=(c)->green*65535,\
+                   .blue=(c)->blue*65535};\
+    gtk_color_button_set_color(x,&gdkc);\
+  }
+  #define gtk_color_chooser_get_rgba(x,c) \
+  {\
+    GdkColor gdkc;\
+    gtk_color_button_get_color(x,&gdkc);\
+    (c)->red=(double)gdkc.red/65535;\
+    (c)->green=(double)gdkc.green/65535;\
+    (c)->blue=(double)gdkc.blue/65535;\
+  }
+  #define GTK_COLOR_CHOOSER GTK_COLOR_BUTTON
   extern GtkWidget* gtk_box_new(int vertical, int spacing);
   extern int gtk_widget_get_allocated_width(GtkWidget* widget);
   extern int gtk_widget_get_allocated_height(GtkWidget* widget);

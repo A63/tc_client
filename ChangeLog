@@ -3,6 +3,7 @@ Moved the backward compatibility code for avcodec_{send,receive}_{frame,packet} 
 tc_client-gtk: merged camera_remove() and camera_removebynick() into a single function, merged the deallocation of camera data into camera_free()
 tc_client-gtk: moved the postprocessing code into its own source file.
 tc_client-gtk: added greenscreen postprocessor.
+tc_client-gtk: added GTK+2 compatibility code related to the greenscreen postprocessor.
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 0.39:
 Added a /closecam command to stop receiving a cam stream.
