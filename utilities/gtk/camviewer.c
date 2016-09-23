@@ -54,6 +54,7 @@
 #include "logging.h"
 #include "../stringutils.h"
 #include "../compat.h"
+#include "../compat_av.h"
 #include "inputhistory.h"
 
 struct viddata

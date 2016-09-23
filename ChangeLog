@@ -1,4 +1,5 @@
 0.40:
+Moved the backward compatibility code for avcodec_{send,receive}_{frame,packet} into a separate source file to avoid pulling libavcodec into utilities that don't use it.
 tc_client-gtk: merged camera_remove() and camera_removebynick() into a single function, merged the deallocation of camera data into camera_free()
 tc_client-gtk: moved the postprocessing code into its own source file.
 tc_client-gtk: added greenscreen postprocessor.

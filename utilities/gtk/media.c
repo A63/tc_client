@@ -30,6 +30,7 @@
 #include "../libcamera/camera.h"
 #include "compat.h"
 #include "../compat.h"
+#include "../compat_av.h"
 #include "gui.h"
 #include "media.h"
 

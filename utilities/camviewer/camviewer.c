@@ -45,6 +45,7 @@
   #include "../libcamera/camera.h"
 #endif
 #include "../compat.h"
+#include "../compat_av.h"
 
 #if GTK_MAJOR_VERSION==2
   #define GTK_ORIENTATION_HORIZONTAL 0
