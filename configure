@@ -130,6 +130,7 @@ if [ "x$avcodeclibs" != "x" ]; then
       echo '}' >> config.h
     fi
     if testbuild 'buf in AVPacket' 'AVPacket x; x.buf=0;' 'libavcodec/avcodec.h' "$avcodecflags"; then echo '#define AVPACKET_HAS_BUF 1' >> config.h; fi
+    if ! testbuild 'avcodec_send_packet and avcodec_receive_frame' 'void* x=avcodec_send_packet; x=avcodec_receive_frame;' 'libavcodec/avcodec.h' "$avcodecflags"; then echo '#define AVCODEC_NO_SEND_RECEIVE_API 1' >> config.h; fi
   fi
 else
   echo no

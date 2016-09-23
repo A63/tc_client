@@ -244,7 +244,9 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
     .pts=AV_NOPTS_VALUE
   };
   av_init_packet(&packet);
-  avcodec_encode_video2(cam->vctx, &packet, cam->dstframe, &gotpacket);
+  avcodec_send_frame(cam->vctx, cam->dstframe);
+  gotpacket=avcodec_receive_packet(cam->vctx, &packet);
+  if(gotpacket){return 1;}
   unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
   // Send video
   dprintf(tc_client_in[1], "/video %i\n", packet.size+1);

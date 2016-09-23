@@ -1,6 +1,6 @@
 /*
     camviewer, a sample application to view tinychat cam streams
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -304,8 +304,9 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
     }
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
     int gotframe;
-    avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
-    if(!gotframe){return 1;}
+    avcodec_send_packet(cam->actx, &pkt);
+    gotframe=avcodec_receive_frame(cam->actx, cam->frame);
+    if(gotframe){return 1;}
   #ifdef HAVE_AVRESAMPLE
     int outlen=avresample_convert(data->resamplectx, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
   #else
@@ -347,8 +348,9 @@ gboolean handledata(GIOChannel* channel, GIOCondition condition, gpointer datap)
   if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
   pkt.size=size;
   int gotframe;
-  avcodec_decode_video2(cam->vctx, cam->frame, &gotframe, &pkt);
-  if(!gotframe){return 1;}
+  avcodec_send_packet(cam->vctx, &pkt);
+  gotframe=avcodec_receive_frame(cam->vctx, cam->frame);
+  if(gotframe){return 1;}
 
   // Convert to RGB24 format
   unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, cam->frame->width, cam->frame->height, 1);
@@ -461,7 +463,9 @@ void togglecam(GtkButton* button, struct viddata* data)
       av_init_packet(&packet);
       packet.data=0;
 packet.size=0;
-      avcodec_encode_video2(ctx, &packet, dstframe, &gotpacket);
+      avcodec_send_frame(ctx, dstframe);
+      gotpacket=avcodec_receive_packet(ctx, &packet);
+      if(gotpacket){continue;}
       unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
       dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
       write(tc_client_in[1], &frameinfo, 1);

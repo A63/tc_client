@@ -201,8 +201,9 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
     pkt.size=size;
     int gotframe;
-    avcodec_decode_video2(cam->vctx, cam->frame, &gotframe, &pkt);
-    if(!gotframe){return 1;}
+    avcodec_send_packet(cam->vctx, &pkt);
+    gotframe=avcodec_receive_frame(cam->vctx, cam->frame);
+    if(gotframe){return 1;}
 
     if(cam->placeholder) // Remove the placeholder animation if it has it
     {
@@ -251,8 +252,9 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     struct camera* cam=camera_find(&buf[7]);
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
     int gotframe;
-    avcodec_decode_audio4(cam->actx, cam->frame, &gotframe, &pkt);
-    if(!gotframe){return 1;}
+    avcodec_send_packet(cam->actx, &pkt);
+    gotframe=avcodec_receive_frame(cam->actx, cam->frame);
+    if(gotframe){return 1;}
   #ifdef HAVE_AVRESAMPLE
     int outlen=avresample_convert(data->resamplectx, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
   #else

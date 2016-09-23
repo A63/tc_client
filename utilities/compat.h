@@ -34,3 +34,13 @@
 #if GLIB_MAJOR_VERSION<2 || (GLIB_MAJOR_VERSION==2 && GLIB_MINOR_VERSION<2)
   #define g_io_channel_read_chars(a,b,c,d,e) g_io_channel_read(a,b,c,d)
 #endif
+#ifdef AVCODEC_NO_SEND_RECEIVE_API
+  #define avcodec_send_packet compat_avcodec_send_packet
+  #define avcodec_receive_frame compat_avcodec_receive_frame
+  #define avcodec_send_frame compat_avcodec_send_frame
+  #define avcodec_receive_packet compat_avcodec_receive_packet
+  extern int compat_avcodec_send_packet(AVCodecContext* ctx, AVPacket* packet);
+  extern int compat_avcodec_receive_frame(AVCodecContext* ctx, AVFrame* frame);
+  extern int compat_avcodec_send_frame(AVCodecContext* ctx, AVFrame* frame);
+  extern int compat_avcodec_receive_packet(AVCodecContext* ctx, AVPacket* packet);
+#endif
