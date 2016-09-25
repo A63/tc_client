@@ -522,7 +522,6 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     idend[0]=0;
     camera_remove(nick, 1); // Remove any duplicates
     struct camera* cam=camera_new(nick, id);
-    cam->placeholder=g_timeout_add(100, camplaceholder_update, cam->id);
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
     avcodec_open2(cam->vctx, data->vdecoder, 0);
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
@@ -568,11 +567,10 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!strcmp(buf, "Server disconnected"))
   {
     printchat(buf, 0);
-    if(camproc)
+    if(camout_cam)
     {
-      g_source_remove(cameventsource);
-      kill(camproc, SIGINT);
-      camproc=0;
+      cam_close(camout_cam);
+      camout_cam=0;
     }
     return 1;
   }
@@ -603,27 +601,27 @@ void audiothread(int fd)
 }
 #endif
 
+void togglecam_cancel(void)
+{
+  GtkCheckMenuItem* item=GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
+  gtk_check_menu_item_set_active(item, 0);
+}
+
 void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 {
   if(!gtk_check_menu_item_get_active(item))
   {
-    g_source_remove(cameventsource);
-    kill(camproc, SIGINT);
-    camproc=0;
+    if(!camout_cam){return;}
+    cam_close(camout_cam);
+    camout_cam=0;
     if(camera_find("out"))
     {
       dprintf(tc_client_in[1], "/camdown\n");
-      dprintf(tc_client[1], "VideoEnd: out\n"); // Close our local display
+      camera_remove("out", 0); // Close our local display
     }
     return;
   }
-  GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
-  gtk_widget_show_all(window);
-
-  // Start a cam thread for the selected cam
-  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
-  GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), data->vencoder, 100000);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, cam_encode, 0);
+  camselect_open(startcamout, togglecam_cancel);
 }
 
 gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddata* data)
@@ -957,7 +955,7 @@ int main(int argc, char** argv)
   campreview.frame=av_frame_alloc();
   campreview.frame->data[0]=0;
   GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
-  g_signal_connect(combo, "changed", G_CALLBACK(camselect_change), data->vencoder);
+  g_signal_connect(combo, "changed", G_CALLBACK(camselect_change), 0);
   // Signals for cancelling
   item=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
   g_signal_connect(item, "delete-event", G_CALLBACK(camselect_cancel), 0);
@@ -965,7 +963,7 @@ int main(int argc, char** argv)
   g_signal_connect(item, "clicked", G_CALLBACK(camselect_cancel), 0);
   // Signals for switching from preview to streaming
   item=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_ok"));
-  g_signal_connect(item, "clicked", G_CALLBACK(camselect_accept), data->vencoder);
+  g_signal_connect(item, "clicked", G_CALLBACK(camselect_accept), 0);
   // Enable the "img" camera
   cam_img_filepicker=camselect_file;
   // Populate list of cams

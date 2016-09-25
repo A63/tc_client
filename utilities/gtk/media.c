@@ -18,9 +18,6 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include <libavcodec/avcodec.h>
-#ifndef _WIN32
-#include <sys/prctl.h>
-#endif
 #include <libswscale/swscale.h>
 #if LIBAVUTIL_VERSION_MAJOR>50 || (LIBAVUTIL_VERSION_MAJOR==50 && LIBAVUTIL_VERSION_MINOR>37)
   #include <libavutil/imgutils.h>
@@ -44,11 +41,6 @@ struct camera campreview={
 };
 struct camera* cams=0;
 unsigned int camcount=0;
-#ifdef _WIN32
-  PROCESS_INFORMATION camprocess={.hProcess=0};
-#else
-  pid_t camproc=0;
-#endif
 struct size camsize_out={.width=320, .height=240};
 struct size camsize_scale={.width=320, .height=240};
 GtkWidget* cambox;
@@ -56,6 +48,7 @@ GtkWidget** camrows=0;
 unsigned int camrowcount=0;
 GdkPixbufAnimation* camplaceholder=0;
 GdkPixbufAnimationIter* camplaceholder_iter=0;
+CAM* camout_cam=0;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 // Experimental mixer, not sure if it really works
@@ -163,6 +156,7 @@ struct camera* camera_new(const char* nick, const char* id)
   gtk_box_pack_start(GTK_BOX(cam->box), eventbox, 0, 0, 0);
   gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
   g_signal_connect(eventbox, "button-release-event", G_CALLBACK(gui_show_cam_menu), cam->id);
+  cam->placeholder=g_timeout_add(100, camplaceholder_update, (char*)id);
   // Initialize postprocessing values
   postproc_init(&cam->postproc);
   return cam;
@@ -180,24 +174,36 @@ void camera_cleanup(void)
 
 void freebuffer(guchar* pixels, gpointer data){free(pixels);}
 
-gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
+unsigned int camout_delay;
+void startcamout(CAM* cam)
 {
+  dprintf(tc_client_in[1], "/camup\n");
+  camout_cam=cam;
+  camout_delay=500;
+  camsize_out.width=320;
+  camsize_out.height=240;
+  cam_resolution(cam, (unsigned int*)&camsize_out.width, (unsigned int*)&camsize_out.height);
+  g_timeout_add(camout_delay, cam_encode, cam);
+}
+
+gboolean cam_encode(void* camera_)
+{
+  CAM* camera=camera_;
+  if(camera!=camout_cam){return G_SOURCE_REMOVE;}
   struct camera* cam=camera_find("out");
-  char preview=0;
-  if(!cam)
+  if(cam->placeholder) // Remove the placeholder animation if it has it
   {
-    cam=&campreview;
-    preview=1;
-  }else{
-    cam->vctx->width=camsize_out.width;
-    cam->vctx->height=camsize_out.height;
-    if(!cam->dstframe->data[0])
-    {
-      cam->dstframe->format=AV_PIX_FMT_YUV420P;
-      cam->dstframe->width=camsize_out.width;
-      cam->dstframe->height=camsize_out.height;
-      av_image_alloc(cam->dstframe->data, cam->dstframe->linesize, camsize_out.width, camsize_out.height, cam->dstframe->format, 1);
-    }
+    g_source_remove(cam->placeholder);
+    cam->placeholder=0;
+  }
+  cam->vctx->width=camsize_out.width;
+  cam->vctx->height=camsize_out.height;
+  if(!cam->dstframe->data[0])
+  {
+    cam->dstframe->format=AV_PIX_FMT_YUV420P;
+    cam->dstframe->width=camsize_out.width;
+    cam->dstframe->height=camsize_out.height;
+    av_image_alloc(cam->dstframe->data, cam->dstframe->linesize, camsize_out.width, camsize_out.height, cam->dstframe->format, 1);
   }
   if(cam->frame->width!=camsize_out.width || cam->frame->height!=camsize_out.height)
   {
@@ -208,28 +214,15 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
     av_freep(cam->frame->data);
     av_image_alloc(cam->frame->data, cam->frame->linesize, camsize_out.width, camsize_out.height, cam->frame->format, 1);
   }
-  g_io_channel_read_chars(iochannel, (void*)cam->frame->data[0], camsize_out.width*camsize_out.height*3, 0, 0);
+  cam_getframe(camera, cam->frame->data[0]);
   postprocess(&cam->postproc, cam->frame->data[0], cam->frame->width, cam->frame->height);
   // Update our local display
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
   GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->frame->data[0], GDK_COLORSPACE_RGB, 0, 8, cam->frame->width, cam->frame->height, cam->frame->linesize[0], 0, 0);
-  if(!preview) // Scale, unless we're previewing
-  {
-    gdkframe=gdk_pixbuf_scale_simple(gdkframe, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
-  }else if(gdk_pixbuf_get_height(gdkframe)>PREVIEW_MAX_HEIGHT || gdk_pixbuf_get_width(gdkframe)>PREVIEW_MAX_WIDTH) // Scale anyway if the input is huge
-  {
-    unsigned int width=gdk_pixbuf_get_width(gdkframe);
-    unsigned int height=gdk_pixbuf_get_height(gdkframe);
-    if(height*PREVIEW_MAX_WIDTH/width>PREVIEW_MAX_HEIGHT)
-    {
-      gdkframe=gdk_pixbuf_scale_simple(gdkframe, width*PREVIEW_MAX_HEIGHT/height, PREVIEW_MAX_HEIGHT, GDK_INTERP_BILINEAR);
-    }else{
-      gdkframe=gdk_pixbuf_scale_simple(gdkframe, PREVIEW_MAX_WIDTH, height*PREVIEW_MAX_WIDTH/width, GDK_INTERP_BILINEAR);
-    }
-  }
+  // Scale to fit
+  gdkframe=gdk_pixbuf_scale_simple(gdkframe, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
   g_object_unref(oldpixbuf);
-  if(preview){return 1;}
   // Encode
   struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, cam->frame->width, cam->frame->height, AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
@@ -247,7 +240,7 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
   av_init_packet(&packet);
   avcodec_send_frame(cam->vctx, cam->dstframe);
   gotpacket=avcodec_receive_packet(cam->vctx, &packet);
-  if(gotpacket){return 1;}
+  if(gotpacket){return G_SOURCE_CONTINUE;}
   unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
   // Send video
   dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
@@ -256,98 +249,98 @@ gboolean cam_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
 if(w!=packet.size){printf("Error: wrote %li of %i bytes\n", w, packet.size);}
 
   av_packet_unref(&packet);
-  return 1;
+  if(camout_delay>100) // Slowly speed up to 10fps, otherwise the flash client won't show it.
+  {
+    camout_delay-=50;
+    g_timeout_add(camout_delay, cam_encode, camera_);
+    return G_SOURCE_REMOVE;
+  }
+  return G_SOURCE_CONTINUE;
 }
 
-unsigned int* camthread_delay;
-void camthread_resetdelay(int x)
+struct
 {
-  *camthread_delay=500000;
-}
-extern unsigned int cameventsource;
-GIOChannel* camthread(const char* name, AVCodec* vencoder, unsigned int delay)
+  void(*callback)(CAM* cam);
+  void(*cancelcallback)(void);
+  unsigned int eventsource;
+  CAM* current;
+  struct size size;
+} camselect={.eventsource=0, .current=0};
+
+gboolean camselect_frame(void* x)
 {
-  if(camproc)
+  if(!camselect.current){return G_SOURCE_CONTINUE;}
+  void* buf=malloc(camselect.size.width*camselect.size.height*3);
+  cam_getframe(camselect.current, buf);
+  GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(campreview.cam));
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(buf, GDK_COLORSPACE_RGB, 0, 8, camselect.size.width, camselect.size.height, camselect.size.width*3, 0, freebuffer);
+  if(gdk_pixbuf_get_height(gdkframe)>PREVIEW_MAX_HEIGHT || gdk_pixbuf_get_width(gdkframe)>PREVIEW_MAX_WIDTH) // Scale if the input is huge
   {
-    g_source_remove(cameventsource);
-    kill(camproc, SIGINT);
-    usleep(200000); // Give the previous process some time to shut down
-  }
-  // Set up a pipe to be handled by cam_encode()
-  int campipe[2];
-#ifndef _WIN32
-  CAM* cam=cam_open(name); // Opening here in case of GUI callbacks
-  if(cam){cam_resolution(cam, (unsigned int*)&camsize_out.width, (unsigned int*)&camsize_out.height);}
-  pipe(campipe);
-  camproc=fork();
-  if(!camproc)
-  {
-    close(campipe[0]);
-    unsigned char img[camsize_out.width*camsize_out.height*3];
-    if(!cam) // If it failed to open, just give some grey before quitting
+    unsigned int width=gdk_pixbuf_get_width(gdkframe);
+    unsigned int height=gdk_pixbuf_get_height(gdkframe);
+    if(height*PREVIEW_MAX_WIDTH/width>PREVIEW_MAX_HEIGHT)
     {
-      memset(img, 0x7f, camsize_out.width*camsize_out.height*3);
-      write(campipe[1], img, camsize_out.width*camsize_out.height*3);
-      _exit(1);
+      gdkframe=gdk_pixbuf_scale_simple(gdkframe, width*PREVIEW_MAX_HEIGHT/height, PREVIEW_MAX_HEIGHT, GDK_INTERP_BILINEAR);
+    }else{
+      gdkframe=gdk_pixbuf_scale_simple(gdkframe, PREVIEW_MAX_WIDTH, height*PREVIEW_MAX_WIDTH/width, GDK_INTERP_BILINEAR);
     }
-#ifndef _WIN32
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
-    camthread_delay=&delay;
-    signal(SIGUSR1, camthread_resetdelay);
-#endif
-    while(1)
-    {
-      usleep(delay);
-      if(delay>100000){delay-=50000;}
-      cam_getframe(cam, img);
-      write(campipe[1], img, camsize_out.width*camsize_out.height*3);
-    }
-    _exit(0);
   }
-  if(cam){cam_close(cam);} // Leave the cam to the child process
-  close(campipe[1]);
-#else
-  char cmd[snprintf(0,0, "./tc_client-gtk-camthread %s %u", name, delay)+1];
-  sprintf(cmd, "./tc_client-gtk-camthread %s %u", name, delay);
-  w32_runcmdpipes(cmd, ((int*)0), campipe, camprocess);
-#endif
-  GIOChannel* channel=g_io_channel_unix_new(campipe[0]);
-  g_io_channel_set_encoding(channel, 0, 0);
-  return channel;
+  gtk_image_set_from_pixbuf(GTK_IMAGE(campreview.cam), gdkframe);
+  g_object_unref(oldpixbuf);
+  return G_SOURCE_CONTINUE;
 }
 
-void camselect_change(GtkComboBox* combo, AVCodec* vencoder)
+void camselect_open(void(*cb)(CAM*), void(*ccb)(void))
 {
-  if(!camproc){return;} // If there isn't a camthread already, it will be started elsewhere
-  GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), vencoder, 100000);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, cam_encode, 0);
+  camselect.callback=cb;
+  camselect.cancelcallback=ccb;
+  // Start the preview
+  if(!camselect.eventsource)
+  {
+    camselect.eventsource=g_timeout_add(100, camselect_frame, 0);
+  }
+  // Open the currently selected camera (usually starting with the top alternative)
+  if(camselect.current){cam_close(camselect.current);}
+  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
+  camselect_change(combo, 0);
+  GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
+  gtk_widget_show_all(window);
+}
+
+void camselect_change(GtkComboBox* combo, void* x)
+{
+  if(!camselect.eventsource){return;} // Haven't opened the cam selection window yet (happens at startup)
+  if(camselect.current){cam_close(camselect.current);}
+  camselect.current=cam_open(gtk_combo_box_get_active_id(combo));
+  if(!camselect.current){return;}
+  camselect.size.width=320;
+  camselect.size.height=240;
+  cam_resolution(camselect.current, (unsigned int*)&camselect.size.width, (unsigned int*)&camselect.size.height);
 }
 
 gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2)
 {
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
   gtk_widget_hide(window);
-  // Note: unchecking the menu item kills the cam thread for us
-  GtkCheckMenuItem* item=GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
-  gtk_check_menu_item_set_active(item, 0);
+  g_source_remove(camselect.eventsource);
+  camselect.eventsource=0;
+  if(camselect.cancelcallback){camselect.cancelcallback();}
   return 1;
 }
 
-extern int tc_client_in[];
-void camselect_accept(GtkWidget* widget, AVCodec* vencoder)
+void camselect_accept(GtkWidget* widget, void* x)
 {
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
   gtk_widget_hide(window);
-#ifndef _WIN32
-  // Tell the camthread to reset the delay to 500000 as a workaround for a quirk in the flash client
-  kill(camproc, SIGUSR1);
-#else
-  // For platforms without proper signals, resort to restarting the camthread with the new delay
-  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
-  GIOChannel* channel=camthread(gtk_combo_box_get_active_id(combo), vencoder, 500000);
-  cameventsource=g_io_add_watch(channel, G_IO_IN, cam_encode, 0);
-#endif
-  dprintf(tc_client_in[1], "/camup\n");
+  g_source_remove(camselect.eventsource);
+  camselect.eventsource=0;
+  if(camselect.callback)
+  {
+    camselect.callback(camselect.current);
+  }else{
+    cam_close(camselect.current);
+  }
+  camselect.current=0;
 }
 
 void camselect_file_preview(GtkFileChooser* dialog, gpointer data)

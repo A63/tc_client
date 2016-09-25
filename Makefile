@@ -52,7 +52,7 @@ ifdef SWSCALE_LIBS
     else
       CONFINFO+=|  escapi windows camera support will not be enabled
     endif
-    windowstargets: camviewer tc_client-gtk tc_client-gtk-camthread
+    windowstargets: camviewer tc_client-gtk
 	@echo
 	@echo 'To build the core (tc_client.exe), enter this directory from cygwin (or MSYS2 non-MinGW shell) and type make'
   endif
@@ -118,30 +118,12 @@ tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif
 camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 	utilities/gtk/gencamplaceholder.sh
 
-# Workaround for windows' lack of fork() and inflexibility of having or not having a terminal
-utilities/gtk/camthread.gen.c: utilities/gtk/media.c
-	sed -n -e '/^ *#/p' utilities/gtk/media.c > $@
-	echo 'int main(int argc, char** argv){' >> $@
-	echo 'avcodec_register_all();' >> $@
-	echo 'AVCodec* vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);' >> $@
-	echo 'cam_img_filepicker=camselect_file;' >> $@
-	echo 'gtk_init(&argc, &argv);' >> $@
-	echo 'int campipe[]={0,1};' >> $@
-	echo 'setmode(1, O_BINARY);' >> $@
-	echo 'CAM* cam=cam_open(argv[1]);' >> $@
-	echo 'unsigned int delay=atoi(argv[2]);' >> $@
-	echo 'struct size camsize_out={.width=320, .height=240};' >> $@
-	sed -n -e '/if(!camproc)$$/,/^  }/p' utilities/gtk/media.c | sed -e '1,3d' >> $@
-	sed -n -e '/ camselect_file/,/^}/p' utilities/gtk/media.c >> $@
-tc_client-gtk-camthread: utilities/gtk/camthread.gen.o utilities/compat.o libcamera.a
-	$(CC) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) -o $@
-
 libcamera.a: $(LIBCAMERA_OBJ)
 	$(AR) cru $@ $^
 	$(RANLIB) $@
 
 clean:
-	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk camplaceholder.gif utilities/gtk/camthread.gen.c utilities/gtk/camthread.gen.o tc_client-gtk-camthread
+	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk camplaceholder.gif
 
 SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure
 SOURCES+=utilities/irchack/irchack.c

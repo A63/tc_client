@@ -14,6 +14,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#ifndef CAMERA_H
+#define CAMERA_H
 enum{
   CAMTYPE_V4L2,
   CAMTYPE_ESCAPI,
@@ -28,3 +30,4 @@ extern void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height);
 extern void cam_getframe(CAM* cam, void* pixmap);
 extern void cam_close(CAM* cam);
 extern const char*(*cam_img_filepicker)(void);
+#endif
