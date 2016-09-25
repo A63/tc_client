@@ -1098,10 +1098,6 @@ int main(int argc, char** argv)
   {
     TerminateProcess(coreprocess.hProcess, 0);
   }
-  if(camproc)
-  {
-    TerminateProcess(camproc, 0);
-  }
 #endif
   camera_cleanup();
 #ifdef HAVE_AVRESAMPLE

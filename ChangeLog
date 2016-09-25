@@ -6,6 +6,7 @@ tc_client-gtk: added greenscreen postprocessor.
 tc_client-gtk: added GTK+2 compatibility code related to the greenscreen postprocessor.
 tc_client-gtk: changed camera input for broadcasting from using a thread to using g_timeout.
 tc_client-gtk: use the camera's own copy of its ID for g_timeout_add() rather than what camera_new() was called with. And in configure, include libavutil/mem.h if we fall back on av_freep()
+tc_client-gtk: cleaned up leftover windows compatibility code that is no longer necessary.
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 0.39:
 Added a /closecam command to stop receiving a cam stream.
