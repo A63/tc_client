@@ -121,6 +121,7 @@ if [ "x$avcodeclibs" != "x" ]; then
     echo "AVCODEC_LIBS=${avcodeclibs}" >> config.mk
     echo "AVCODEC_CFLAGS=`pkg-config --cflags libavcodec`" >> config.mk
     if ! testbuild 'avcodec_free_context' 'void* x=avcodec_free_context;' 'libavcodec/avcodec.h' "$avcodecflags"; then
+      echo '#include <libavutil/mem.h>' >> config.h
       echo '#define avcodec_free_context(x) \' >> config.h
       echo '{ \' >> config.h
       echo '  avcodec_close(*x); \' >> config.h

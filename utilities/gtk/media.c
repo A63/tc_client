@@ -156,7 +156,7 @@ struct camera* camera_new(const char* nick, const char* id)
   gtk_box_pack_start(GTK_BOX(cam->box), eventbox, 0, 0, 0);
   gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
   g_signal_connect(eventbox, "button-release-event", G_CALLBACK(gui_show_cam_menu), cam->id);
-  cam->placeholder=g_timeout_add(100, camplaceholder_update, (char*)id);
+  cam->placeholder=g_timeout_add(100, camplaceholder_update, cam->id);
   // Initialize postprocessing values
   postproc_init(&cam->postproc);
   return cam;
