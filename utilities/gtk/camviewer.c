@@ -1046,7 +1046,7 @@ int main(int argc, char** argv)
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_auto"), "toggled", G_CALLBACK(camcolors_toggle_auto), 0);
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_horizontal"), "toggled", G_CALLBACK(camcolors_toggle_flip), 0);
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_vertical"), "toggled", G_CALLBACK(camcolors_toggle_flip), (void*)1);
-  g_signal_connect(gtk_builder_get_object(gui, "greenscreen_filechooser"), "file-set", G_CALLBACK(gui_set_greenscreen_img), 0);
+  g_signal_connect(gtk_builder_get_object(gui, "greenscreenbutton"), "clicked", G_CALLBACK(gui_set_greenscreen_img), 0);
   g_signal_connect(gtk_builder_get_object(gui, "greenscreen_colorpicker"), "color-set", G_CALLBACK(gui_set_greenscreen_color), 0);
   g_signal_connect(gtk_builder_get_object(gui, "greenscreen_tolerance_h"), "value-changed", G_CALLBACK(gui_set_greenscreen_tolerance), 0);
   g_signal_connect(gtk_builder_get_object(gui, "greenscreen_tolerance_s"), "value-changed", G_CALLBACK(gui_set_greenscreen_tolerance), (void*)1);

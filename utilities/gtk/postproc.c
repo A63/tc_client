@@ -19,69 +19,6 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include "postproc.h"
 
-// TODO: Replace this img_* API with libcamera
-struct img* img_load(const char* filename)
-{
-  struct img* this=malloc(sizeof(struct img));
-  this->animation=gdk_pixbuf_animation_new_from_file(filename, 0);
-  if(gdk_pixbuf_animation_is_static_image(this->animation))
-  {
-    this->img=gdk_pixbuf_animation_get_static_image(this->animation);
-    this->iter=0;
-    if(gdk_pixbuf_get_n_channels(this->img)==4)
-    {
-      unsigned char* pixels=gdk_pixbuf_get_pixels(this->img);
-      unsigned int pixelcount=gdk_pixbuf_get_width(this->img)*gdk_pixbuf_get_height(this->img);
-      unsigned int i;
-      for(i=0; i<pixelcount; ++i)
-      {
-        memmove(&pixels[i*3], &pixels[i*4], 3);
-      }
-    }
-  }else{
-    this->iter=gdk_pixbuf_animation_get_iter(this->animation, 0);
-    unsigned int w=gdk_pixbuf_animation_get_width(this->animation);
-    unsigned int h=gdk_pixbuf_animation_get_height(this->animation);
-    this->img=gdk_pixbuf_new(GDK_COLORSPACE_RGB, 0, 8, w, h);
-  }
-  return this;
-}
-
-GdkPixbuf* img_get(struct img* this)
-{
-  if(this->iter)
-  {
-    gdk_pixbuf_animation_iter_advance(this->iter, 0);
-    GdkPixbuf* img=gdk_pixbuf_animation_iter_get_pixbuf(this->iter);
-    if(gdk_pixbuf_get_n_channels(img)!=4){return img;}
-    unsigned int w=gdk_pixbuf_get_width(img);
-    unsigned int h=gdk_pixbuf_get_height(img);
-    unsigned int dstw=gdk_pixbuf_get_width(this->img);
-    unsigned int dsth=gdk_pixbuf_get_height(this->img);
-    unsigned char* pixels=gdk_pixbuf_get_pixels(img);
-    unsigned char* dstpixels=gdk_pixbuf_get_pixels(this->img);
-    unsigned int x, y;
-    for(y=0; y<h && y<dsth; ++y)
-    for(x=0; x<w && x<dstw; ++x)
-    {
-      memmove(&dstpixels[(y*dstw+x)*3], &pixels[(y*w+x)*4], 3);
-    }
-  }
-  return this->img;
-}
-
-void img_free(struct img* this)
-{
-  if(this->iter)
-  {
-    g_object_unref(this->iter);
-    g_object_unref(this->animation);
-    g_object_unref(this->img);
-  }else{
-    g_object_unref(this->animation);
-  }
-}
-
 #define max(a,b) ((a)>(b)?(a):(b))
 #define min(a,b) ((a)<(b)?(a):(b))
 
@@ -112,7 +49,6 @@ void postproc_init(struct postproc_ctx* pp)
   pp->greenscreen_color[0]=0;
   pp->greenscreen_color[1]=255;
   pp->greenscreen_color[2]=0;
-  pp->greenscreen_filename=0;
 }
 
 void postprocess(struct postproc_ctx* pp, unsigned char* buf, unsigned int width, unsigned int height)
@@ -169,12 +105,12 @@ void postprocess(struct postproc_ctx* pp, unsigned char* buf, unsigned int width
   }
   if(pp->greenscreen)
   {
-    GdkPixbuf* img=img_get(pp->greenscreen);
-    guchar* pixels=gdk_pixbuf_get_pixels(img);
+    unsigned char pixels[pp->greenscreen_size.width*pp->greenscreen_size.height*3];
+    cam_getframe(pp->greenscreen, pixels);
     unsigned int x;
     unsigned int y;
-    unsigned int gswidth=gdk_pixbuf_get_width(img);
-    unsigned int gsheight=gdk_pixbuf_get_height(img);
+    unsigned int gswidth=pp->greenscreen_size.width;
+    unsigned int gsheight=pp->greenscreen_size.height;
     unsigned int gsx, gsy;
     unsigned char* gscolor=pp->greenscreen_hsv;
     for(y=0; y<height; ++y)
@@ -199,6 +135,5 @@ void postprocess(struct postproc_ctx* pp, unsigned char* buf, unsigned int width
 
 void postproc_free(struct postproc_ctx* pp)
 {
-  if(pp->greenscreen){img_free(pp->greenscreen);}
-  free((void*)pp->greenscreen_filename);
+  if(pp->greenscreen){cam_close(pp->greenscreen);}
 }

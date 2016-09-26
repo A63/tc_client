@@ -270,21 +270,8 @@ struct
 gboolean camselect_frame(void* x)
 {
   if(!camselect.current){return G_SOURCE_CONTINUE;}
-  void* buf=malloc(camselect.size.width*camselect.size.height*3);
-  cam_getframe(camselect.current, buf);
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(campreview.cam));
-  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(buf, GDK_COLORSPACE_RGB, 0, 8, camselect.size.width, camselect.size.height, camselect.size.width*3, 0, freebuffer);
-  if(gdk_pixbuf_get_height(gdkframe)>PREVIEW_MAX_HEIGHT || gdk_pixbuf_get_width(gdkframe)>PREVIEW_MAX_WIDTH) // Scale if the input is huge
-  {
-    unsigned int width=gdk_pixbuf_get_width(gdkframe);
-    unsigned int height=gdk_pixbuf_get_height(gdkframe);
-    if(height*PREVIEW_MAX_WIDTH/width>PREVIEW_MAX_HEIGHT)
-    {
-      gdkframe=gdk_pixbuf_scale_simple(gdkframe, width*PREVIEW_MAX_HEIGHT/height, PREVIEW_MAX_HEIGHT, GDK_INTERP_BILINEAR);
-    }else{
-      gdkframe=gdk_pixbuf_scale_simple(gdkframe, PREVIEW_MAX_WIDTH, height*PREVIEW_MAX_WIDTH/width, GDK_INTERP_BILINEAR);
-    }
-  }
+  GdkPixbuf* gdkframe=scaled_gdk_pixbuf_from_cam(camselect.current, camselect.size.width, camselect.size.height, PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT);
   gtk_image_set_from_pixbuf(GTK_IMAGE(campreview.cam), gdkframe);
   g_object_unref(oldpixbuf);
   return G_SOURCE_CONTINUE;
@@ -300,7 +287,7 @@ void camselect_open(void(*cb)(CAM*), void(*ccb)(void))
     camselect.eventsource=g_timeout_add(100, camselect_frame, 0);
   }
   // Open the currently selected camera (usually starting with the top alternative)
-  if(camselect.current){cam_close(camselect.current);}
+  if(camselect.current){cam_close(camselect.current); camselect.current=0;}
   GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
   camselect_change(combo, 0);
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
@@ -467,4 +454,23 @@ gboolean camplaceholder_update(void* id)
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), pixbuf);
   g_object_unref(oldpixbuf);
   return G_SOURCE_CONTINUE;
+}
+
+GdkPixbuf* scaled_gdk_pixbuf_from_cam(CAM* cam, unsigned int width, unsigned int height, unsigned int maxwidth, unsigned int maxheight)
+{
+  void* buf=malloc(width*height*3);
+  cam_getframe(cam, buf);
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(buf, GDK_COLORSPACE_RGB, 0, 8, width, height, width*3, 0, freebuffer);
+  if(height>maxheight || width>maxwidth) // Scale if the input is huge
+  {
+    GdkPixbuf* oldframe=gdkframe;
+    if(height*maxwidth/width>maxheight)
+    {
+      gdkframe=gdk_pixbuf_scale_simple(gdkframe, width*maxheight/height, maxheight, GDK_INTERP_BILINEAR);
+    }else{
+      gdkframe=gdk_pixbuf_scale_simple(gdkframe, maxwidth, height*maxwidth/width, GDK_INTERP_BILINEAR);
+    }
+    g_object_unref(oldframe);
+  }
+  return gdkframe;
 }

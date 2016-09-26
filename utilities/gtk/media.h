@@ -67,3 +67,4 @@ extern const char* camselect_file(void);
 extern void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int width, unsigned int height);
 extern void updatescaling(unsigned int width, unsigned int height, char changedcams);
 extern gboolean camplaceholder_update(void* id);
+extern GdkPixbuf* scaled_gdk_pixbuf_from_cam(CAM* cam, unsigned int width, unsigned int height, unsigned int maxwidth, unsigned int maxheight);

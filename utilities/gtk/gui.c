@@ -28,6 +28,9 @@
 extern void startsession(GtkButton* button, void* x);
 extern int tc_client_in[2];
 GtkBuilder* gui;
+GtkWidget* gui_greenscreen_preview_img=0;
+unsigned int gui_greenscreen_preview_event=0;
+extern gboolean gui_greenscreen_preview(void* x);
 
 char autoscroll_before(GtkAdjustment* scroll)
 {
@@ -484,7 +487,6 @@ void gui_show_camcolors(GtkMenuItem* menuitem, void* x)
 {
   struct camera* cam=camera_find(menu_context_cam);
   if(!cam){return;}
-  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "cam_colors")));
   // Set brightness controls
   GtkAdjustment* adjustment=GTK_ADJUSTMENT(gtk_builder_get_object(gui, "camcolors_min_brightness"));
   gtk_adjustment_set_value(adjustment, cam->postproc.min_brightness);
@@ -495,7 +497,22 @@ void gui_show_camcolors(GtkMenuItem* menuitem, void* x)
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_flip_horizontal")), cam->postproc.flip_horizontal);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "camcolors_flip_vertical")), cam->postproc.flip_vertical);
   // Greenscreen controls
-  gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(gtk_builder_get_object(gui, "greenscreen_filechooser")), cam->postproc.greenscreen_filename);
+  // Set the appropriate child widget for the greenscreenbutton and start the preview if applicable
+  GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "greenscreenbutton"));
+  GtkWidget* child=gtk_bin_get_child(GTK_BIN(button));
+  if(child){gtk_widget_destroy(child);}
+  if(cam->postproc.greenscreen)
+  {
+    gui_greenscreen_preview_img=gtk_image_new();
+    gtk_container_add(GTK_CONTAINER(button), gui_greenscreen_preview_img);
+    if(!gui_greenscreen_preview_event)
+    {
+      gui_greenscreen_preview_event=g_timeout_add(100, gui_greenscreen_preview, 0);
+    }
+  }else{
+    gui_greenscreen_preview_img=0;
+    gtk_container_add(GTK_CONTAINER(button), gtk_label_new("Choose a greenscreen background"));
+  }
   GdkRGBA color={.red=(double)cam->postproc.greenscreen_color[0]/255,
                   .green=(double)cam->postproc.greenscreen_color[1]/255,
                   .blue=(double)cam->postproc.greenscreen_color[2]/255,
@@ -504,6 +521,8 @@ void gui_show_camcolors(GtkMenuItem* menuitem, void* x)
   gtk_adjustment_set_value(GTK_ADJUSTMENT(gtk_builder_get_object(gui, "greenscreen_tolerance_h")), cam->postproc.greenscreen_tolerance[0]);
   gtk_adjustment_set_value(GTK_ADJUSTMENT(gtk_builder_get_object(gui, "greenscreen_tolerance_s")), cam->postproc.greenscreen_tolerance[1]);
   gtk_adjustment_set_value(GTK_ADJUSTMENT(gtk_builder_get_object(gui, "greenscreen_tolerance_v")), cam->postproc.greenscreen_tolerance[2]);
+
+  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "cam_colors")));
 }
 
 void camcolors_adjust_min(GtkAdjustment* adjustment, void* x)
@@ -565,17 +584,76 @@ void gui_hide_cam(GtkMenuItem* menuitem, void* x)
   camera_remove(menu_context_cam, 0);
 }
 
-void gui_set_greenscreen_img(GtkFileChooserButton* button, void* x)
+gboolean gui_greenscreen_preview(void* x)
+{
+  struct camera* cam;
+  if(!gui_greenscreen_preview_img || !menu_context_cam ||
+     !(cam=camera_find(menu_context_cam)) || !cam->postproc.greenscreen)
+  {
+    gui_greenscreen_preview_event=0;
+    return G_SOURCE_REMOVE;
+  }
+  GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(gui_greenscreen_preview_img));
+  GdkPixbuf* gdkframe=scaled_gdk_pixbuf_from_cam(cam->postproc.greenscreen, cam->postproc.greenscreen_size.width, cam->postproc.greenscreen_size.height, 160, 120);
+  gtk_image_set_from_pixbuf(GTK_IMAGE(gui_greenscreen_preview_img), gdkframe);
+  if(oldpixbuf){g_object_unref(oldpixbuf);}
+  return G_SOURCE_CONTINUE;
+}
+
+void gui_set_greenscreen_img_accept(CAM* img)
+{
+  if(!menu_context_cam){cam_close(img); return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){cam_close(img); return;}
+  if(cam->postproc.greenscreen){cam_close(cam->postproc.greenscreen);}
+  cam->postproc.greenscreen=img;
+  cam->postproc.greenscreen_size.width=340;
+  cam->postproc.greenscreen_size.height=240;
+  cam_resolution(img, &cam->postproc.greenscreen_size.width, &cam->postproc.greenscreen_size.height);
+  GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "greenscreenbutton"));
+  GtkWidget* child=gtk_bin_get_child(GTK_BIN(button));
+  if(child){gtk_widget_destroy(child);}
+  // Add a GtkImage to the button and start a g_timeout to show a preview on it
+  gui_greenscreen_preview_img=gtk_image_new();
+  gtk_container_add(GTK_CONTAINER(button), gui_greenscreen_preview_img);
+  gtk_widget_show(gui_greenscreen_preview_img);
+  if(!gui_greenscreen_preview_event)
+  {
+    gui_greenscreen_preview_event=g_timeout_add(100, gui_greenscreen_preview, 0);
+  }
+}
+
+void gui_set_greenscreen_img_cancel(void)
+{
+  if(gui_greenscreen_preview_event)
+  {
+    g_source_remove(gui_greenscreen_preview_event);
+    gui_greenscreen_preview_event=0;
+  }
+  GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "greenscreenbutton"));
+  GtkWidget* child=gtk_bin_get_child(GTK_BIN(button));
+  if(child){gtk_widget_destroy(child);}
+  gui_greenscreen_preview_img=0;
+  GtkWidget* label=gtk_label_new("Choose a greenscreen background");
+  gtk_container_add(GTK_CONTAINER(button), label);
+  gtk_widget_show(label);
+  // Remove from camera
+  if(!menu_context_cam){return;}
+  struct camera* cam=camera_find(menu_context_cam);
+  if(!cam){return;}
+  if(cam->postproc.greenscreen)
+  {
+    cam_close(cam->postproc.greenscreen);
+    cam->postproc.greenscreen=0;
+  }
+}
+
+void gui_set_greenscreen_img(GtkButton* button, void* x)
 {
   if(!menu_context_cam){return;}
   struct camera* cam=camera_find(menu_context_cam);
   if(!cam){return;}
-  gchar* file=gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(button));
-  if(cam->postproc.greenscreen){img_free(cam->postproc.greenscreen);}
-  free((void*)cam->postproc.greenscreen_filename);
-  cam->postproc.greenscreen=img_load(file);
-  cam->postproc.greenscreen_filename=strdup(file);
-  g_free(file);
+  camselect_open(gui_set_greenscreen_img_accept, gui_set_greenscreen_img_cancel);
 }
 
 void gui_set_greenscreen_color(GtkColorButton* button, void* x)

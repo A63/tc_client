@@ -1369,11 +1369,13 @@
                 <property name="can_focus">False</property>
                 <property name="orientation">vertical</property>
                 <child>
-                  <object class="GtkFileChooserButton" id="greenscreen_filechooser">
+                  <object class="GtkButton" id="greenscreenbutton">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="create_folders">False</property>
-                    <property name="title" translatable="yes">Select background</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <child>
+                      <placeholder/>
+                    </child>
                   </object>
                   <packing>
                     <property name="expand">False</property>
