@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -31,6 +31,8 @@ GtkBuilder* gui;
 GtkWidget* gui_greenscreen_preview_img=0;
 unsigned int gui_greenscreen_preview_event=0;
 extern gboolean gui_greenscreen_preview(void* x);
+GdkCursor* gui_cursor_text;
+GdkCursor* gui_cursor_link;
 
 char autoscroll_before(GtkAdjustment* scroll)
 {
@@ -355,6 +357,9 @@ void pm_open(const char* nick, char select, GtkAdjustment* scroll)
   }
   char bottom=autoscroll_before(scroll); // If PM tabs (with close buttons) are taller we need to make sure pushing down the chat field doesn't make it stop scrolling
   GtkWidget* textview=gtk_text_view_new();
+  g_signal_connect(textview, "button-release-event", G_CALLBACK(gui_click_link), 0);
+  g_signal_connect(textview, "button-press-event", G_CALLBACK(gui_rightclick_link), 0);
+  g_signal_connect(textview, "motion-notify-event", G_CALLBACK(gui_hover_link), 0);
   user->pm_tab=gtk_scrolled_window_new(0, 0);
   user->pm_buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
   user->pm_scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(user->pm_tab));
@@ -676,4 +681,89 @@ void gui_set_greenscreen_tolerance(GtkAdjustment* adjustment, void* x)
   struct camera* cam=camera_find(menu_context_cam);
   if(!cam){return;}
   cam->postproc.greenscreen_tolerance[(intptr_t)x]=gtk_adjustment_get_value(adjustment);
+}
+
+void gui_insert_link(GtkTextBuffer* buffer, GtkTextIter* iter, const char* url, int length)
+{
+  int startnum=gtk_text_iter_get_offset(iter);
+  gtk_text_buffer_insert(buffer, iter, url, length);
+  // Make it look like a link and store the URL for later
+  GtkTextTag* tag=gtk_text_buffer_create_tag(buffer, 0, "underline", PANGO_UNDERLINE_SINGLE, (char*)0);
+  g_object_set_data(G_OBJECT(tag), "url", strndup(url, length));
+  GtkTextIter start;
+  gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum);
+  gtk_text_buffer_apply_tag(buffer, tag, &start, iter);
+}
+
+const char* gui_find_link(GtkTextView* textview, int xpos, int ypos)
+{
+  int x;
+  int y;
+  gtk_text_view_window_to_buffer_coords(textview, GTK_TEXT_WINDOW_TEXT, xpos, ypos, &x, &y);
+  GtkTextIter iter;
+  gtk_text_view_get_iter_at_location(textview, &iter, x, y);
+  const char* url=0;
+  GSList* tags=gtk_text_iter_get_tags(&iter);
+  GSList* i;
+  for(i=tags; i; i=g_slist_next(i))
+  {
+    url=g_object_get_data(G_OBJECT(i->data), "url");
+    if(url){break;}
+  }
+  g_slist_free(tags);
+  return url;
+}
+
+gboolean gui_click_link(GtkTextView* textview, GdkEventButton* event, void* data)
+{
+  const char* url=gui_find_link(textview, event->x, event->y);
+  if(url && event->button!=3) // Not right-click, just open it
+  {
+    gtk_show_uri(gtk_widget_get_screen(GTK_WIDGET(textview)), url, gtk_get_current_event_time(), 0);
+    return 1;
+  }
+  return 0;
+}
+
+static const char* gui_link_menu_url=0;
+gboolean gui_rightclick_link(GtkTextView* textview, GdkEventButton* event, void* data)
+{
+  const char* url=gui_find_link(textview, event->x, event->y);
+  if(url && event->button==3)
+  {
+    // Show a menu with options to either open the link or copy it
+    gui_link_menu_url=url;
+    GtkMenu* menu=GTK_MENU(gtk_builder_get_object(gui, "link_menu"));
+    gtk_menu_popup(menu, 0, 0, 0, 0, event->button, event->time);
+    return 1;
+  }
+  return 0;
+}
+
+gboolean gui_hover_link(GtkTextView* textview, GdkEventMotion* event, void* data)
+{
+  const char* url=gui_find_link(textview, event->x, event->y);
+  GdkWindow* window=gtk_text_view_get_window(textview, GTK_TEXT_WINDOW_TEXT);
+  GdkCursor* cursor;
+  if(url)
+  {
+    cursor=gui_cursor_link;
+  }else{
+    cursor=gui_cursor_text;
+  }
+  gdk_window_set_cursor(window, cursor);
+  return 0;
+}
+
+void gui_link_menu_open(GtkWidget* menuitem, void* x)
+{
+  if(!gui_link_menu_url){return;}
+  gtk_show_uri(gtk_widget_get_screen(GTK_WIDGET(menuitem)), gui_link_menu_url, gtk_get_current_event_time(), 0);
+}
+
+void gui_link_menu_copy(GtkWidget* menuitem, void* x)
+{
+  if(!gui_link_menu_url){return;}
+  GtkClipboard* clipboard=gtk_clipboard_get_for_display(gtk_widget_get_display(menuitem), GDK_SELECTION_CLIPBOARD);
+  gtk_clipboard_set_text(clipboard, gui_link_menu_url, -1);
 }

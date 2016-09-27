@@ -85,31 +85,7 @@ char frombuild=0; // Running from the build directory
   PROCESS_INFORMATION coreprocess={.hProcess=0};
 #endif
 
-void printchat(const char* text, const char* pm)
-{
-  GtkAdjustment* scroll;
-  GtkTextBuffer* buffer;
-  struct user* user;
-  if(pm && (user=finduser(pm)))
-  {
-    pm_open(pm, 0, data->scroll);
-    scroll=user->pm_scroll;
-    buffer=user->pm_buffer;
-  }else{
-    scroll=data->scroll;
-    buffer=data->buffer;
-  }
-  char bottom=autoscroll_before(scroll);
-  // Insert new content
-  GtkTextIter end;
-  gtk_text_buffer_get_end_iter(buffer, &end);
-  gtk_text_buffer_insert(buffer, &end, "\n", -1);
-  gtk_text_buffer_insert(buffer, &end, text, -1);
-  buffer_updatesize(buffer);
-  if(bottom){autoscroll_after(scroll);}
-}
-
-void printchat_color(const char* text, const char* color, unsigned int offset, const char* pm)
+void printchat(const char* text, const char* color, unsigned int offset, const char* pm)
 {
   GtkAdjustment* scroll;
   GtkTextBuffer* buffer;
@@ -129,7 +105,20 @@ void printchat_color(const char* text, const char* color, unsigned int offset, c
   gtk_text_buffer_get_end_iter(buffer, &end);
   gtk_text_buffer_insert(buffer, &end, "\n", -1);
   int startnum=gtk_text_iter_get_offset(&end);
-  gtk_text_buffer_insert(buffer, &end, text, -1);
+  // Insert links and regular text separately
+  const char* linktext=text;
+  const char* link;
+  while((link=strstr(linktext, "://")))
+  {
+    while(link>linktext && link[-1]!=' '){link=&link[-1];}
+    unsigned int linklen;
+    for(linklen=0; link[linklen] && link[linklen]!=' '; ++linklen);
+    if(linklen<6){continue;}
+    gtk_text_buffer_insert(buffer, &end, linktext, link-linktext);
+    gui_insert_link(buffer, &end, link, linklen);
+    linktext=&link[linklen];
+  }
+  gtk_text_buffer_insert(buffer, &end, linktext, -1);
   GtkTextIter start;
   // Set color if there was one
   if(color)
@@ -267,7 +256,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strncmp(buf, "Currently online: ", 18))
   {
-    printchat(buf, 0);
+    printchat(buf, 0, 0, 0);
     char* next=&buf[16];
     while(next)
     {
@@ -298,7 +287,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   // Start streams once we're properly connected
   if(!strncmp(buf, "Currently on cam: ", 18))
   {
-    printchat(buf, 0);
+    printchat(buf, 0, 0, 0);
     if(!config_get_bool("autoopencams") && config_get_set("autoopencams")){return 1;}
     char* next=&buf[16];
     while(next)
@@ -319,7 +308,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(buf[0]=='/') // For the /help text
   {
-    printchat(buf, 0);
+    printchat(buf, 0, 0, 0);
     return 1;
   }
   char* color=0;
@@ -427,7 +416,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     }
     if(config_get_bool("enable_logging")){logger_write(buf, channel, pm);}
     // Insert new content
-    printchat_color(buf, color, 8, pm);
+    printchat(buf, color, 8, pm);
     pm_highlight(pm);
     free(pm);
     if(space[-1]!=':') // Not a message
@@ -471,14 +460,14 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strcmp(buf, "Changed color") || !strncmp(buf, "Current color: ", 15))
   {
-    printchat_color(buf, color, 0, 0);
+    printchat(buf, color, 0, 0);
     free((void*)mycolor);
     mycolor=color;
     return 1;
   }
   if(!strncmp(buf, "Color ", 6))
   {
-    printchat_color(buf, color, 0, 0);
+    printchat(buf, color, 0, 0);
   }
   free(color);
   if(space && !strcmp(space, " is a moderator."))
@@ -502,7 +491,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   // Start a stream when someone cams up
   if(space && !strcmp(space, " cammed up"))
   {
-    printchat(buf, 0);
+    printchat(buf, 0, 0, 0);
     if(config_get_bool("autoopencams") || !config_get_set("autoopencams"))
     {
       space[0]=0;
@@ -561,12 +550,12 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(!strncmp(buf, "Room topic: ", 12) ||
      (space && (!strcmp(space, " is not logged in") || !strncmp(space, " is logged in as ", 17))))
   {
-    printchat(buf, 0);
+    printchat(buf, 0, 0, 0);
     return 1;
   }
   if(!strcmp(buf, "Server disconnected"))
   {
-    printchat(buf, 0);
+    printchat(buf, 0, 0, 0);
     if(camout_cam)
     {
       cam_close(camout_cam);
@@ -773,7 +762,7 @@ void sendmessage(GtkEntry* entry, void* x)
       if(!user)
       {
         gtk_entry_set_text(entry, "");
-        printchat("No such user", 0);
+        printchat("No such user", 0, 0, 0);
         free(pm);
         sendingmsg=0;
         return;
@@ -791,7 +780,7 @@ void sendmessage(GtkEntry* entry, void* x)
     sprintf(&text[8], "%s: %s", nickname, msg);
   }
   if(config_get_bool("enable_logging")){logger_write(text, channel, pm);}
-  printchat_color(text, mycolor, 8, pm);
+  printchat(text, mycolor, 8, pm);
   gtk_entry_set_text(entry, "");
   free(pm);
   sendingmsg=0;
@@ -989,6 +978,13 @@ int main(int argc, char** argv)
   userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));
   GtkWidget* chatview=GTK_WIDGET(gtk_builder_get_object(gui, "chatview"));
   data->scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(gtk_builder_get_object(gui, "chatscroll")));
+  // Set up handling of links in chat
+  g_signal_connect(chatview, "button-release-event", G_CALLBACK(gui_click_link), 0);
+  g_signal_connect(chatview, "button-press-event", G_CALLBACK(gui_rightclick_link), 0);
+  g_signal_connect(chatview, "motion-notify-event", G_CALLBACK(gui_hover_link), 0);
+  GdkDisplay* display=gtk_widget_get_display(chatview);
+  gui_cursor_text=gdk_cursor_new_from_name(display, "text");
+  gui_cursor_link=gdk_cursor_new_from_name(display, "pointer");
 
   data->buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(chatview));
   buffer_setup_colors(data->buffer);
@@ -1022,9 +1018,9 @@ int main(int argc, char** argv)
 
   // Start window and channel password window signals
   GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordbutton"));
-  g_signal_connect(button, "clicked", G_CALLBACK(startsession), (void*)-1); // &data);
+  g_signal_connect(button, "clicked", G_CALLBACK(startsession), (void*)-1);
   button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpassword"));
-  g_signal_connect(button, "activate", G_CALLBACK(startsession), (void*)-1); // &data);
+  g_signal_connect(button, "activate", G_CALLBACK(startsession), (void*)-1);
   GtkWidget* startwindow=GTK_WIDGET(gtk_builder_get_object(gui, "startwindow"));
   // Connect signal for quick connect
   item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_connect"));
@@ -1039,6 +1035,9 @@ int main(int argc, char** argv)
   g_signal_connect(item, "switch-page", G_CALLBACK(pm_select), 0);
   // Connect signal for captcha
   g_signal_connect(gtk_builder_get_object(gui, "captcha_done"), "clicked", G_CALLBACK(captcha_done), 0);
+  // Connect signals for link menus
+  g_signal_connect(gtk_builder_get_object(gui, "link_menu_open"), "activate", G_CALLBACK(gui_link_menu_open), 0);
+  g_signal_connect(gtk_builder_get_object(gui, "link_menu_copy"), "activate", G_CALLBACK(gui_link_menu_copy), 0);
   // Connect signals for camera postprocessing
   g_signal_connect(gtk_builder_get_object(gui, "cam_menu_colors"), "activate", G_CALLBACK(gui_show_camcolors), 0);
   g_signal_connect(gtk_builder_get_object(gui, "camcolors_min_brightness"), "value-changed", G_CALLBACK(camcolors_adjust_min), 0);

@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -48,5 +48,13 @@ extern void gui_hide_cam(GtkMenuItem* menuitem, void* x);
 extern void gui_set_greenscreen_img(GtkButton* button, void* x);
 extern void gui_set_greenscreen_color(GtkColorButton* button, void* x);
 extern void gui_set_greenscreen_tolerance(GtkAdjustment* adjustment, void* x);
+extern void gui_insert_link(GtkTextBuffer* buffer, GtkTextIter* iter, const char* url, int length);
+extern gboolean gui_click_link(GtkTextView* textview, GdkEventButton* event, void* data);
+extern gboolean gui_rightclick_link(GtkTextView* textview, GdkEventButton* event, void* data);
+extern gboolean gui_hover_link(GtkTextView* textview, GdkEventMotion* event, void* data);
+extern void gui_link_menu_open(GtkWidget* menuitem, void* x);
+extern void gui_link_menu_copy(GtkWidget* menuitem, void* x);
 
 extern GtkBuilder* gui;
+extern GdkCursor* gui_cursor_text;
+extern GdkCursor* gui_cursor_link;

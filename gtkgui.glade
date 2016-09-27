@@ -1535,4 +1535,24 @@
       </object>
     </child>
   </object>
+  <object class="GtkMenu" id="link_menu">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <child>
+      <object class="GtkMenuItem" id="link_menu_open">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Open Link</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="link_menu_copy">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">Copy Link</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
+  </object>
 </interface>
