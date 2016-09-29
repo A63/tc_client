@@ -1,6 +1,6 @@
 /*
     camviewer, a sample application to view tinychat cam streams
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -54,8 +54,7 @@ struct user* adduser(const char* nick)
   userlist[usercount-1].label=gtk_label_new(nick); // TODO: some kind of menubutton for actions?
   userlist[usercount-1].pm_tab=0;
   userlist[usercount-1].pm_tablabel=0;
-  userlist[usercount-1].pm_buffer=0;
-  userlist[usercount-1].pm_scroll=0;
+  userlist[usercount-1].pm_chatview=0;
   userlist[usercount-1].pm_highlight=0;
 #if GTK_MAJOR_VERSION>=3
   gtk_widget_set_halign(userlist[usercount-1].label, GTK_ALIGN_START);

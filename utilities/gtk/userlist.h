@@ -1,6 +1,6 @@
 /*
     camviewer, a sample application to view tinychat cam streams
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -18,12 +18,10 @@ struct user
 {
   char* nick;
   GtkWidget* label;
-//  unsigned int id; // hm, tc_client doesn't share IDs other than in guestnicks, this might be useful for a ban-after-they-left situation
   char ismod;
   GtkWidget* pm_tab;
   GtkWidget* pm_tablabel;
-  GtkTextBuffer* pm_buffer;
-  GtkAdjustment* pm_scroll;
+  struct chatview* pm_chatview;
   char pm_highlight;
 };
 

@@ -34,23 +34,6 @@ extern gboolean gui_greenscreen_preview(void* x);
 GdkCursor* gui_cursor_text;
 GdkCursor* gui_cursor_link;
 
-char autoscroll_before(GtkAdjustment* scroll)
-{
-  // Figure out if we're at the bottom and should autoscroll with new content
-  int upper=gtk_adjustment_get_upper(scroll);
-  int size=gtk_adjustment_get_page_size(scroll);
-  int value=gtk_adjustment_get_value(scroll);
-  return (value+size+20>=upper);
-}
-
-void autoscroll_after(GtkAdjustment* scroll)
-{
-  while(gtk_events_pending()){gtk_main_iteration();} // Make sure the textview's new size affects scroll's "upper" value first
-  int upper=gtk_adjustment_get_upper(scroll);
-  int size=gtk_adjustment_get_page_size(scroll);
-  gtk_adjustment_set_value(scroll, upper-size);
-}
-
 void settings_reset(GtkBuilder* gui)
 {
   // Font
@@ -336,56 +319,41 @@ void pm_close(GtkButton* btn, GtkWidget* tab)
   gtk_widget_destroy(tab);
   struct user* user=user_find_by_tab(tab);
   if(!user){return;}
+  free(user->pm_chatview);
   user->pm_tab=0;
   user->pm_tablabel=0;
-  user->pm_buffer=0;
-  user->pm_scroll=0;
+  user->pm_chatview=0;
   user->pm_highlight=0;
 }
 
-void pm_open(const char* nick, char select, GtkAdjustment* scroll)
+void pm_open(const char* nick, char select)
 {
   struct user* user=finduser(nick);
   if(!user){return;}
   GtkNotebook* tabs=GTK_NOTEBOOK(gtk_builder_get_object(gui, "tabs"));
-  if(user->pm_tab)
+  if(!user->pm_tab)
   {
-    if(!select){return;}
-    int num=gtk_notebook_page_num(tabs, user->pm_tab);
-    gtk_notebook_set_current_page(tabs, num);
-    return;
+    user->pm_chatview=chatview_new(0);
+    user->pm_tab=user->pm_chatview->scrolledwindow;
+    user->pm_tablabel=gtk_label_new(nick);
+    GtkWidget* tabbox=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    #if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<10)
+      GtkWidget* closebtn=gtk_button_new_from_icon_name("gtk-close", GTK_ICON_SIZE_BUTTON);
+    #else
+      GtkWidget* closebtn=gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_BUTTON);
+    #endif
+    g_signal_connect(closebtn, "clicked", G_CALLBACK(pm_close), user->pm_tab);
+    gtk_box_pack_start(GTK_BOX(tabbox), user->pm_tablabel, 1, 1, 0);
+    gtk_box_pack_start(GTK_BOX(tabbox), closebtn, 0, 0, 0);
+    gtk_notebook_append_page(tabs, user->pm_tab, tabbox);
+    gtk_widget_show_all(user->pm_tab);
+    gtk_widget_show_all(tabbox);
   }
-  char bottom=autoscroll_before(scroll); // If PM tabs (with close buttons) are taller we need to make sure pushing down the chat field doesn't make it stop scrolling
-  GtkWidget* textview=gtk_text_view_new();
-  g_signal_connect(textview, "button-release-event", G_CALLBACK(gui_click_link), 0);
-  g_signal_connect(textview, "button-press-event", G_CALLBACK(gui_rightclick_link), 0);
-  g_signal_connect(textview, "motion-notify-event", G_CALLBACK(gui_hover_link), 0);
-  user->pm_tab=gtk_scrolled_window_new(0, 0);
-  user->pm_buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
-  user->pm_scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(user->pm_tab));
-  user->pm_tablabel=gtk_label_new(nick);
-  buffer_setup_colors(user->pm_buffer);
-  gtk_container_add(GTK_CONTAINER(user->pm_tab), textview);
-  GtkWidget* tabbox=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-#if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<10)
-  GtkWidget* closebtn=gtk_button_new_from_icon_name("gtk-close", GTK_ICON_SIZE_BUTTON);
-#else
-  GtkWidget* closebtn=gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_BUTTON);
-#endif
-  g_signal_connect(closebtn, "clicked", G_CALLBACK(pm_close), user->pm_tab);
-  gtk_box_pack_start(GTK_BOX(tabbox), user->pm_tablabel, 1, 1, 0);
-  gtk_box_pack_start(GTK_BOX(tabbox), closebtn, 0, 0, 0);
-  int num=gtk_notebook_append_page(tabs, user->pm_tab, tabbox);
-  gtk_text_view_set_editable(GTK_TEXT_VIEW(textview), 0);
-  gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(textview), 0);
-  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(textview), GTK_WRAP_CHAR);
-  gtk_widget_show_all(user->pm_tab);
-  gtk_widget_show_all(tabbox);
   if(select)
   {
+    int num=gtk_notebook_page_num(tabs, user->pm_tab);
     gtk_notebook_set_current_page(tabs, num);
   }
-  if(bottom){autoscroll_after(scroll);}
 }
 
 void pm_highlight(const char* nick)
@@ -418,36 +386,6 @@ char pm_select(GtkNotebook* tabs, GtkWidget* tab, int num, void* x)
   return 0;
 }
 
-void buffer_setup_colors(GtkTextBuffer* buffer)
-{
-  #define colormap(code, color) gtk_text_buffer_create_tag(buffer, code, "foreground", color, (char*)0)
-  colormap("[31", "#821615");
-  colormap("[31;1", "#c53332");
-  colormap("[33", "#a08f23");
-  //colormap("[33", "#a78901");
-  colormap("[33;1", "#919104");
-  colormap("[32;1", "#7bb224");
-  //colormap("[32;1", "#7db257");
-  colormap("[32", "#487d21");
-  colormap("[36", "#00a990");
-  colormap("[34;1", "#32a5d9");
-  //colormap("[34;1", "#1d82eb");
-  colormap("[34", "#1965b6");
-  colormap("[35", "#5c1a7a");
-  colormap("[35;1", "#9d5bb5");
-  //colormap("[35;1", "#c356a3");
-  //colormap("[35;1", "#b9807f");
-  colormap("timestamp", "#808080");
-  gtk_text_buffer_create_tag(buffer, "nickname", "weight", PANGO_WEIGHT_BOLD, "weight-set", TRUE, (char*)0);
-  // Set size if it's set in config
-  if(config_get_set("fontsize"))
-  {
-    gtk_text_buffer_create_tag(buffer, "size", "size-points", config_get_double("fontsize"), "size-set", TRUE, (char*)0);
-  }else{
-    gtk_text_buffer_create_tag(buffer, "size", "size-set", FALSE, (char*)0);
-  }
-}
-
 void buffer_updatesize(GtkTextBuffer* buffer)
 {
   GtkTextIter start, end;
@@ -468,11 +406,12 @@ void fontsize_set(double size)
   unsigned int i;
   for(i=0; i<usercount; ++i)
   {
-    if(!userlist[i].pm_buffer){continue;}
-    table=gtk_text_buffer_get_tag_table(userlist[i].pm_buffer);
+    if(!userlist[i].pm_chatview){continue;}
+    buffer=gtk_text_view_get_buffer(userlist[i].pm_chatview->textview);
+    table=gtk_text_buffer_get_tag_table(buffer);
     tag=gtk_text_tag_table_lookup(table, "size");
     g_object_set(tag, "size-points", size, "size-set", TRUE, (char*)0);
-    buffer_updatesize(userlist[i].pm_buffer);
+    buffer_updatesize(buffer);
   }
 }
 
@@ -766,4 +705,69 @@ void gui_link_menu_copy(GtkWidget* menuitem, void* x)
   if(!gui_link_menu_url){return;}
   GtkClipboard* clipboard=gtk_clipboard_get_for_display(gtk_widget_get_display(menuitem), GDK_SELECTION_CLIPBOARD);
   gtk_clipboard_set_text(clipboard, gui_link_menu_url, -1);
+}
+
+void chatview_scrolled(GtkAdjustment* adj, struct chatview* cv)
+{
+  double value=gtk_adjustment_get_value(adj);
+  double upper=gtk_adjustment_get_upper(adj);
+  double pagesize=gtk_adjustment_get_page_size(adj);
+  char bottom=(value+pagesize>=upper);
+  // To keep smooth scrolling from messing up autoscroll,
+  // don't change state if we're already marked as being at the
+  // bottom and scrolling down.
+  if(bottom || value<cv->oldscrollposition)
+  {
+    cv->atbottom=bottom;
+    cv->oldscrollposition=value;
+  }
+}
+
+struct chatview* chatview_new(GtkTextView* existing_textview)
+{
+  struct chatview* this=malloc(sizeof(struct chatview));
+  if(existing_textview)
+  {
+    this->textview=existing_textview;
+    this->scrolledwindow=gtk_widget_get_parent(GTK_WIDGET(this->textview));
+  }else{
+    this->textview=GTK_TEXT_VIEW(gtk_text_view_new());
+    this->scrolledwindow=gtk_scrolled_window_new(0, 0);
+    gtk_container_add(GTK_CONTAINER(this->scrolledwindow), GTK_WIDGET(this->textview));
+  }
+  this->atbottom=1;
+  gtk_text_view_set_editable(this->textview, 0);
+  gtk_text_view_set_cursor_visible(this->textview, 0);
+  gtk_text_view_set_wrap_mode(this->textview, GTK_WRAP_CHAR);
+  GtkAdjustment* scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(this->scrolledwindow));
+  g_signal_connect(this->textview, "button-release-event", G_CALLBACK(gui_click_link), 0);
+  g_signal_connect(this->textview, "button-press-event", G_CALLBACK(gui_rightclick_link), 0);
+  g_signal_connect(this->textview, "motion-notify-event", G_CALLBACK(gui_hover_link), 0);
+  g_signal_connect(scroll, "value-changed", G_CALLBACK(chatview_scrolled), this);
+
+  // Set up the buffer
+  GtkTextBuffer* buffer=gtk_text_view_get_buffer(this->textview);
+  gtk_text_buffer_create_tag(buffer, "timestamp", "foreground", "#808080", (char*)0);
+  gtk_text_buffer_create_tag(buffer, "nickname", "weight", PANGO_WEIGHT_BOLD, "weight-set", TRUE, (char*)0);
+  // Set size if it's set in config
+  if(config_get_set("fontsize"))
+  {
+    gtk_text_buffer_create_tag(buffer, "size", "size-points", config_get_double("fontsize"), "size-set", TRUE, (char*)0);
+  }else{
+    gtk_text_buffer_create_tag(buffer, "size", "size-set", FALSE, (char*)0);
+  }
+  // And en 'end' mark for scrolling
+  GtkTextIter end;
+  gtk_text_buffer_get_end_iter(buffer, &end);
+  gtk_text_buffer_create_mark(buffer, "end", &end, 0);
+
+  return this;
+}
+
+void chatview_autoscroll(struct chatview* cv)
+{
+  if(!cv->atbottom){return;}
+  GtkTextBuffer* buffer=gtk_text_view_get_buffer(cv->textview);
+  GtkTextMark* mark=gtk_text_buffer_get_mark(buffer, "end");
+  gtk_text_view_scroll_to_mark(cv->textview, mark, 0, 0, 0, 0);
 }

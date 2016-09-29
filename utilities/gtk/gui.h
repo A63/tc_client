@@ -22,8 +22,15 @@ struct channelopts
   char save;
 };
 
-extern char autoscroll_before(GtkAdjustment* scroll);
-extern void autoscroll_after(GtkAdjustment* scroll);
+struct chatview
+{
+  GtkTextView* textview;
+  GtkWidget* scrolledwindow;
+  char atbottom; // If we're scrolled to the bottom we should stay at the bottom
+                 // unless the user scrolls up
+  double oldscrollposition; // To keep smooth scrolling from messing things up
+};
+
 extern void settings_reset(GtkBuilder* gui);
 extern void showsettings(GtkMenuItem* item, GtkBuilder* gui);
 extern void savesettings(GtkButton* button, GtkBuilder* gui);
@@ -32,10 +39,9 @@ extern void toggle_logging(GtkToggleButton* button, GtkBuilder* gui);
 extern void toggle_youtubecmd(GtkToggleButton* button, GtkBuilder* gui);
 extern void deletechannel(GtkButton* button, void* x);
 extern void channeldialog(GtkButton* button, struct channelopts* opts);
-extern void pm_open(const char* nick, char select, GtkAdjustment* scroll);
+extern void pm_open(const char* nick, char select);
 extern void pm_highlight(const char* nick);
 extern char pm_select(GtkNotebook* tabs, GtkWidget* tab, int num, void* x);
-extern void buffer_setup_colors(GtkTextBuffer* buffer);
 extern void buffer_updatesize(GtkTextBuffer* buffer);
 extern void fontsize_set(double size);
 extern gboolean gui_show_cam_menu(GtkWidget* widget, GdkEventButton* event, const char* id);
@@ -54,6 +60,8 @@ extern gboolean gui_rightclick_link(GtkTextView* textview, GdkEventButton* event
 extern gboolean gui_hover_link(GtkTextView* textview, GdkEventMotion* event, void* data);
 extern void gui_link_menu_open(GtkWidget* menuitem, void* x);
 extern void gui_link_menu_copy(GtkWidget* menuitem, void* x);
+extern struct chatview* chatview_new(GtkTextView* existing_textview);
+extern void chatview_autoscroll(struct chatview* cv);
 
 extern GtkBuilder* gui;
 extern GdkCursor* gui_cursor_text;

@@ -69,8 +69,6 @@ struct viddata
   int audiopipe;
   SwrContext* swrctx;
 #endif
-  GtkTextBuffer* buffer;
-  GtkAdjustment* scroll;
 };
 struct viddata* data;
 
@@ -80,6 +78,7 @@ const char* channel=0;
 const char* mycolor=0;
 char* nickname=0;
 char frombuild=0; // Running from the build directory
+struct chatview* mainchat;
 #define TC_CLIENT (frombuild?"./tc_client":"tc_client")
 #ifdef _WIN32
   PROCESS_INFORMATION coreprocess={.hProcess=0};
@@ -87,19 +86,16 @@ char frombuild=0; // Running from the build directory
 
 void printchat(const char* text, const char* color, unsigned int offset, const char* pm)
 {
-  GtkAdjustment* scroll;
-  GtkTextBuffer* buffer;
+  struct chatview* chatview;
   struct user* user;
   if(pm && (user=finduser(pm)))
   {
-    pm_open(pm, 0, data->scroll);
-    scroll=user->pm_scroll;
-    buffer=user->pm_buffer;
+    pm_open(pm, 0);
+    chatview=user->pm_chatview;
   }else{
-    scroll=data->scroll;
-    buffer=data->buffer;
+    chatview=mainchat;
   }
-  char bottom=autoscroll_before(scroll);
+  GtkTextBuffer* buffer=gtk_text_view_get_buffer(chatview->textview);
   // Insert new content
   GtkTextIter end;
   gtk_text_buffer_get_end_iter(buffer, &end);
@@ -146,7 +142,7 @@ void printchat(const char* text, const char* color, unsigned int offset, const c
     gtk_text_buffer_apply_tag_by_name(buffer, "nickname", &start, &end);
   }
   buffer_updatesize(buffer);
-  if(bottom){autoscroll_after(scroll);}
+  chatview_autoscroll(chatview);
 }
 
 unsigned int cameventsource=0;
@@ -615,24 +611,36 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 
 gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddata* data)
 {
-  char bottom=autoscroll_before(data->scroll);
   if(event->width!=gtk_widget_get_allocated_width(cambox))
   {
     updatescaling(event->width, 0, 0);
   }
-#ifndef _WIN32 // For some reason scrolling as a response to resizing freezes windows
-  if(bottom){autoscroll_after(data->scroll);}
-#endif
+  // Fix scrolling
+  chatview_autoscroll(mainchat);
+  unsigned int i;
+  for(i=0; i<usercount; ++i)
+  {
+    if(userlist[i].pm_chatview)
+    {
+      chatview_autoscroll(userlist[i].pm_chatview);
+    }
+  }
   return 0;
 }
 
 void handleresizepane(GObject* obj, GParamSpec* spec, struct viddata* data)
 {
-  char bottom=autoscroll_before(data->scroll);
   updatescaling(0, gtk_paned_get_position(GTK_PANED(obj)), 0);
-#ifndef _WIN32
-  if(bottom){autoscroll_after(data->scroll);}
-#endif
+  // Fix scrolling
+  chatview_autoscroll(mainchat);
+  unsigned int i;
+  for(i=0; i<usercount; ++i)
+  {
+    if(userlist[i].pm_chatview)
+    {
+      chatview_autoscroll(userlist[i].pm_chatview);
+    }
+  }
 }
 
 gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
@@ -702,7 +710,7 @@ void sendmessage(GtkEntry* entry, void* x)
   char* pm=0;
   if(!strncmp(msg, "/pm ", 4))
   {
-    pm_open(&msg[4], 1, data->scroll);
+    pm_open(&msg[4], 1);
     gtk_entry_set_text(entry, "");
     sendingmsg=0;
     return;
@@ -886,7 +894,7 @@ void captcha_done(GtkWidget* button, void* x)
 int main(int argc, char** argv)
 {
   if(!strncmp(argv[0], "./", 2)){frombuild=1;}
-  struct viddata datax={0,0,0,0,0};
+  struct viddata datax={0,0,0};
   data=&datax;
   avcodec_register_all();
   data->vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
@@ -977,17 +985,10 @@ int main(int argc, char** argv)
   cambox=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
   userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));
   GtkWidget* chatview=GTK_WIDGET(gtk_builder_get_object(gui, "chatview"));
-  data->scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(gtk_builder_get_object(gui, "chatscroll")));
-  // Set up handling of links in chat
-  g_signal_connect(chatview, "button-release-event", G_CALLBACK(gui_click_link), 0);
-  g_signal_connect(chatview, "button-press-event", G_CALLBACK(gui_rightclick_link), 0);
-  g_signal_connect(chatview, "motion-notify-event", G_CALLBACK(gui_hover_link), 0);
+  mainchat=chatview_new(GTK_TEXT_VIEW(chatview));
   GdkDisplay* display=gtk_widget_get_display(chatview);
   gui_cursor_text=gdk_cursor_new_from_name(display, "text");
   gui_cursor_link=gdk_cursor_new_from_name(display, "pointer");
-
-  data->buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(chatview));
-  buffer_setup_colors(data->buffer);
 
   GtkWidget* panes=GTK_WIDGET(gtk_builder_get_object(gui, "vpaned"));
   g_signal_connect(panes, "notify::position", G_CALLBACK(handleresizepane), data);
