@@ -27,6 +27,7 @@
   #include <sys/wait.h>
 #endif
 #include <ctype.h>
+#include <sys/stat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #if LIBAVUTIL_VERSION_MAJOR>50 || (LIBAVUTIL_VERSION_MAJOR==50 && LIBAVUTIL_VERSION_MINOR>37)
@@ -827,12 +828,15 @@ void startsession(GtkButton* button, void* x)
   if(!chanpass[0]){chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_password")));}
   const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")));
   const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")));
+  const char* cookiename=(acc_user[0]?acc_user:"no_account");
 #ifdef _WIN32
-  char cmd[strlen("./tc_client --hexcolors --cookies tinychat.cookie -u    0")+strlen(acc_user)+strlen(channel)+strlen(nick)+strlen(chanpass)];
+  char cmd[strlen("./tc_client --hexcolors --cookies tinychat_.cookie -u    0")+strlen(cookiename)+strlen(acc_user)+strlen(channel)+strlen(nick)+strlen(chanpass)];
   strcpy(cmd, "./tc_client --hexcolors ");
   if(config_get_bool("storecookies"))
   {
-    strcat(cmd, "--cookies tinychat.cookie ");
+    strcat(cmd, "--cookies tinychat_");
+    strcat(cmd, cookiename);
+    strcat(cmd, ".cookie ");
   }
   if(acc_user[0])
   {
@@ -860,8 +864,13 @@ void startsession(GtkButton* button, void* x)
     if(config_get_bool("storecookies"))
     {
       const char* home=getenv("HOME");
-      char filename[strlen(home)+strlen("/.tinychat.cookie0")];
-      sprintf(filename, "%s/.tinychat.cookie", home);
+
+      char filename[strlen(home)+strlen("/.config/tc_client-gtk.cookies/0")+strlen(cookiename)];
+      sprintf(filename, "%s/.config", home);
+      mkdir(filename, 0700);
+      sprintf(filename, "%s/.config/tc_client-gtk.cookies", home);
+      mkdir(filename, 0700);
+      sprintf(filename, "%s/.config/tc_client-gtk.cookies/%s", home, cookiename);
       if(acc_user[0])
       {
         execlp(TC_CLIENT, TC_CLIENT, "--hexcolors", "-u", acc_user, "--cookies", filename, channel, nick, chanpass, (char*)0);
