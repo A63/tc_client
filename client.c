@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2014-2016  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
     Copyright (C) 2015  Pamela Hiatt
 
@@ -861,6 +861,15 @@ int main(int argc, char** argv)
           printf("%s%s", (i==2?"":", "), nick);
           if(amf_comparestrings_c(&amfin->items[0].string, "registered"))
           {
+            // Tell the server how often to let us know it got our packets
+            struct rtmp setbw={
+              .type=RTMP_SERVER_BW,
+              .chunkid=2,
+              .length=4,
+              .msgid=0,
+              .buf="\x00\x00\x40\x00" // Every 0x4000 bytes
+            };
+            rtmp_send(sock, &setbw);
             char* key=getkey(id, channel);
             curl_easy_cleanup(curl); // At this point we should be done with HTTP requests
             curl=0;

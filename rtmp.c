@@ -39,7 +39,7 @@ unsigned int chunksize_in=128;
 int rtmplog=-1;
 #endif
 
-#define ackwindow 0x20200
+#define ackwindow (0x4000*2)
 uint32_t rtmpsent=0;
 uint32_t rtmpack=ackwindow;
 
@@ -209,7 +209,7 @@ void rtmp_send(int sock, struct rtmp* rtmp)
     if(len>128)
     {
       w=write(sock, pos, 128);
-      w+=write(sock, &basicheader, 1);
+      w+=rwrite(sock, &basicheader, 1);
       len-=128;
     }else{
       w=write(sock, pos, len);
