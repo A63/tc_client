@@ -146,6 +146,12 @@ void printchat(const char* text, const char* color, unsigned int offset, const c
   chatview_autoscroll(chatview);
 }
 
+void togglecam_cancel(void)
+{
+  GtkCheckMenuItem* item=GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
+  gtk_check_menu_item_set_active(item, 0);
+}
+
 unsigned int cameventsource=0;
 char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
@@ -544,6 +550,11 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     camera_remove(&buf[10], 0);
     return 1;
   }
+  if(!strcmp(buf, "Outgoing media stream was closed"))
+  {
+    togglecam_cancel();
+    return 1;
+  }
   if(!strncmp(buf, "Room topic: ", 12) ||
      (space && (!strcmp(space, " is not logged in") || !strncmp(space, " is logged in as ", 17))))
   {
@@ -586,12 +597,6 @@ void audiothread(int fd)
   ao_close(dev);
 }
 #endif
-
-void togglecam_cancel(void)
-{
-  GtkCheckMenuItem* item=GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
-  gtk_check_menu_item_set_active(item, 0);
-}
 
 void togglecam(GtkCheckMenuItem* item, struct viddata* data)
 {
