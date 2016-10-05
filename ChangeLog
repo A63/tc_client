@@ -1,6 +1,7 @@
 0.40:
 Moved the backward compatibility code for avcodec_{send,receive}_{frame,packet} into a separate source file to avoid pulling libavcodec into utilities that don't use it.
 Improved the RTMP acknowledgement code: counting the format 3 headers which were previously skipped, setting a more reasonable acknowledgement interval at startup and giving the server some margin before dropping outgoing video packets.
+Interpret the "from_owner" subcommand "_close" to tell if our media stream was closed.
 tc_client-gtk: merged camera_remove() and camera_removebynick() into a single function, merged the deallocation of camera data into camera_free()
 tc_client-gtk: moved the postprocessing code into its own source file.
 tc_client-gtk: added greenscreen postprocessor.

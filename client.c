@@ -962,7 +962,7 @@ int main(int argc, char** argv)
       close(sock);
       return 1; // Getting banned is a failure, right?
     }
-    // from_owner: notices
+    // from_owner: notices, mute, push2talk, closing cams
     else if(amfin->itemcount==3 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "from_owner") && amfin->items[2].type==AMF_STRING)
     {
       if(!strncmp("notice", amfin->items[2].string.string, 6))
@@ -978,15 +978,21 @@ int main(int argc, char** argv)
         printf("%s %s\n", timestamp(), notice);
         fflush(stdout);
       }
-      else if(!strncmp("mute", amfin->items[2].string.string, 4))
+      else if(!strcmp("mute", amfin->items[2].string.string))
       {
         printf("%s Non-moderators have been temporarily muted.\n", timestamp());
         fflush(stdout);
       }
-      else if(!strncmp("push2talk", amfin->items[2].string.string, 9))
+      else if(!strcmp("push2talk", amfin->items[2].string.string))
       {
         printf("%s Push to talk request has been sent to non-moderators.\n", timestamp());
         fflush(stdout);
+      }
+      else if(!strncmp("_close", amfin->items[2].string.string, 6) && !strcmp(&amfin->items[2].string.string[6], nickname))
+      {
+        printf("Outgoing media stream was closed\n");
+        fflush(stdout);
+        stream_stopvideo(sock, idlist_get(nickname));
       }
     }
     // nickinuse, the nick we wanted to change to is already taken
