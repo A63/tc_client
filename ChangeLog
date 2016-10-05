@@ -15,6 +15,7 @@ tc_client-gtk: reimplemented automatic scrolling using a state to keep track of 
 tc_client-gtk: when keeping HTTP cookies, use separate cookies per account and one for no account to avoid serverside issues.
 tc_client-gtk: stop trying to send video data if our media stream was closed.
 tc_client-gtk: added an option to pick the greenscreen "green" color from the camera.
+tc_client-gtk: added a compatibility macro for versions of gdk-pixbuf lacking gdk_pixbuf_read_pixels()
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 libcamera(v4l2): cache the frame and if there is no data to be read, return the cache instead of blocking.
 0.39:

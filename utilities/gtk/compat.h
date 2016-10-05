@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -83,4 +83,7 @@ extern SECURITY_ATTRIBUTES sa;
 #endif
 #if GTK_MAJOR_VERSION<3 || (GTK_MAJOR_VERSION==3 && GTK_MINOR_VERSION<16)
 extern void gtk_paned_set_wide_handle(void*, char);
+#endif
+#if GDK_PIXBUF_MAJOR<2 || (GDK_PIXBUF_MAJOR==2 && GDK_PIXBUF_MINOR<32)
+  #define gdk_pixbuf_read_pixels gdk_pixbuf_get_pixels
 #endif
