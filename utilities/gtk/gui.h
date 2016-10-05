@@ -53,6 +53,7 @@ extern void camcolors_toggle_flip(GtkToggleButton* button, void* vertical);
 extern void gui_hide_cam(GtkMenuItem* menuitem, void* x);
 extern void gui_set_greenscreen_img(GtkButton* button, void* x);
 extern void gui_set_greenscreen_color(GtkColorButton* button, void* x);
+extern void gui_set_greenscreen_color_cam(unsigned int x, unsigned int y, struct camera* cam);
 extern void gui_set_greenscreen_tolerance(GtkAdjustment* adjustment, void* x);
 extern void gui_insert_link(GtkTextBuffer* buffer, GtkTextIter* iter, const char* url, int length);
 extern gboolean gui_click_link(GtkTextView* textview, GdkEventButton* event, void* data);

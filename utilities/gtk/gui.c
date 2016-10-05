@@ -418,8 +418,13 @@ void fontsize_set(double size)
 const char* menu_context_cam=0;
 gboolean gui_show_cam_menu(GtkWidget* widget, GdkEventButton* event, const char* id)
 {
-  if(event->button!=3){return 0;} // Only act on right-click
   struct camera* cam=camera_find(id);
+  if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "greenscreen_eyedropper"))))
+  {
+    gui_set_greenscreen_color_cam(event->x, event->y, cam);
+    return 1;
+  }
+  if(event->button!=3){return 0;} // Only act on right-click
   free((void*)menu_context_cam);
   menu_context_cam=strdup(cam->id);
   GtkMenu* menu=GTK_MENU(gtk_builder_get_object(gui, "cam_menu"));
@@ -612,6 +617,23 @@ void gui_set_greenscreen_color(GtkColorButton* button, void* x)
   cam->postproc.greenscreen_color[1]=(color.green*255);
   cam->postproc.greenscreen_color[2]=(color.blue*255);
   rgb_to_hsv(cam->postproc.greenscreen_color[0], cam->postproc.greenscreen_color[1], cam->postproc.greenscreen_color[2], &cam->postproc.greenscreen_hsv[0], &cam->postproc.greenscreen_hsv[1], &cam->postproc.greenscreen_hsv[2]);
+}
+
+void gui_set_greenscreen_color_cam(unsigned int x, unsigned int y, struct camera* cam)
+{
+  GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
+  unsigned int rowstride=gdk_pixbuf_get_rowstride(pixbuf);
+  const guint8* pixels=gdk_pixbuf_read_pixels(pixbuf);
+  GdkRGBA color={
+    .red=(double)pixels[y*rowstride+x*3]/255,
+    .green=(double)pixels[y*rowstride+x*3+1]/255,
+    .blue=(double)pixels[y*rowstride+x*3+2]/255,
+    .alpha=1.0
+  };
+  GtkColorChooser* button=GTK_COLOR_CHOOSER(gtk_builder_get_object(gui, "greenscreen_colorpicker"));
+  gtk_color_chooser_set_rgba(button, &color);
+  gui_set_greenscreen_color(GTK_COLOR_BUTTON(button), 0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(gui, "greenscreen_eyedropper")), 0);
 }
 
 void gui_set_greenscreen_tolerance(GtkAdjustment* adjustment, void* x)
