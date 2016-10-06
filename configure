@@ -3,17 +3,14 @@
 
 host=''
 prefix=''
-enable_mic=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
   --host=*) host="`echo "$1" | sed -e 's/--host=//'`";;
   --prefix=*) prefix="`echo "$1" | sed -e 's/--prefix=//'`";;
-  --enable-mic) enable_mic=true;;
   *)
     echo 'Available options:'
     echo '--host=...    = Specify the host triplet to build for'
     echo '--prefix=...  = Specify the prefix to install to'
-    echo '--enable-mic  = Enable experimental mic support (incoming)'
     exit;;
   esac
   shift
@@ -187,14 +184,14 @@ else
   echo no
 fi
 
-# TODO: Figure out how to mix sound sources so that this doesn't sound horrible with more than one person on mic, having it disabled by default until then
-if "$enable_mic"; then
+haveresample=false
 printf 'Checking for libavresample... '
 avresamplelibs="`pkg-config --libs libavresample 2> /dev/null`"
 if [ "x$avresamplelibs" != "x" ]; then
   echo "AVRESAMPLE_LIBS=${avresamplelibs}" >> config.mk
   echo "AVRESAMPLE_CFLAGS=`pkg-config --cflags libavresample`" >> config.mk
   echo yes
+  haveresample=true
 else
   echo no
   printf 'Checking for libswresample... '
@@ -207,20 +204,22 @@ else
     echo '#define avresample_open swresample_open' >> config.h
     echo '#define avresample_free swresample_free' >> config.h
     echo yes
+    haveresample=true
   else
     echo no
   fi
 fi
 
-printf 'Checking for libao... '
-aolibs="`pkg-config --libs ao 2> /dev/null`"
-if [ "x$aolibs" != "x" ]; then
-  echo "AO_LIBS=${aolibs}" >> config.mk
-  echo "AO_CFLAGS=`pkg-config --cflags ao`" >> config.mk
-  echo yes
-else
-  echo no
-fi
+if "$haveresample"; then
+  printf 'Checking for libao... '
+  aolibs="`pkg-config --libs ao 2> /dev/null`"
+  if [ "x$aolibs" != "x" ]; then
+    echo "AO_LIBS=${aolibs}" >> config.mk
+    echo "AO_CFLAGS=`pkg-config --cflags ao`" >> config.mk
+    echo yes
+  else
+    echo no
+  fi
 fi
 
 printf 'Checking for ncurses... '

@@ -62,14 +62,7 @@ struct viddata
 {
   AVCodec* vdecoder;
   AVCodec* vencoder;
-  AVCodec* adecoder;
-#ifdef HAVE_AVRESAMPLE
   int audiopipe;
-  AVAudioResampleContext* resamplectx;
-#elif defined(HAVE_SWRESAMPLE)
-  int audiopipe;
-  SwrContext* swrctx;
-#endif
 };
 struct viddata* data;
 
@@ -240,20 +233,24 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
       g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
       pos+=r;
     }
-#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
+#ifdef HAVE_LIBAO
     // Find the camera representation for the given ID (for decoder context)
     struct camera* cam=camera_find(&buf[7]);
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
+    if(!cam->actx && camera_init_audio(cam, frameinfo)){return 1;}
     int gotframe;
     avcodec_send_packet(cam->actx, &pkt);
     gotframe=avcodec_receive_frame(cam->actx, cam->frame);
     if(gotframe){return 1;}
+    unsigned int samplecount=cam->frame->nb_samples*SAMPLERATE_OUT/cam->samplerate;
+    int16_t outbuf[samplecount];
+    void* outdata[]={outbuf, 0};
   #ifdef HAVE_AVRESAMPLE
-    int outlen=avresample_convert(data->resamplectx, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
+    int outlen=avresample_convert(cam->resamplectx, (void*)outdata, samplecount*sizeof(uint8_t), samplecount, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
   #else
-    int outlen=swr_convert(data->swrctx, cam->frame->data, cam->frame->nb_samples, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+    int outlen=swr_convert(cam->swrctx, (void*)outdata, samplecount, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
   #endif
-    if(outlen>0){camera_playsnd(data->audiopipe, cam, (short*)cam->frame->data[0], outlen);}
+    if(outlen>0){camera_playsnd(data->audiopipe, cam, outbuf, outlen);}
 #endif
     return 1;
   }
@@ -516,11 +513,6 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
     struct camera* cam=camera_new(nick, id);
     cam->vctx=avcodec_alloc_context3(data->vdecoder);
     avcodec_open2(cam->vctx, data->vdecoder, 0);
-#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-    cam->actx=avcodec_alloc_context3(data->adecoder);
-    avcodec_open2(cam->actx, data->adecoder, 0);
-    cam->samples=0;
-#endif
     updatescaling(0, 0, 1);
     gtk_widget_show_all(cam->box);
     return 1;
@@ -576,17 +568,18 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   return 1;
 }
 
-#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-void audiothread(int fd)
+#ifdef HAVE_LIBAO
+void* audiothread(void* fdp)
 {
+  int fd=*(int*)fdp;
   ao_initialize();
   ao_sample_format samplefmt;
   samplefmt.bits=16;
-  samplefmt.rate=22050;
+  samplefmt.rate=SAMPLERATE_OUT;
   samplefmt.channels=1;
   samplefmt.byte_format=AO_FMT_NATIVE; // I'm guessing libavcodec decodes it to native
   samplefmt.matrix=0;
-  ao_option clientname={.key="client_name", .value="tc_client/camviewer", .next=0};
+  ao_option clientname={.key="client_name", .value="tc_client-gtk", .next=0};
   ao_device* dev=ao_open_live(ao_default_driver_id(), &samplefmt, &clientname);
   char buf[2048];
   size_t len;
@@ -595,6 +588,7 @@ void audiothread(int fd)
     ao_play(dev, buf, len);
   }
   ao_close(dev);
+  return 0;
 }
 #endif
 
@@ -912,7 +906,6 @@ int main(int argc, char** argv)
   data=&datax;
   avcodec_register_all();
   data->vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
-  data->adecoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER);
 #ifndef _WIN32
   signal(SIGCHLD, SIG_IGN);
 #else
@@ -920,32 +913,11 @@ int main(int argc, char** argv)
 #endif
   config_load();
 
-#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-  #ifdef HAVE_AVRESAMPLE
-  data->resamplectx=avresample_alloc_context();
-  av_opt_set_int(data->resamplectx, "in_channel_layout", AV_CH_FRONT_CENTER, 0);
-  av_opt_set_int(data->resamplectx, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
-  // TODO: any way to get the sample rate from the frame/decoder? cam->frame->sample_rate seems to be 0
-  av_opt_set_int(data->resamplectx, "in_sample_rate", 11025, 0);
-  av_opt_set_int(data->resamplectx, "out_channel_layout", AV_CH_FRONT_CENTER, 0);
-  av_opt_set_int(data->resamplectx, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
-  av_opt_set_int(data->resamplectx, "out_sample_rate", 22050, 0);
-  avresample_open(data->resamplectx);
-  #else
-  data->swrctx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, 22050, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, 11025, 0, 0);
-  swr_init(data->swrctx);
-  #endif
+#ifdef HAVE_LIBAO
   int audiopipe[2];
   pipe(audiopipe);
   data->audiopipe=audiopipe[1];
-  if(!fork())
-  {
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
-    close(audiopipe[1]);
-    audiothread(audiopipe[0]);
-    _exit(0);
-  }
-  close(audiopipe[0]);
+  g_thread_new("audio", audiothread, audiopipe);
 #endif
 
   gtk_init(&argc, &argv);
@@ -1114,10 +1086,5 @@ int main(int argc, char** argv)
   }
 #endif
   camera_cleanup();
-#ifdef HAVE_AVRESAMPLE
-  avresample_free(&data->resamplectx);
-#elif defined(HAVE_SWRESAMPLE)
-  swr_free(&data->swrctx);
-#endif
   return 0;
 }

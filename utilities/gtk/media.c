@@ -87,7 +87,15 @@ void camera_free(struct camera* cam)
   av_frame_free(&cam->frame);
   avcodec_free_context(&cam->vctx);
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-  avcodec_free_context(&cam->actx);
+  if(cam->actx)
+  {
+    avcodec_free_context(&cam->actx);
+    #ifdef HAVE_AVRESAMPLE
+      avresample_free(&cam->resamplectx);
+    #else
+      swr_free(&cam->swrctx);
+    #endif
+  }
 #endif
   free(cam->id);
   free(cam->nick);
@@ -138,6 +146,7 @@ struct camera* camera_new(const char* nick, const char* id)
   cams=realloc(cams, sizeof(struct camera)*camcount);
   struct camera* cam=&cams[camcount-1];
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
+  cam->actx=0;
   cam->samples=0;
   cam->samplecount=0;
 #endif
@@ -161,6 +170,46 @@ struct camera* camera_new(const char* nick, const char* id)
   postproc_init(&cam->postproc);
   return cam;
 }
+
+#ifdef HAVE_LIBAO
+char camera_init_audio(struct camera* cam, uint8_t frameinfo)
+{
+  switch((frameinfo&0xc)/0x4)
+  {
+    case 0: cam->samplerate=5500; break;
+    case 1: cam->samplerate=11025; break;
+    case 2: cam->samplerate=22050; break;
+    case 3: cam->samplerate=44100; break;
+  }
+  AVCodec* decoder=0;
+  switch(frameinfo/0x10)
+  {
+    case 0x4: cam->samplerate=16000; decoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER); break;
+    case 0x5: cam->samplerate=8000;
+    case 0x6: decoder=avcodec_find_decoder(AV_CODEC_ID_NELLYMOSER); break;
+    case 0xb: decoder=avcodec_find_decoder(AV_CODEC_ID_SPEEX); break;
+    default:
+      printf("Unknown audio codec ID 0x%hhx\n", frameinfo/0x10);
+      return 1;
+  }
+  cam->actx=avcodec_alloc_context3(decoder);
+  avcodec_open2(cam->actx, decoder, 0);
+  #ifdef HAVE_AVRESAMPLE
+    cam->resamplectx=avresample_alloc_context();
+    av_opt_set_int(cam->resamplectx, "in_channel_layout", AV_CH_FRONT_CENTER, 0);
+    av_opt_set_int(cam->resamplectx, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
+    av_opt_set_int(cam->resamplectx, "in_sample_rate", cam->samplerate, 0);
+    av_opt_set_int(cam->resamplectx, "out_channel_layout", AV_CH_FRONT_CENTER, 0);
+    av_opt_set_int(cam->resamplectx, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+    av_opt_set_int(cam->resamplectx, "out_sample_rate", SAMPLERATE_OUT, 0);
+    avresample_open(cam->resamplectx);
+  #else
+    cam->swrctx=swr_alloc_set_opts(0, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_S16, SAMPLERATE_OUT, AV_CH_FRONT_CENTER, AV_SAMPLE_FMT_FLT, cam->samplerate, 0, 0);
+    swr_init(cam->swrctx);
+  #endif
+  return 0;
+}
+#endif
 
 void camera_cleanup(void)
 {

@@ -30,12 +30,12 @@ ifdef SWSCALE_LIBS
   INSTALLDEPS+=tc_client-gtk gtkgui.glade
   ifdef AO_LIBS
     ifdef AVRESAMPLE_LIBS
-      CONFINFO+=|  Will enable experimental mic support
-      CFLAGS+=-DHAVE_AVRESAMPLE=1 $(AVRESAMPLE_CFLAGS) $(AO_CFLAGS)
+      CONFINFO+=|  Will enable (incoming) mic support
+      CFLAGS+=-DHAVE_LIBAO=1 -DHAVE_AVRESAMPLE=1 $(AVRESAMPLE_CFLAGS) $(AO_CFLAGS)
     endif
     ifdef SWRESAMPLE_LIBS
-      CONFINFO+=|  Will enable experimental mic support
-      CFLAGS+=-DHAVE_SWRESAMPLE=1 $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
+      CONFINFO+=|  Will enable (incoming) mic support
+      CFLAGS+=-DHAVE_LIBAO=1 -DHAVE_SWRESAMPLE=1 $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
     endif
   endif
   ifneq ($(findstring MINGW,$(shell uname -s)),)
