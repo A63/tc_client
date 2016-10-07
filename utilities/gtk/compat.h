@@ -72,6 +72,7 @@ extern SECURITY_ATTRIBUTES sa;
     (c)->blue=(double)gdkc.blue/65535;\
   }
   #define GTK_COLOR_CHOOSER GTK_COLOR_BUTTON
+  #define GtkColorChooser GtkColorButton
   extern GtkWidget* gtk_box_new(int vertical, int spacing);
   extern int gtk_widget_get_allocated_width(GtkWidget* widget);
   extern int gtk_widget_get_allocated_height(GtkWidget* widget);

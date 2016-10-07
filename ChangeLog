@@ -17,6 +17,7 @@ tc_client-gtk: stop trying to send video data if our media stream was closed.
 tc_client-gtk: added an option to pick the greenscreen "green" color from the camera.
 tc_client-gtk: added a compatibility macro for versions of gdk-pixbuf lacking gdk_pixbuf_read_pixels()
 tc_client-gtk: fixed resampling of incoming audio.
+tc_client-gtk: added GTK+2 compatibility code related to the greenscreen camera color picker.
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 libcamera(v4l2): cache the frame and if there is no data to be read, return the cache instead of blocking.
 testbuilds.sh: adjusted for configure no longer accepting --enable-mic (since it's no longer experimental)
