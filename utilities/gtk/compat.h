@@ -49,6 +49,13 @@ extern SECURITY_ATTRIBUTES sa;
     if(pipeout){startup.hStdOutput=h_pipe_out1;} \
     CreateProcess(0, cmd, 0, 0, 1, DETACHED_PROCESS, 0, 0, &startup, &procinfo); \
   }
+#define pipe(fds) \
+  { \
+    HANDLE pipe0, pipe1; \
+    CreatePipe(&pipe0, &pipe1, &sa, 0); \
+    fds[0]=_open_osfhandle(pipe0, _O_RDONLY); \
+    fds[1]=_open_osfhandle(pipe1, _O_WRONLY); \
+  }
 #endif
 #if GTK_MAJOR_VERSION<3
   #define GTK_ORIENTATION_HORIZONTAL 0
