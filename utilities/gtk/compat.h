@@ -56,6 +56,7 @@ extern SECURITY_ATTRIBUTES sa;
     fds[0]=_open_osfhandle(pipe0, _O_RDONLY); \
     fds[1]=_open_osfhandle(pipe1, _O_WRONLY); \
   }
+  #define ao_open_live(id, samplefmt, options) ao_open_live(id, samplefmt, 0)
 #endif
 #if GTK_MAJOR_VERSION<3
   #define GTK_ORIENTATION_HORIZONTAL 0
