@@ -72,6 +72,11 @@ ifdef SWSCALE_LIBS
   else
     CONFINFO+=|  v4l2 camera support will not be enabled
   endif
+  ifdef LIBX11_LIBS
+    CONFINFO+=|  Will enable X11 virtual camera support
+    CFLAGS+=-DHAVE_X11 $(LIBX11_CFLAGS)
+    LIBCAMERA_OBJ+=utilities/libcamera/camera_x11.o
+  endif
 endif
 endif
 endif
@@ -107,13 +112,13 @@ modbot: $(MODBOT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(CURL_LIBS) -o $@
 
 camviewer: $(CAMVIEWER_OBJ)
-	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
+	$(CC) $(LDFLAGS) $^ $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) $(LIBX11_LIBS) -o $@
 
 cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
 
 tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif
-	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) -o $@
+	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) $(LIBX11_LIBS) -o $@
 
 camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 	utilities/gtk/gencamplaceholder.sh
@@ -133,7 +138,7 @@ SOURCES+=utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utiliti
 SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/config.c utilities/gtk/gui.c utilities/gtk/logging.c utilities/gtk/postproc.c utilities/gtk/inputhistory.c utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/gtk/config.h utilities/gtk/gui.h utilities/gtk/logging.h utilities/gtk/postproc.h utilities/gtk/inputhistory.h gtkgui.glade
 SOURCES+=utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 SOURCES+=utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h utilities/stringutils.c utilities/stringutils.h utilities/compat_av.c utilities/compat_av.h
-SOURCES+=utilities/libcamera/camera.c utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c utilities/libcamera/camera_v4l2.h utilities/libcamera/camera_img.c utilities/libcamera/camera_img.h utilities/libcamera/camera_escapi.cpp utilities/libcamera/camera_escapi.h
+SOURCES+=utilities/libcamera/camera.c utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c utilities/libcamera/camera_v4l2.h utilities/libcamera/camera_img.c utilities/libcamera/camera_img.h utilities/libcamera/camera_escapi.cpp utilities/libcamera/camera_escapi.h utilities/libcamera/camera_x11.c utilities/libcamera/camera_x11.h
 tarball:
 	tar -cJf tc_client-$(VERSION).tar.xz --transform='s|^|tc_client-$(VERSION)/|' $(SOURCES)
 

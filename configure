@@ -252,6 +252,16 @@ else
   echo no
 fi
 
+printf 'Checking for X11... '
+x11libs="`pkg-config --libs x11 2> /dev/null`"
+if [ "x$x11libs" != "x" ]; then
+  echo "LIBX11_LIBS=${x11libs}" >> config.mk
+  echo "LIBX11_CFLAGS=`pkg-config --cflags x11`" >> config.mk
+  echo yes
+else
+  echo no
+fi
+
 # TODO: handle crosscompiling better
 printf 'Checking if endianness macros work... '
 echo '#include <stdio.h>' > endiantest.c

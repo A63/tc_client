@@ -1,6 +1,6 @@
 /*
     libcamera, a camera access abstraction library
-    Copyright (C) 2015-2016  alicia@ion.nu
+    Copyright (C) 2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -14,21 +14,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef CAMERA_H
-#define CAMERA_H
-enum{
-  CAMTYPE_V4L2,
-  CAMTYPE_ESCAPI,
-  CAMTYPE_IMG,
-  CAMTYPE_X11
-};
-struct CAM_t;
-typedef struct CAM_t CAM;
-extern char** cam_list(unsigned int* count);
-extern CAM* cam_open(const char* name);
-// Note: cam_resolution both tries to set the resolution and gets what it set it to
-extern void cam_resolution(CAM* cam, unsigned int* width, unsigned int* height);
-extern void cam_getframe(CAM* cam, void* pixmap);
-extern void cam_close(CAM* cam);
-extern const char*(*cam_img_filepicker)(void);
-#endif
+extern char** cam_list_x11(char** list, unsigned int* count);
+extern CAM* cam_open_x11(void);
+extern void cam_resolution_x11(CAM* cam, unsigned int* width, unsigned int* height);
+extern void cam_getframe_x11(CAM* cam, void* pixmap);
+extern void cam_close_x11(CAM* cam);
