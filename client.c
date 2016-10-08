@@ -881,15 +881,16 @@ int main(int argc, char** argv)
             amfstring(&amf, key);
             amfsend(&amf, sock);
             free(key);
-            if(nickname[0]) // Empty = don't set one
-            {
-              amfinit(&amf, 3);
-              amfstring(&amf, "nick");
-              amfnum(&amf, 0);
-              amfnull(&amf);
-              amfstring(&amf, nickname);
-              amfsend(&amf, sock);
-            }
+            // Set the given nickname
+            amfinit(&amf, 3);
+            amfstring(&amf, "nick");
+            amfnum(&amf, 0);
+            amfnull(&amf);
+            amfstring(&amf, nickname);
+            amfsend(&amf, sock);
+            // Keep what the server gave us, just in case
+            free(nickname);
+            nickname=strdup(nick);
           }
         }
       }
