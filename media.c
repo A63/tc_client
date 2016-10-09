@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -134,7 +134,7 @@ void stream_handlestatus(struct amf* amf, int sock)
   }
 }
 
-void stream_sendvideo(int sock, void* buf, size_t len)
+void stream_sendframe(int sock, void* buf, size_t len, unsigned char type)
 {
   unsigned int i;
   for(i=0; i<streamcount; ++i)
@@ -142,7 +142,7 @@ void stream_sendvideo(int sock, void* buf, size_t len)
     if(streams[i].outgoing)
     {
       struct rtmp msg;
-      msg.type=RTMP_VIDEO;
+      msg.type=type;
       msg.chunkid=6;
       msg.length=len;
       msg.msgid=streams[i].streamid;

@@ -518,6 +518,7 @@ int main(int argc, char** argv)
                  "/camup          = open an audio/video stream for broadcasting your video\n"
                  "/camdown        = close the broadcasting stream\n"
                  "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n"
+                 "/audio <length> = send a <length> bytes long encoded frame, send the frame data after this line\n"
                  "/topic <topic>  = set the channel topic\n"
                  "/whois <nick/ID> = check a user's username\n");
           fflush(stdout);
@@ -691,10 +692,18 @@ int main(int argc, char** argv)
         }
         else if(!strncmp(buf, "/video ", 7)) // Send video data
         {
-          size_t len=strtoul(&buf[7],0,10);
+          size_t len=strtoul(&buf[7],0,0);
           char buf[len];
           fullread(0, buf, len);
-          stream_sendvideo(sock, buf, len);
+          stream_sendframe(sock, buf, len, RTMP_VIDEO);
+          continue;
+        }
+        else if(!strncmp(buf, "/audio ", 7)) // Send audio data
+        {
+          size_t len=strtoul(&buf[7],0,0);
+          char buf[len];
+          fullread(0, buf, len);
+          stream_sendframe(sock, buf, len, RTMP_AUDIO);
           continue;
         }
         else if(!strncmp(buf, "/topic ", 7))

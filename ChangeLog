@@ -3,6 +3,7 @@ Moved the backward compatibility code for avcodec_{send,receive}_{frame,packet} 
 Improved the RTMP acknowledgement code: counting the format 3 headers which were previously skipped, setting a more reasonable acknowledgement interval at startup and giving the server some margin before dropping outgoing video packets.
 Interpret the "from_owner" subcommand "_close" to tell if our media stream was closed.
 Fixed a bug that caused tc_client to not know the nickname if the chosen one wasn't available at startup, manifesting as broadcasting not working unless the initial nickname was free.
+Added support for sending audio packets with "/audio <length>", followed by the binary data.
 tc_client-gtk: merged camera_remove() and camera_removebynick() into a single function, merged the deallocation of camera data into camera_free()
 tc_client-gtk: moved the postprocessing code into its own source file.
 tc_client-gtk: added greenscreen postprocessor.
