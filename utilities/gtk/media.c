@@ -24,6 +24,9 @@
 #else
   #include <libavcore/imgutils.h>
 #endif
+#ifdef HAVE_PULSEAUDIO
+  #include <pulse/simple.h>
+#endif
 #include "../libcamera/camera.h"
 #include "compat.h"
 #include "../compat.h"
@@ -49,6 +52,10 @@ unsigned int camrowcount=0;
 GdkPixbufAnimation* camplaceholder=0;
 GdkPixbufAnimationIter* camplaceholder_iter=0;
 CAM* camout_cam=0;
+#ifdef HAVE_PULSEAUDIO
+char pushtotalk_enabled=0;
+char pushtotalk_pushed=0;
+#endif
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 // Experimental mixer, not sure if it really works
@@ -226,7 +233,10 @@ void freebuffer(guchar* pixels, gpointer data){free(pixels);}
 unsigned int camout_delay;
 void startcamout(CAM* cam)
 {
-  dprintf(tc_client_in[1], "/camup\n");
+  if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_mic"))))
+  { // Only /camup if we're not already broadcasting mic
+    dprintf(tc_client_in[1], "/camup\n");
+  }
   camout_cam=cam;
   camout_delay=500;
   camsize_out.width=320;
@@ -523,3 +533,82 @@ GdkPixbuf* scaled_gdk_pixbuf_from_cam(CAM* cam, unsigned int width, unsigned int
   }
   return gdkframe;
 }
+
+#ifdef HAVE_PULSEAUDIO
+void* audiothread_in(void* fdp)
+{
+  int fd=*(int*)fdp;
+  pa_simple* pulse;
+  pa_sample_spec pulsespec;
+  pulsespec.format=PA_SAMPLE_FLOAT32;
+  pulsespec.channels=1;
+  pulsespec.rate=44100;
+  pulse=pa_simple_new(0, "tc_client-gtk", PA_STREAM_RECORD, 0, "mic", &pulsespec, 0, 0, 0);
+  char buf[1024];
+  // Just read/listen and write to the main thread until either reading/listening or writing fails
+  while(1)
+  {
+    if(pa_simple_read(pulse, buf, 1024, 0)<0){break;}
+    if(write(fd, buf, 1024)<1024){break;}
+  }
+  pa_simple_free(pulse);
+  close(fd);
+  return 0;
+}
+
+gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
+{
+  static AVFrame* micframe=0;
+  static AVCodecContext* avctx=0;
+  if(!micframe)
+  {
+    micframe=av_frame_alloc();
+    micframe->format=AV_SAMPLE_FMT_FLT;
+    micframe->sample_rate=44100;
+    unsigned int i;
+    for(i=0; i<AV_NUM_DATA_POINTERS; ++i)
+    {
+      micframe->data[i]=0;
+      micframe->linesize[i]=0;
+    }
+    AVCodec* encoder=avcodec_find_encoder(AV_CODEC_ID_NELLYMOSER);
+    avctx=avcodec_alloc_context3(encoder);
+    avctx->sample_fmt=AV_SAMPLE_FMT_FLT;
+    avctx->sample_rate=44100;
+    avctx->channels=1;
+    avctx->time_base.num=1;
+    avctx->time_base.den=10;
+    avcodec_open2(avctx, encoder, 0);
+  }
+  // Read up to 1024 bytes (256 samples) and start encoding
+  unsigned char buf[1024];
+  gsize r;
+  int status=g_io_channel_read_chars(iochannel, (char*)buf, 1024, &r, 0);
+  if(status!=G_IO_STATUS_NORMAL){return 0;}
+  // If push-to-talk is enabled but not pushed, return as soon as we've consumed the incoming data
+  if(pushtotalk_enabled && !pushtotalk_pushed){return 1;}
+  micframe->nb_samples=r/4; // 32bit floats
+  micframe->data[0]=buf;
+  micframe->linesize[0]=r;
+  AVPacket packet={
+#ifdef AVPACKET_HAS_BUF
+    .buf=0,
+#endif
+    .data=0,
+    .size=0,
+    .dts=AV_NOPTS_VALUE,
+    .pts=AV_NOPTS_VALUE
+  };
+  av_init_packet(&packet);
+  avcodec_send_frame(avctx, micframe);
+  if(avcodec_receive_packet(avctx, &packet)){return 1;}
+  unsigned char frameinfo=0x6c; // 6=Nellymoser, 3<<2=44100 samplerate
+  // Send audio
+  dprintf(tc_client_in[1], "/audio %i\n", packet.size+1);
+  write(tc_client_in[1], &frameinfo, 1);
+  write(tc_client_in[1], packet.data, packet.size);
+
+  av_packet_unref(&packet);
+  return 1;
+}
+#endif

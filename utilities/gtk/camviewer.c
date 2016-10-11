@@ -145,6 +145,12 @@ void togglecam_cancel(void)
   gtk_check_menu_item_set_active(item, 0);
 }
 
+void stopbroadcasting(GtkMenuItem* x, void* y)
+{
+  gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera")), 0);
+  gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_mic")), 0);
+}
+
 unsigned int cameventsource=0;
 char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
@@ -425,7 +431,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
       {
         if(config_get_bool("camdownonjoin"))
         {
-          gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera")), 0);
+          stopbroadcasting(0, 0);
         }
         space[0]=0;
         adduser(nick);
@@ -544,7 +550,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer data
   }
   if(!strcmp(buf, "Outgoing media stream was closed"))
   {
-    togglecam_cancel();
+    stopbroadcasting(0, 0);
     return 1;
   }
   if(!strncmp(buf, "Room topic: ", 12) ||
@@ -592,13 +598,15 @@ void* audiothread(void* fdp)
 }
 #endif
 
-void togglecam(GtkCheckMenuItem* item, struct viddata* data)
+void togglecam(GtkCheckMenuItem* item, void* x)
 {
   if(!gtk_check_menu_item_get_active(item))
   {
     if(!camout_cam){return;}
     cam_close(camout_cam);
     camout_cam=0;
+    if(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_mic")))){return;}
+    // TODO: if switching from cam+mic to just mic, send something to tell other clients to drop the last video frame and show a mic instead
     if(camera_find("out"))
     {
       dprintf(tc_client_in[1], "/camdown\n");
@@ -608,6 +616,62 @@ void togglecam(GtkCheckMenuItem* item, struct viddata* data)
   }
   camselect_open(startcamout, togglecam_cancel);
 }
+
+#ifdef HAVE_PULSEAUDIO
+void togglemic(GtkCheckMenuItem* item, void* x)
+{
+  static int micpipe[2];
+  static int eventsource=0;
+  if(!gtk_check_menu_item_get_active(item)) // Stop mic broadcast
+  {
+    gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk")));
+    pushtotalk_enabled=0;
+    if(!eventsource){return;}
+    close(micpipe[0]);
+    close(micpipe[1]);
+    g_source_remove(eventsource);
+    eventsource=0;
+    if(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera")))){return;}
+    if(camera_find("out"))
+    {
+      dprintf(tc_client_in[1], "/camdown\n");
+      camera_remove("out", 0); // Close our local display
+    }
+    return;
+  }
+  // Choose between push-to-talk and open mic
+  int choice=gtk_dialog_run(GTK_DIALOG(gtk_builder_get_object(gui, "pushtotalkdialog")));
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalkdialog")));
+  if(choice==GTK_RESPONSE_DELETE_EVENT)
+  {
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_mic")), 0);
+    return;
+  }
+  if(choice) // 1=push-to-talk, 0=open mic
+  {
+    gtk_widget_show(GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk")));
+    pushtotalk_enabled=1;
+    pushtotalk_pushed=0;
+  }
+  // Start mic broadcast
+  if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera"))))
+  { // Only /camup if we're not already broadcasting video
+    dprintf(tc_client_in[1], "/camup\n");
+  }
+  pipe(micpipe);
+  g_thread_new("audio_in", audiothread_in, &micpipe[1]);
+  // Attach micpipe[0] to mic_encode()
+  GIOChannel* channel=g_io_channel_unix_new(micpipe[0]);
+  g_io_channel_set_encoding(channel, 0, 0);
+  eventsource=g_io_add_watch(channel, G_IO_IN, mic_encode, 0);
+}
+
+gboolean mic_pushtotalk(GtkWidget* button, GdkEvent* event, void* pushed)
+{
+  pushtotalk_pushed=!!pushed;
+  return 0;
+}
+#endif
 
 gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddata* data)
 {
@@ -821,6 +885,7 @@ void startsession(GtkButton* button, void* x)
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "channelconfig")));
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordwindow")));
   gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk")));
   const char* nick=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_nick")));
   channel=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_channel")));
   const char* chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "channelpassword")));
@@ -895,7 +960,7 @@ void startsession(GtkButton* button, void* x)
 void captcha_done(GtkWidget* button, void* x)
 {
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "captcha")));
-  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
+  gtk_widget_show(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
   write(tc_client_in[1], "\n", 1);
 }
 
@@ -931,7 +996,18 @@ int main(int argc, char** argv)
 
   unsigned int i;
   GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
-  g_signal_connect(item, "toggled", G_CALLBACK(togglecam), data);
+  g_signal_connect(item, "toggled", G_CALLBACK(togglecam), 0);
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_mic"));
+  #ifdef HAVE_PULSEAUDIO
+  g_signal_connect(item, "toggled", G_CALLBACK(togglemic), 0);
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk"));
+  g_signal_connect(item, "button-press-event", G_CALLBACK(mic_pushtotalk), (void*)1);
+  g_signal_connect(item, "button-release-event", G_CALLBACK(mic_pushtotalk), 0);
+  #else
+  gtk_widget_destroy(item);
+  #endif
+  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_stop"));
+  g_signal_connect(item, "activate", G_CALLBACK(stopbroadcasting), 0);
   data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
   // Set up cam selection and preview
   campreview.cam=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_preview"));

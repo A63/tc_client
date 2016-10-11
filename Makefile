@@ -30,13 +30,36 @@ ifdef SWSCALE_LIBS
   INSTALLDEPS+=tc_client-gtk gtkgui.glade
   ifdef AO_LIBS
     ifdef AVRESAMPLE_LIBS
-      CONFINFO+=|  Will enable (incoming) mic support
+      CONFINFO+=|  Will enable incoming mic support
       CFLAGS+=-DHAVE_LIBAO=1 -DHAVE_AVRESAMPLE=1 $(AVRESAMPLE_CFLAGS) $(AO_CFLAGS)
     endif
     ifdef SWRESAMPLE_LIBS
-      CONFINFO+=|  Will enable (incoming) mic support
+      CONFINFO+=|  Will enable incoming mic support
       CFLAGS+=-DHAVE_LIBAO=1 -DHAVE_SWRESAMPLE=1 $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
     endif
+    ifndef AVRESAMPLE_LIBS
+    ifndef SWRESAMPLE_LIBS
+      CONFINFO+=|  Incoming mic support will not be enabled
+    endif
+    endif
+  endif
+  ifdef PULSE_LIBS
+    CONFINFO+=|  Will enable outgoing mic support
+    CFLAGS+=-DHAVE_PULSEAUDIO=1 $(PULSE_CFLAGS)
+  else
+    CONFINFO+=|  Outgoing mic support will not be enabled
+  endif
+  ifdef LIBV4L2_LIBS
+    CONFINFO+=|  Will enable v4l2 camera support
+    CFLAGS+=-DHAVE_V4L2 $(LIBV4L2_CFLAGS)
+    LIBCAMERA_OBJ+=utilities/libcamera/camera_v4l2.o
+  else
+    CONFINFO+=|  v4l2 camera support will not be enabled
+  endif
+  ifdef LIBX11_LIBS
+    CONFINFO+=|  Will enable X11 virtual camera support
+    CFLAGS+=-DHAVE_X11 $(LIBX11_CFLAGS)
+    LIBCAMERA_OBJ+=utilities/libcamera/camera_x11.o
   endif
   ifneq ($(findstring MINGW,$(shell uname -s)),)
     ifeq ($(findstring mingw,$(shell $(CC) -v 2>&1 | grep Target)),)
@@ -64,18 +87,6 @@ ifdef SWSCALE_LIBS
     msystargets: tc_client
 	@echo
 	@echo 'To build the gtk+ GUI, enter this directory from a MinGW shell and type make'
-  endif
-  ifdef LIBV4L2_LIBS
-    CONFINFO+=|  Will enable v4l2 camera support
-    CFLAGS+=-DHAVE_V4L2 $(LIBV4L2_CFLAGS)
-    LIBCAMERA_OBJ+=utilities/libcamera/camera_v4l2.o
-  else
-    CONFINFO+=|  v4l2 camera support will not be enabled
-  endif
-  ifdef LIBX11_LIBS
-    CONFINFO+=|  Will enable X11 virtual camera support
-    CFLAGS+=-DHAVE_X11 $(LIBX11_CFLAGS)
-    LIBCAMERA_OBJ+=utilities/libcamera/camera_x11.o
   endif
 endif
 endif
@@ -118,7 +129,7 @@ cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
 
 tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif
-	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) $(LIBX11_LIBS) -o $@
+	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) $(LIBX11_LIBS) $(PULSE_LIBS) -o $@
 
 camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 	utilities/gtk/gencamplaceholder.sh

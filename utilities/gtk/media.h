@@ -61,6 +61,8 @@ extern GtkWidget* cambox;
 extern GdkPixbufAnimation* camplaceholder;
 extern GdkPixbufAnimationIter* camplaceholder_iter;
 extern CAM* camout_cam;
+extern char pushtotalk_enabled;
+extern char pushtotalk_pushed;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);
@@ -83,4 +85,6 @@ extern void camera_postproc(struct camera* cam, unsigned char* buf, unsigned int
 extern void updatescaling(unsigned int width, unsigned int height, char changedcams);
 extern gboolean camplaceholder_update(void* id);
 extern GdkPixbuf* scaled_gdk_pixbuf_from_cam(CAM* cam, unsigned int width, unsigned int height, unsigned int maxwidth, unsigned int maxheight);
+extern void* audiothread_in(void* fdp);
+extern gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpointer datap);
 #endif

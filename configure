@@ -69,6 +69,23 @@ testbuild()
   fi
 }
 
+testpkgconfig()
+{
+  pkgname="$1"
+  varprefix="$2"
+  printf "Checking for ${pkgname}... "
+  testlibs="`pkg-config --libs "$pkgname" 2> /dev/null`"
+  if [ "x$testlibs" != "x" ]; then
+    echo "${varprefix}_LIBS=${testlibs}" >> config.mk
+    echo "${varprefix}_CFLAGS=`pkg-config --cflags "$pkgname"`" >> config.mk
+    echo yes
+    return 0
+  else
+    echo no
+    return 1
+  fi
+}
+
 if ! testbuild 'strndup' 'char* x=strndup("abc", 2);' 'string.h'; then
   echo '#define NO_STRNDUP 1' >> config.h
 fi
@@ -77,23 +94,8 @@ if ! testbuild 'dprintf' 'dprintf(1,"test");' 'stdio.h'; then
   echo '#define NO_DPRINTF 1' >> config.h
 fi
 
-printf 'Checking for gtk+-3.0... '
-gtklibs="`pkg-config --libs gtk+-3.0 2> /dev/null`"
-if [ "x$gtklibs" != "x" ]; then
-  echo "GTK_LIBS=${gtklibs}" >> config.mk
-  echo "GTK_CFLAGS=`pkg-config --cflags gtk+-3.0`" >> config.mk
-  echo yes
-else
-  echo no
-  printf 'Checking for gtk+-2.0... '
-  gtklibs="`pkg-config --libs gtk+-2.0 2> /dev/null`"
-  if [ "x$gtklibs" != "x" ]; then
-    echo "GTK_LIBS=${gtklibs}" >> config.mk
-    echo "GTK_CFLAGS=`pkg-config --cflags gtk+-2.0`" >> config.mk
-    echo yes
-  else
-    echo no
-  fi
+if ! testpkgconfig 'gtk+-3.0' GTK; then
+  testpkgconfig 'gtk+-2.0' GTK
 fi
 
 printf 'Checking for libavcodec... '
@@ -134,15 +136,7 @@ else
   echo no
 fi
 
-printf 'Checking for libswscale... '
-swscalelibs="`pkg-config --libs libswscale 2> /dev/null`"
-if [ "x$swscalelibs" != "x" ]; then
-  echo "SWSCALE_LIBS=${swscalelibs}" >> config.mk
-  echo "SWSCALE_CFLAGS=`pkg-config --cflags libswscale`" >> config.mk
-  echo yes
-else
-  echo no
-fi
+testpkgconfig libswscale SWSCALE
 
 printf 'Checking for libavutil... '
 avutillibs="`pkg-config --libs libavutil 2> /dev/null`"
@@ -211,15 +205,7 @@ else
 fi
 
 if "$haveresample"; then
-  printf 'Checking for libao... '
-  aolibs="`pkg-config --libs ao 2> /dev/null`"
-  if [ "x$aolibs" != "x" ]; then
-    echo "AO_LIBS=${aolibs}" >> config.mk
-    echo "AO_CFLAGS=`pkg-config --cflags ao`" >> config.mk
-    echo yes
-  else
-    echo no
-  fi
+  testpkgconfig ao AO
 fi
 
 printf 'Checking for ncurses... '
@@ -242,25 +228,9 @@ if testbuild 'readline' 'rl_initialize();return 0;' 'stdio.h readline/readline.h
   echo "READLINE_LIBS=-lreadline" >> config.mk
 fi
 
-printf 'Checking for libv4l2... '
-v4l2libs="`pkg-config --libs libv4l2 2> /dev/null`"
-if [ "x$v4l2libs" != "x" ]; then
-  echo "LIBV4L2_LIBS=${v4l2libs}" >> config.mk
-  echo "LIBV4L2_CFLAGS=`pkg-config --cflags libv4l2`" >> config.mk
-  echo yes
-else
-  echo no
-fi
-
-printf 'Checking for X11... '
-x11libs="`pkg-config --libs x11 2> /dev/null`"
-if [ "x$x11libs" != "x" ]; then
-  echo "LIBX11_LIBS=${x11libs}" >> config.mk
-  echo "LIBX11_CFLAGS=`pkg-config --cflags x11`" >> config.mk
-  echo yes
-else
-  echo no
-fi
+testpkgconfig libv4l2 LIBV4L2
+testpkgconfig x11 LIBX11
+testpkgconfig libpulse-simple PULSE
 
 # TODO: handle crosscompiling better
 printf 'Checking if endianness macros work... '
