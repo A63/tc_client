@@ -1,6 +1,6 @@
 /*
     libcamera, a camera access abstraction library
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -88,8 +88,8 @@ void cam_resolution_escapi(CAM* cam, unsigned int* width, unsigned int* height)
 
 void cam_getframe_escapi(CAM* cam, void* pixmap)
 {
-  doCapture(0);
-  while(!isCaptureDone(0)){usleep(100);}
+  doCapture(cam->device);
+  while(!isCaptureDone(cam->device)){usleep(100);}
   unsigned int pixels=cam->capture.mWidth*cam->capture.mHeight;
   unsigned int i;
   for(i=0; i<pixels; ++i)

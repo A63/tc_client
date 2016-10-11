@@ -26,6 +26,7 @@ libcamera: added support for a virtual X11 camera.
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 camviewer: removed the old, buggy audio code.
 libcamera(v4l2): cache the frame and if there is no data to be read, return the cache instead of blocking.
+libcamera(escapi): fixed a bug that broke cams on windows unless you only use the first one.
 testbuilds.sh: adjusted for configure no longer accepting --enable-mic (since it's no longer experimental)
 0.39:
 Added a /closecam command to stop receiving a cam stream.
