@@ -4,6 +4,7 @@ Improved the RTMP acknowledgement code: counting the format 3 headers which were
 Interpret the "from_owner" subcommand "_close" to tell if our media stream was closed.
 Fixed a bug that caused tc_client to not know the nickname if the chosen one wasn't available at startup, manifesting as broadcasting not working unless the initial nickname was free.
 Added support for sending audio packets with "/audio <length>", followed by the binary data.
+Added scripts for generating binary packages on GNU/Linux and windows.
 tc_client-gtk: merged camera_remove() and camera_removebynick() into a single function, merged the deallocation of camera data into camera_free()
 tc_client-gtk: moved the postprocessing code into its own source file.
 tc_client-gtk: added greenscreen postprocessor.
