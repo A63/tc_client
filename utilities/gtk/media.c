@@ -332,7 +332,7 @@ gboolean camselect_frame(void* x)
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(campreview.cam));
   GdkPixbuf* gdkframe=scaled_gdk_pixbuf_from_cam(camselect.current, camselect.size.width, camselect.size.height, PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT);
   gtk_image_set_from_pixbuf(GTK_IMAGE(campreview.cam), gdkframe);
-  g_object_unref(oldpixbuf);
+  if(oldpixbuf){g_object_unref(oldpixbuf);}
   return G_SOURCE_CONTINUE;
 }
 
@@ -488,7 +488,7 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
   }
   // libswscale doesn't handle unreasonably small sizes well
   if(camsize_scale.width<8){camsize_scale.width=8;}
-  if(camsize_scale.height<1){camsize_scale.height=1;}
+  if(camsize_scale.height<6){camsize_scale.height=6;}
   // Rescale current images to fit
   for(i=0; i<camcount; ++i)
   {
@@ -511,7 +511,7 @@ gboolean camplaceholder_update(void* id)
   // Scale and replace the current image on camera
   GdkPixbuf* pixbuf=gdk_pixbuf_scale_simple(frame, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), pixbuf);
-  g_object_unref(oldpixbuf);
+  if(oldpixbuf){g_object_unref(oldpixbuf);}
   return G_SOURCE_CONTINUE;
 }
 
