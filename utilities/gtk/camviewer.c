@@ -760,6 +760,29 @@ gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
     }
     return 1;
   }
+  if(event->keyval==GDK_KEY_Page_Up || event->keyval==GDK_KEY_KP_Page_Up ||
+     event->keyval==GDK_KEY_Page_Down || event->keyval==GDK_KEY_KP_Page_Down)
+  {
+    // Get the relevant chatview
+    GtkNotebook* tabs=GTK_NOTEBOOK(gtk_builder_get_object(gui, "tabs"));
+    int num=gtk_notebook_get_current_page(tabs);
+    struct user* user=0;
+    if(num>0)
+    {
+      GtkWidget* page=gtk_notebook_get_nth_page(tabs, num);
+      user=user_find_by_tab(page);
+    }
+    struct chatview* chatview;
+    if(user && user->pm_chatview)
+    {
+      chatview=user->pm_chatview;
+    }else{
+      chatview=mainchat;
+    }
+    // By just passing along the event we also get smooth scrolling, which GTK+ does not expose an API for
+    gtk_widget_event(GTK_WIDGET(chatview->textview), (GdkEvent*)event);
+    return 1;
+  }
   return 0;
 }
 
