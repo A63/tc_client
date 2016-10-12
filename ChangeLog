@@ -24,6 +24,7 @@ tc_client-gtk: added compatibility code for windows' lack of pipe()
 tc_client-gtk: added workaround for libao not handling the "client_name" option on windows.
 tc_client-gtk: added support for broadcasting audio.
 tc_client-gtk: fixed some warnings found with G_DEBUG="fatal-criticals".
+tc_client-gtk: quit if the captcha window is closed.
 libcamera: added support for a virtual X11 camera.
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 camviewer: removed the old, buggy audio code.
