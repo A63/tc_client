@@ -370,6 +370,11 @@ gboolean camselect_cancel(GtkWidget* widget, void* x1, void* x2)
   gtk_widget_hide(window);
   g_source_remove(camselect.eventsource);
   camselect.eventsource=0;
+  if(camselect.current)
+  {
+    cam_close(camselect.current);
+    camselect.current=0;
+  }
   if(camselect.cancelcallback){camselect.cancelcallback();}
   return 1;
 }

@@ -27,6 +27,7 @@ tc_client-gtk: added support for broadcasting audio.
 tc_client-gtk: fixed some warnings found with G_DEBUG="fatal-criticals".
 tc_client-gtk: quit if the captcha window is closed.
 tc_client-gtk: make scrolling with page up and page down work even if focus is on the input field.
+tc_client-gtk: bugfix: close the camera device when cancelling cam selection.
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 camviewer: removed the old, buggy audio code.
 libcamera: added support for a virtual X11 camera.
