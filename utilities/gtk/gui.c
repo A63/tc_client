@@ -876,8 +876,6 @@ void gui_init(char frombuild)
   g_signal_connect(item, "activate", G_CALLBACK(stopbroadcasting), 0);
   // Set up cam selection and preview
   campreview.cam=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_preview"));
-  campreview.frame=av_frame_alloc();
-  campreview.frame->data[0]=0;
   GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
   g_signal_connect(combo, "changed", G_CALLBACK(camselect_change), 0);
   // Signals for cancelling

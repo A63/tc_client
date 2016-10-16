@@ -959,6 +959,8 @@ int main(int argc, char** argv)
 
   gtk_init(&argc, &argv);
   gui_init(frombuild);
+  campreview.frame=av_frame_alloc();
+  campreview.frame->data[0]=0;
   gtk_main();
  
 #ifdef _WIN32
