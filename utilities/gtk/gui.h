@@ -64,7 +64,13 @@ extern void gui_link_menu_open(GtkWidget* menuitem, void* x);
 extern void gui_link_menu_copy(GtkWidget* menuitem, void* x);
 extern struct chatview* chatview_new(GtkTextView* existing_textview);
 extern void chatview_autoscroll(struct chatview* cv);
+extern void togglecam_cancel(void);
+extern void stopbroadcasting(GtkMenuItem* x, void* y);
+extern gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, void* data);
+extern void handleresizepane(GObject* obj, GParamSpec* spec, void* data);
+extern void gui_init(char frombuild);
 
 extern GtkBuilder* gui;
 extern GdkCursor* gui_cursor_text;
 extern GdkCursor* gui_cursor_link;
+extern struct chatview* mainchat;

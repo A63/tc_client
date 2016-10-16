@@ -57,6 +57,7 @@
 #include "../compat.h"
 #include "../compat_av.h"
 #include "inputhistory.h"
+#include "main.h"
 
 struct viddata
 {
@@ -72,7 +73,6 @@ const char* channel=0;
 const char* mycolor=0;
 char* nickname=0;
 char frombuild=0; // Running from the build directory
-struct chatview* mainchat;
 #define TC_CLIENT (frombuild?"./tc_client":"tc_client")
 #ifdef _WIN32
   PROCESS_INFORMATION coreprocess={.hProcess=0};
@@ -139,21 +139,9 @@ void printchat(const char* text, const char* color, unsigned int offset, const c
   chatview_autoscroll(chatview);
 }
 
-void togglecam_cancel(void)
-{
-  GtkCheckMenuItem* item=GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
-  gtk_check_menu_item_set_active(item, 0);
-}
-
-void stopbroadcasting(GtkMenuItem* x, void* y)
-{
-  gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera")), 0);
-  gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_mic")), 0);
-}
-
 unsigned int cameventsource=0;
 char buf[1024];
-gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer datap)
+gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
 {
   gsize r;
   unsigned int i;
@@ -665,47 +653,7 @@ void togglemic(GtkCheckMenuItem* item, void* x)
   g_io_channel_set_encoding(channel, 0, 0);
   eventsource=g_io_add_watch(channel, G_IO_IN, mic_encode, 0);
 }
-
-gboolean mic_pushtotalk(GtkWidget* button, GdkEvent* event, void* pushed)
-{
-  pushtotalk_pushed=!!pushed;
-  return 0;
-}
 #endif
-
-gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, struct viddata* data)
-{
-  if(event->width!=gtk_widget_get_allocated_width(cambox))
-  {
-    updatescaling(event->width, 0, 0);
-  }
-  // Fix scrolling
-  chatview_autoscroll(mainchat);
-  unsigned int i;
-  for(i=0; i<usercount; ++i)
-  {
-    if(userlist[i].pm_chatview)
-    {
-      chatview_autoscroll(userlist[i].pm_chatview);
-    }
-  }
-  return 0;
-}
-
-void handleresizepane(GObject* obj, GParamSpec* spec, struct viddata* data)
-{
-  updatescaling(0, gtk_paned_get_position(GTK_PANED(obj)), 0);
-  // Fix scrolling
-  chatview_autoscroll(mainchat);
-  unsigned int i;
-  for(i=0; i<usercount; ++i)
-  {
-    if(userlist[i].pm_chatview)
-    {
-      chatview_autoscroll(userlist[i].pm_chatview);
-    }
-  }
-}
 
 gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data)
 {
@@ -994,6 +942,7 @@ int main(int argc, char** argv)
   data=&datax;
   avcodec_register_all();
   data->vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
+  data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
 #ifndef _WIN32
   signal(SIGCHLD, SIG_IGN);
 #else
@@ -1009,173 +958,7 @@ int main(int argc, char** argv)
 #endif
 
   gtk_init(&argc, &argv);
-  if(frombuild)
-  {
-    gui=gtk_builder_new_from_file("gtkgui.glade");
-  }else{
-    gui=gtk_builder_new_from_file(PREFIX "/share/tc_client/gtkgui.glade");
-  }
-  gtk_builder_connect_signals(gui, 0);
-
-  unsigned int i;
-  GtkWidget* item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_camera"));
-  g_signal_connect(item, "toggled", G_CALLBACK(togglecam), 0);
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_mic"));
-  #ifdef HAVE_PULSEAUDIO
-  g_signal_connect(item, "toggled", G_CALLBACK(togglemic), 0);
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk"));
-  g_signal_connect(item, "button-press-event", G_CALLBACK(mic_pushtotalk), (void*)1);
-  g_signal_connect(item, "button-release-event", G_CALLBACK(mic_pushtotalk), 0);
-  #else
-  gtk_widget_destroy(item);
-  #endif
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast_stop"));
-  g_signal_connect(item, "activate", G_CALLBACK(stopbroadcasting), 0);
-  data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
-  // Set up cam selection and preview
-  campreview.cam=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_preview"));
-  campreview.frame=av_frame_alloc();
-  campreview.frame->data[0]=0;
-  GtkComboBox* combo=GTK_COMBO_BOX(gtk_builder_get_object(gui, "camselect_combo"));
-  g_signal_connect(combo, "changed", G_CALLBACK(camselect_change), 0);
-  // Signals for cancelling
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "camselection"));
-  g_signal_connect(item, "delete-event", G_CALLBACK(camselect_cancel), 0);
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_cancel"));
-  g_signal_connect(item, "clicked", G_CALLBACK(camselect_cancel), 0);
-  // Signals for switching from preview to streaming
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "camselect_ok"));
-  g_signal_connect(item, "clicked", G_CALLBACK(camselect_accept), 0);
-  // Enable the "img" camera
-  cam_img_filepicker=camselect_file;
-  // Populate list of cams
-  unsigned int count;
-  char** cams=cam_list(&count);
-  GtkListStore* list=gtk_list_store_new(1, G_TYPE_STRING);
-  for(i=0; i<count; ++i)
-  {
-    gtk_list_store_insert_with_values(list, 0, -1, 0, cams[i], -1);
-    free(cams[i]);
-  }
-  free(cams);
-  gtk_combo_box_set_model(combo, GTK_TREE_MODEL(list));
-  g_object_unref(list);
-  gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo), gtk_cell_renderer_text_new(), 1);
-
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings"));
-  g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_options_settings2"));
-  g_signal_connect(item, "activate", G_CALLBACK(showsettings), gui);
-
-  cambox=GTK_WIDGET(gtk_builder_get_object(gui, "cambox"));
-  userlistwidget=GTK_WIDGET(gtk_builder_get_object(gui, "userlistbox"));
-  GtkWidget* chatview=GTK_WIDGET(gtk_builder_get_object(gui, "chatview"));
-  mainchat=chatview_new(GTK_TEXT_VIEW(chatview));
-  GdkDisplay* display=gtk_widget_get_display(chatview);
-  gui_cursor_text=gdk_cursor_new_from_name(display, "text");
-  gui_cursor_link=gdk_cursor_new_from_name(display, "pointer");
-
-  GtkWidget* panes=GTK_WIDGET(gtk_builder_get_object(gui, "vpaned"));
-  g_signal_connect(panes, "notify::position", G_CALLBACK(handleresizepane), data);
-  gtk_paned_set_wide_handle(GTK_PANED(panes), 1);
-  panes=GTK_WIDGET(gtk_builder_get_object(gui, "chatnick"));
-  gtk_paned_set_wide_handle(GTK_PANED(panes), 1);
-
-  GtkWidget* inputfield=GTK_WIDGET(gtk_builder_get_object(gui, "inputfield"));
-  g_signal_connect(inputfield, "activate", G_CALLBACK(sendmessage), data);
-  g_signal_connect(inputfield, "key-press-event", G_CALLBACK(inputkeys), data);
-
-  // Sound
-  GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "soundradio_cmd"));
-  g_signal_connect(option, "toggled", G_CALLBACK(toggle_soundcmd), gui);
-  // Logging
-  option=GTK_WIDGET(gtk_builder_get_object(gui, "enable_logging"));
-  g_signal_connect(option, "toggled", G_CALLBACK(toggle_logging), gui);
-  option=GTK_WIDGET(gtk_builder_get_object(gui, "save_settings"));
-  g_signal_connect(option, "clicked", G_CALLBACK(savesettings), gui);
-  // Youtube
-  option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
-  g_signal_connect(option, "toggled", G_CALLBACK(toggle_youtubecmd), gui);
-  // Misc
-  option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
-
-  GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "main"));
-  g_signal_connect(window, "configure-event", G_CALLBACK(handleresize), data);
-
-  // Start window and channel password window signals
-  GtkWidget* button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordbutton"));
-  g_signal_connect(button, "clicked", G_CALLBACK(startsession), (void*)-1);
-  button=GTK_WIDGET(gtk_builder_get_object(gui, "channelpassword"));
-  g_signal_connect(button, "activate", G_CALLBACK(startsession), (void*)-1);
-  GtkWidget* startwindow=GTK_WIDGET(gtk_builder_get_object(gui, "startwindow"));
-  // Connect signal for quick connect
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_connect"));
-  struct channelopts cc_connect={-1,0};
-  g_signal_connect(item, "activate", G_CALLBACK(channeldialog), &cc_connect);
-  // Connect signal for the add option
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_add"));
-  struct channelopts cc_add={-1,1};
-  g_signal_connect(item, "activate", G_CALLBACK(channeldialog), &cc_add);
-  // Connect signal for tab changing (to un-highlight)
-  item=GTK_WIDGET(gtk_builder_get_object(gui, "tabs"));
-  g_signal_connect(item, "switch-page", G_CALLBACK(pm_select), 0);
-  // Connect signal for captcha
-  g_signal_connect(gtk_builder_get_object(gui, "captcha_done"), "clicked", G_CALLBACK(captcha_done), 0);
-  // Connect signals for link menus
-  g_signal_connect(gtk_builder_get_object(gui, "link_menu_open"), "activate", G_CALLBACK(gui_link_menu_open), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "link_menu_copy"), "activate", G_CALLBACK(gui_link_menu_copy), 0);
-  // Connect signals for camera postprocessing
-  g_signal_connect(gtk_builder_get_object(gui, "cam_menu_colors"), "activate", G_CALLBACK(gui_show_camcolors), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "camcolors_min_brightness"), "value-changed", G_CALLBACK(camcolors_adjust_min), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "camcolors_max_brightness"), "value-changed", G_CALLBACK(camcolors_adjust_max), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "camcolors_auto"), "toggled", G_CALLBACK(camcolors_toggle_auto), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_horizontal"), "toggled", G_CALLBACK(camcolors_toggle_flip), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "camcolors_flip_vertical"), "toggled", G_CALLBACK(camcolors_toggle_flip), (void*)1);
-  g_signal_connect(gtk_builder_get_object(gui, "greenscreenbutton"), "clicked", G_CALLBACK(gui_set_greenscreen_img), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "greenscreen_colorpicker"), "color-set", G_CALLBACK(gui_set_greenscreen_color), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "greenscreen_tolerance_h"), "value-changed", G_CALLBACK(gui_set_greenscreen_tolerance), 0);
-  g_signal_connect(gtk_builder_get_object(gui, "greenscreen_tolerance_s"), "value-changed", G_CALLBACK(gui_set_greenscreen_tolerance), (void*)1);
-  g_signal_connect(gtk_builder_get_object(gui, "greenscreen_tolerance_v"), "value-changed", G_CALLBACK(gui_set_greenscreen_tolerance), (void*)2);
-  // Connect signal for hiding cameras
-  g_signal_connect(gtk_builder_get_object(gui, "cam_menu_hide"), "activate", G_CALLBACK(gui_hide_cam), 0);
-  // Load placeholder animation for cameras (no video data yet or mic only)
-  if(frombuild)
-  {
-    camplaceholder=gdk_pixbuf_animation_new_from_file("camplaceholder.gif", 0);
-  }else{
-    camplaceholder=gdk_pixbuf_animation_new_from_file(PREFIX "/share/tc_client/camplaceholder.gif", 0);
-  }
-  camplaceholder_iter=gdk_pixbuf_animation_get_iter(camplaceholder, 0);
-  // Populate saved channels
-  GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
-  int channelcount=config_get_int("channelcount");
-  if(channelcount)
-  {
-    gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(gui, "channel_placeholder")));
-  }
-  char buf[256];
-  for(i=0; i<channelcount; ++i)
-  {
-    GtkWidget* box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    #ifdef GTK_STYLE_CLASS_LINKED
-      GtkStyleContext* style=gtk_widget_get_style_context(box);
-      gtk_style_context_add_class(style, GTK_STYLE_CLASS_LINKED);
-    #endif
-    sprintf(buf, "channel%i_name", i);
-    const char* name=config_get_str(buf);
-    GtkWidget* connectbutton=gtk_button_new_with_label(name);
-    g_signal_connect(connectbutton, "clicked", G_CALLBACK(startsession), (void*)(intptr_t)i);
-    gtk_box_pack_start(GTK_BOX(box), connectbutton, 1, 1, 0);
-    GtkWidget* cfgbutton=gtk_button_new_from_icon_name("gtk-preferences", GTK_ICON_SIZE_BUTTON);
-    struct channelopts* opts=malloc(sizeof(struct channelopts));
-    opts->channel_id=i;
-    opts->save=1;
-    g_signal_connect(cfgbutton, "clicked", G_CALLBACK(channeldialog), opts);
-    gtk_box_pack_start(GTK_BOX(box), cfgbutton, 0, 0, 0);
-    gtk_box_pack_start(GTK_BOX(startbox), box, 0, 0, 2);
-  }
-  gtk_widget_show_all(startwindow);
-
+  gui_init(frombuild);
   gtk_main();
  
 #ifdef _WIN32
