@@ -305,7 +305,7 @@ gboolean cam_encode(void* camera_)
   dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
   write(tc_client_in[1], &frameinfo, 1);
   ssize_t w=write(tc_client_in[1], packet.data, packet.size);
-if(w!=packet.size){printf("Error: wrote %li of %i bytes\n", w, packet.size);}
+if(w!=packet.size){printf("Error: wrote %zi of %i bytes\n", w, packet.size);}
 
   av_packet_unref(&packet);
   if(camout_delay>100) // Slowly speed up to 10fps, otherwise the flash client won't show it.
