@@ -808,11 +808,13 @@ void stopbroadcasting(GtkMenuItem* x, void* y)
   gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_mic")), 0);
 }
 
+#ifdef HAVE_PULSEAUDIO
 gboolean mic_pushtotalk(GtkWidget* button, GdkEvent* event, void* pushed)
 {
   pushtotalk_pushed=!!pushed;
   return 0;
 }
+#endif
 
 gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, void* data)
 {

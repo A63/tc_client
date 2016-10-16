@@ -30,6 +30,7 @@ tc_client-gtk: make scrolling with page up and page down work even if focus is o
 tc_client-gtk: bugfix: close the camera device when cancelling cam selection.
 tc_client-gtk: moved some GUI code into gui.c, including all of the GUI initialization.
 tc_client-gtk: fixed printf formatting.
+tc_client-gtk: fixed building without pulseaudio.
 tc_client-gtk and camviewer: updated to libavcodec's avcodec_{send,receive}_{frame,packet} API.
 camviewer: removed the old, buggy audio code.
 libcamera: added support for a virtual X11 camera.
