@@ -850,6 +850,8 @@ void handleresizepane(GObject* obj, GParamSpec* spec, void* data)
   }
 }
 
+static struct channelopts cc_connect={-1,0};
+static struct channelopts cc_add={-1,1};
 void gui_init(char frombuild)
 {
   if(frombuild)
@@ -950,11 +952,9 @@ void gui_init(char frombuild)
   GtkWidget* startwindow=GTK_WIDGET(gtk_builder_get_object(gui, "startwindow"));
   // Connect signal for quick connect
   item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_connect"));
-  struct channelopts cc_connect={-1,0};
   g_signal_connect(item, "activate", G_CALLBACK(channeldialog), &cc_connect);
   // Connect signal for the add option
   item=GTK_WIDGET(gtk_builder_get_object(gui, "start_menu_add"));
-  struct channelopts cc_add={-1,1};
   g_signal_connect(item, "activate", G_CALLBACK(channeldialog), &cc_add);
   // Connect signal for tab changing (to un-highlight)
   item=GTK_WIDGET(gtk_builder_get_object(gui, "tabs"));

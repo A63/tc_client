@@ -1,3 +1,5 @@
+0.41:
+tc_client-gtk: bugfix: don't rely on stack allocated variables for GUI callbacks.
 0.40:
 Moved the backward compatibility code for avcodec_{send,receive}_{frame,packet} into a separate source file to avoid pulling libavcodec into utilities that don't use it.
 Improved the RTMP acknowledgement code: counting the format 3 headers which were previously skipped, setting a more reasonable acknowledgement interval at startup and giving the server some margin before dropping outgoing video packets.
