@@ -15,7 +15,7 @@ mkdir -p deps/src
   cd ffmpeg-3.1.4
   mkdir -p build
   cd build
-  ../configure --prefix="${rootdir}/deps" --enable-gpl --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages --disable-avdevice --disable-avformat --disable-postproc --disable-avfilter --disable-encoders --enable-encoder="flv" --disable-decoders --enable-decoder="flv" --disable-parsers --disable-bsfs --disable-devices --disable-sdl --disable-libxcb --disable-xlib --enable-static --disable-shared
+  ../configure --prefix="${rootdir}/deps" --enable-gpl --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages --disable-avdevice --disable-avformat --disable-postproc --disable-avfilter --disable-encoders --enable-encoder="flv,nellymoser,speex" --disable-decoders --enable-decoder="flv,nellymoser,speex" --disable-parsers --disable-bsfs --disable-devices --disable-sdl --disable-libxcb --disable-xlib --enable-static --disable-shared
   make
   make install
 )
@@ -87,7 +87,9 @@ ldd appdir/usr/bin/* | while read dep; do
     libssl.so.*|\
     libcrypto.so.*|\
     libxkbcommon.so.*|\
-    libgpg-error.so.*) continue;;
+    libgpg-error.so.*|\
+    libpulse*.so.*|\
+    libao.so.*) continue;;
   esac
   cp -L "$path" appdir/usr/lib
 done
