@@ -161,6 +161,7 @@ ifdef AVUTIL_LIBS
 ifdef SWSCALE_LIBS
 	install -m 755 -D tc_client-gtk "$(PREFIX)/bin/tc_client-gtk"
 	install -D gtkgui.glade "$(PREFIX)/share/tc_client/gtkgui.glade"
+	install -D camplaceholder.gif "$(PREFIX)/share/tc_client/camplaceholder.gif"
 endif
 endif
 endif
