@@ -88,9 +88,13 @@ void cam_resolution_escapi(CAM* cam, unsigned int* width, unsigned int* height)
 
 void cam_getframe_escapi(CAM* cam, void* pixmap)
 {
+  unsigned int pixels=cam->capture.mWidth*cam->capture.mHeight;
+  if(!cam->capturing)
+  {
+    memset(pixmap, 0x7f, pixels*3);
+  }
   doCapture(cam->device);
   while(!isCaptureDone(cam->device)){usleep(100);}
-  unsigned int pixels=cam->capture.mWidth*cam->capture.mHeight;
   unsigned int i;
   for(i=0; i<pixels; ++i)
   {

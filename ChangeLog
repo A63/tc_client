@@ -3,6 +3,7 @@ tc_client-gtk: bugfix: don't rely on stack allocated variables for GUI callbacks
 tc_client-gtk: install the camera placeholder animation for the 'install' target.
 tc_client-gtk: mark outgoing video keyframes as keyframes.
 dist/appimage.sh: fix audio in appimages by building ffmpeg with support for nellymoser and speex, and depending on the system's libao and libpulse instead of including it in the appimage.
+libcamera(escapi): handle failure to open camera more gracefully.
 0.40:
 Moved the backward compatibility code for avcodec_{send,receive}_{frame,packet} into a separate source file to avoid pulling libavcodec into utilities that don't use it.
 Improved the RTMP acknowledgement code: counting the format 3 headers which were previously skipped, setting a more reasonable acknowledgement interval at startup and giving the server some margin before dropping outgoing video packets.
