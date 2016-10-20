@@ -19,6 +19,7 @@
 #include <gtk/gtk.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+#include <libavutil/opt.h>
 #if LIBAVUTIL_VERSION_MAJOR>50 || (LIBAVUTIL_VERSION_MAJOR==50 && LIBAVUTIL_VERSION_MINOR>37)
   #include <libavutil/imgutils.h>
 #else
@@ -300,7 +301,8 @@ gboolean cam_encode(void* camera_)
   avcodec_send_frame(cam->vctx, cam->dstframe);
   gotpacket=avcodec_receive_packet(cam->vctx, &packet);
   if(gotpacket){return G_SOURCE_CONTINUE;}
-  unsigned char frameinfo=0x22; // Note: differentiating between keyframes and non-keyframes seems to break stuff, so let's just go with all being interframes (1=keyframe, 2=interframe, 3=disposable interframe)
+  char key=!!(packet.flags&AV_PKT_FLAG_KEY);
+  unsigned char frameinfo=(key?0x12:0x22); // In the first 4 bits: 1=keyframe, 2=interframe
   // Send video
   dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
   write(tc_client_in[1], &frameinfo, 1);
