@@ -38,9 +38,34 @@ struct chatview* mainchat;
 
 void settings_reset(GtkBuilder* gui)
 {
-  // Font
+  // Text
   GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "fontsize"));
   gtk_spin_button_set_value(GTK_SPIN_BUTTON(option), config_get_set("fontsize")?config_get_double("fontsize"):8);
+  // Find the matching combo box item
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "linewrap"));
+  GtkTreeModel* model=gtk_combo_box_get_model(GTK_COMBO_BOX(option));
+  GtkTreeIter iter;
+  if(config_get_set("linewrap_mode"))
+  {
+    char next=gtk_tree_model_get_iter_first(model, &iter);
+    while(next)
+    {
+      GtkWrapMode mode;
+      gtk_tree_model_get(model, &iter, 1, &mode, -1);
+      if(mode==config_get_int("linewrap_mode"))
+      {
+        gtk_combo_box_set_active_iter(GTK_COMBO_BOX(option), &iter);
+        break;
+      }
+      next=gtk_tree_model_iter_next(model, &iter);
+    }
+  }
+  else if(gtk_tree_model_get_iter_first(model, &iter))
+  {
+    gtk_combo_box_set_active_iter(GTK_COMBO_BOX(option), &iter);
+  }
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "bluelinks"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("blue_links"));
   // Sound
   option=GTK_WIDGET(gtk_builder_get_object(gui, "soundradio_cmd"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("soundradio_cmd"));
@@ -77,10 +102,29 @@ void showsettings(GtkMenuItem* item, GtkBuilder* gui)
 
 void savesettings(GtkButton* button, GtkBuilder* gui)
 {
-  // Font
+  // Text
   GtkSpinButton* fontsize=GTK_SPIN_BUTTON(gtk_builder_get_object(gui, "fontsize"));
   config_set_double("fontsize", gtk_spin_button_get_value(fontsize));
   fontsize_set(gtk_spin_button_get_value(fontsize));
+  GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "linewrap"));
+  GtkTreeModel* model=gtk_combo_box_get_model(GTK_COMBO_BOX(option));
+  GtkTreeIter iter;
+  if(gtk_combo_box_get_active_iter(GTK_COMBO_BOX(option), &iter))
+  {
+    GtkWrapMode mode;
+    gtk_tree_model_get(model, &iter, 1, &mode, -1);
+    config_set_int("linewrap_mode", mode);
+    GtkTextView* chatview=GTK_TEXT_VIEW(gtk_builder_get_object(gui, "chatview"));
+    gtk_text_view_set_wrap_mode(chatview, mode);
+    unsigned int i;
+    for(i=0; i<usercount; ++i)
+    {
+      if(!userlist[i].pm_chatview){continue;}
+      gtk_text_view_set_wrap_mode(userlist[i].pm_chatview->textview, mode);
+    }
+  }
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "bluelinks"));
+  config_set("blue_links", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
   // Sound
   GtkWidget* soundcmd=GTK_WIDGET(gtk_builder_get_object(gui, "soundcmd"));
   config_set("soundcmd", gtk_entry_get_text(GTK_ENTRY(soundcmd)));
@@ -100,7 +144,7 @@ void savesettings(GtkButton* button, GtkBuilder* gui)
   GtkWidget* youtuberadio_cmd=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
   config_set("youtuberadio_cmd", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(youtuberadio_cmd))?"True":"False");
   // Cameras
-  GtkWidget* option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
   config_set("camdownonjoin", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
   option=GTK_WIDGET(gtk_builder_get_object(gui, "autoopencams"));
   config_set("autoopencams", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
@@ -651,7 +695,13 @@ void gui_insert_link(GtkTextBuffer* buffer, GtkTextIter* iter, const char* url, 
   int startnum=gtk_text_iter_get_offset(iter);
   gtk_text_buffer_insert(buffer, iter, url, length);
   // Make it look like a link and store the URL for later
-  GtkTextTag* tag=gtk_text_buffer_create_tag(buffer, 0, "underline", PANGO_UNDERLINE_SINGLE, (char*)0);
+  GtkTextTag* tag;
+  if(config_get_bool("blue_links"))
+  {
+    tag=gtk_text_buffer_create_tag(buffer, 0, "underline", PANGO_UNDERLINE_SINGLE, "foreground", "#0000ff", (char*)0);
+  }else{
+    tag=gtk_text_buffer_create_tag(buffer, 0, "underline", PANGO_UNDERLINE_SINGLE, (char*)0);
+  }
   g_object_set_data(G_OBJECT(tag), "url", strndup(url, length));
   GtkTextIter start;
   gtk_text_buffer_get_iter_at_offset(buffer, &start, startnum);
@@ -762,7 +812,12 @@ struct chatview* chatview_new(GtkTextView* existing_textview)
   this->atbottom=1;
   gtk_text_view_set_editable(this->textview, 0);
   gtk_text_view_set_cursor_visible(this->textview, 0);
-  gtk_text_view_set_wrap_mode(this->textview, GTK_WRAP_CHAR);
+  if(config_get_set("linewrap_mode"))
+  {
+    gtk_text_view_set_wrap_mode(this->textview, config_get_int("linewrap_mode"));
+  }else{
+    gtk_text_view_set_wrap_mode(this->textview, GTK_WRAP_WORD_CHAR);
+  }
   GtkAdjustment* scroll=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(this->scrolledwindow));
   g_signal_connect(this->textview, "button-release-event", G_CALLBACK(gui_click_link), 0);
   g_signal_connect(this->textview, "button-press-event", G_CALLBACK(gui_rightclick_link), 0);
