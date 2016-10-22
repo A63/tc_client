@@ -1,6 +1,6 @@
 /*
     libcamera, a camera access abstraction library
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2016  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -19,13 +19,13 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include "camera.h"
 
-typedef struct CAM_t
+struct CAM_t
 {
   unsigned int type;
   GdkPixbufAnimation* anim;
   GdkPixbuf* staticimg;
   GdkPixbufAnimationIter* iter;
-} CAM;
+};
 
 const char*(*cam_img_filepicker)(void)=0;
 

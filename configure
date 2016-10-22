@@ -224,9 +224,36 @@ if "$notfound"; then
   echo no
 fi
 
-if testbuild 'readline' 'rl_initialize();return 0;' 'stdio.h readline/readline.h' '-lreadline'; then
+if testbuild 'readline' 'rl_initialize();rl_forward(1,27);return 0;' 'stdio.h readline/readline.h' '-lreadline'; then
   echo "READLINE_LIBS=-lreadline" >> config.mk
 fi
+
+if ! testbuild 'prctl' 'prctl(PR_SET_PDEATHSIG, SIGHUP);return 0;' 'sys/prctl.h signal.h'; then
+  echo '#define NO_PRCTL 1' >> config.h
+fi
+
+printf 'Checking if we have a working poll()... '
+echo '#include <poll.h>' > polltest.c
+echo '#include <sys/socket.h>' >> polltest.c
+echo '#include <netinet/in.h>' >> polltest.c
+echo 'int main(){' >> polltest.c
+echo 'int s=socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);' >> polltest.c
+echo 'struct pollfd pfd[]={{.fd=0, .events=POLLIN, .revents=0}, {.fd=s, .events=POLLIN, .revents=0}};' >> polltest.c
+echo 'int x=poll(pfd, 2, 100);' >> polltest.c
+echo 'return x>-1 && (pfd[0].revents==POLLNVAL || pfd[1].revents==POLLNVAL);' >> polltest.c
+echo '}' >> polltest.c
+"$CC" polltest.c -o polltest > /dev/null 2> /dev/null
+if ./polltest 2> /dev/null; then
+  echo yes
+else
+  echo no
+  if testpkgconfig glib-2.0 GLIB; then
+    echo '#define POLL_BROKEN_OR_MISSING 1' >> config.h
+    echo 'LIBS+=$(GLIB_LIBS)' >> config.mk
+    echo 'CFLAGS+=$(GLIB_CFLAGS)' >> config.mk
+  fi
+fi
+rm -f polltest.c polltest
 
 testpkgconfig libv4l2 LIBV4L2
 testpkgconfig x11 LIBX11

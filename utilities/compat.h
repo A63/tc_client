@@ -26,8 +26,16 @@
 #ifdef NO_STRNDUP
   extern char* strndup(const char* in, unsigned int length);
 #endif
+#ifdef POLL_BROKEN_OR_MISSING
+  #include <glib.h>
+  #define poll g_poll
+  #define pollfd _GPollFD
+  #define POLLIN G_IO_IN
+#endif
+#ifdef NO_PRCTL
+  #define prctl(x,y)
+#endif
 #ifdef _WIN32
-  #define prctl(...)
   #define wait(x)
   #define mkdir(x,y) mkdir(x)
 #endif

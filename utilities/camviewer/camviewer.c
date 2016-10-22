@@ -21,8 +21,6 @@
 #ifdef _WIN32
   #include <wtypes.h>
   #include <winbase.h>
-#else
-  #include <sys/prctl.h>
 #endif
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
@@ -37,6 +35,9 @@
 #endif
 #include "../compat.h"
 #include "../compat_av.h"
+#ifndef NO_PRCTL
+  #include <sys/prctl.h>
+#endif
 
 #if GTK_MAJOR_VERSION==2
   #define GTK_ORIENTATION_HORIZONTAL 0

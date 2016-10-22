@@ -7,6 +7,15 @@ spinnerpos='+281+341
 +348+369
 +337+341
 +309+330'
+seq()
+{ # Some platforms lack the seq utility
+  i="$1"
+  end="$2"
+  while [ "$i" -le "$end" ]; do
+    echo "$i"
+    i="`expr "$i" + 1`"
+  done
+}
 {
   for frame in `seq 1 16`; do
     echo '( ( utilities/gtk/camplaceholder.xcf -layers Merge )'

@@ -23,7 +23,6 @@
   #include <wtypes.h>
   #include <winbase.h>
 #else
-  #include <sys/prctl.h>
   #include <sys/wait.h>
 #endif
 #include <ctype.h>
@@ -46,6 +45,11 @@
 #endif
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include "../compat.h"
+#include "../compat_av.h"
+#ifndef NO_PRCTL
+  #include <sys/prctl.h>
+#endif
 #include "../libcamera/camera.h"
 #include "userlist.h"
 #include "media.h"
@@ -54,8 +58,6 @@
 #include "gui.h"
 #include "logging.h"
 #include "../stringutils.h"
-#include "../compat.h"
-#include "../compat_av.h"
 #include "inputhistory.h"
 #include "main.h"
 

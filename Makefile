@@ -13,7 +13,7 @@ else
 endif
 OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endian.o media.o utilities/compat.o
 IRCHACK_OBJ=utilities/irchack/irchack.o utilities/compat.o
-MODBOT_OBJ=utilities/modbot/modbot.o utilities/list.o utilities/modbot/queue.o
+MODBOT_OBJ=utilities/modbot/modbot.o utilities/list.o utilities/modbot/queue.o utilities/compat.o
 CAMVIEWER_OBJ=utilities/camviewer/camviewer.o utilities/compat.o utilities/compat_av.o libcamera.a
 CURSEDCHAT_OBJ=utilities/cursedchat/cursedchat.o utilities/cursedchat/buffer.o utilities/compat.o utilities/list.o
 TC_CLIENT_GTK_OBJ=utilities/gtk/camviewer.o utilities/gtk/userlist.o utilities/gtk/media.o utilities/gtk/compat.o utilities/gtk/config.o utilities/gtk/gui.o utilities/stringutils.o utilities/gtk/logging.o utilities/gtk/postproc.o utilities/compat.o utilities/compat_av.o utilities/gtk/inputhistory.o libcamera.a
