@@ -286,5 +286,17 @@ else
 fi
 rm -f endiantest.c endiantest
 
+srcdir="`dirname "$0"`"
+if [ "." != "$srcdir" ]; then
+  sed -e "/^camplaceholder\\.gif/{s| | ${srcdir}/|g;n;s|\t|\t${srcdir}/|;}" "${srcdir}/Makefile" > Makefile
+  for dir in '' utilities/ utilities/camviewer/ utilities/cursedchat/ utilities/gtk/ utilities/irchack/ utilities/libcamera/ utilities/modbot/; do
+    mkdir -p "$dir"
+    echo "${dir}%.o: ${srcdir}/${dir}%.c" >> Makefile
+    echo '	$(CC) $(CFLAGS) -c $< -o $@' >> Makefile
+  done
+  echo "utilities/libcamera/%.o: ${srcdir}/utilities/libcamera/%.cpp" >> Makefile
+  echo '	$(CXX) $(CXXFLAGS) -c $< -o $@' >> Makefile
+fi
+
 echo Done
 make confinfo
