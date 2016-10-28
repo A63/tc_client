@@ -520,7 +520,9 @@ int main(int argc, char** argv)
                  "/video <length> = send a <length> bytes long encoded frame, send the frame data after this line\n"
                  "/audio <length> = send a <length> bytes long encoded frame, send the frame data after this line\n"
                  "/topic <topic>  = set the channel topic\n"
-                 "/whois <nick/ID> = check a user's username\n");
+                 "/whois <nick/ID> = check a user's username\n"
+                 "/disablesnapshots = disable flash client's snapshots of our stream.\n"
+                 "/enablesnapshots = re-enable flash client's snapshots of our stream.\n");
           fflush(stdout);
           continue;
         }
@@ -727,6 +729,11 @@ int main(int argc, char** argv)
             printf("%s is not logged in\n", &buf[7]);
           }
           fflush(stdout);
+          continue;
+        }
+        else if(!strcmp(buf, "/disablesnapshots") || !strcmp(buf, "/enablesnapshots"))
+        {
+          setallowsnapshots(sock, buf[1]=='e'); // True for "/enablesnapshots", false for "/disablesnapshots"
           continue;
         }
       }

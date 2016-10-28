@@ -24,6 +24,7 @@
 
 struct stream* streams=0;
 unsigned int streamcount=0;
+char allowsnapshots=1;
 
 char stream_idtaken(unsigned int id)
 {
@@ -92,6 +93,17 @@ void stream_play(struct amf* amf, int sock) // called upon _result
       if(streams[i].outgoing){amfstring(&amf, "live");}
       amf.msgid=le32(streams[i].streamid);
       amfsend(&amf, sock);
+      if(!allowsnapshots && streams[i].outgoing) // Prevent snapshots
+      {
+        amfinit(&amf, 3);
+        amf.type=RTMP_INVOKE;
+        amf.msgid=le32(streams[i].streamid);
+        amfstring(&amf, "|RtmpSampleAccess");
+        amfbool(&amf, 0);
+        amfbool(&amf, 0);
+        amfnull(&amf);
+        amfsend(&amf, sock);
+      }
       return;
     }
   }
@@ -179,6 +191,28 @@ void stream_stopvideo(int sock, unsigned int id)
       --streamcount;
       memmove(&streams[i], &streams[i+1], sizeof(struct stream)*(streamcount-i));
       return;
+    }
+  }
+}
+
+void setallowsnapshots(int sock, char v)
+{
+  allowsnapshots=v;
+  // Update any active stream as well
+  unsigned int i;
+  for(i=0; i<streamcount; ++i)
+  {
+    if(streams[i].outgoing)
+    {
+      struct rtmp amf;
+      amfinit(&amf, 3);
+      amf.type=RTMP_INVOKE;
+      amf.msgid=le32(streams[i].streamid);
+      amfstring(&amf, "|RtmpSampleAccess");
+      amfbool(&amf, v);
+      amfbool(&amf, v);
+      amfnull(&amf);
+      amfsend(&amf, sock);
     }
   }
 }

@@ -33,3 +33,4 @@ extern void stream_handledata(struct rtmp* rtmp);
 extern void stream_handlestatus(struct amf* amf, int sock);
 extern void stream_sendframe(int sock, void* buf, size_t len, unsigned char type);
 extern void stream_stopvideo(int sock, unsigned int id);
+extern void setallowsnapshots(int sock, char v);

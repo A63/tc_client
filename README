@@ -20,6 +20,8 @@ Commands supported by tc_client:
 /audio <length> = send a <length> bytes long encoded frame, send the frame data after this line
 /camdown        = close the audio/video stream
 /topic <topic>  = set the channel topic
+/disablesnapshots = disable flash client's snapshots of our stream.
+/enablesnapshots = re-enable flash client's snapshots of our stream.
 /help           = list these commands at runtime
 
 Missing features:
