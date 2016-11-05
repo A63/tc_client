@@ -174,6 +174,8 @@ struct camera* camera_new(const char* nick, const char* id)
   gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
   g_signal_connect(eventbox, "button-release-event", G_CALLBACK(gui_show_cam_menu), cam->id);
   cam->placeholder=g_timeout_add(100, camplaceholder_update, cam->id);
+  cam->volume=0;
+  cam->volumeold=1024;
   // Initialize postprocessing values
   postproc_init(&cam->postproc);
   return cam;
@@ -281,6 +283,7 @@ gboolean cam_encode(void* camera_)
   GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->frame->data[0], GDK_COLORSPACE_RGB, 0, 8, cam->frame->width, cam->frame->height, cam->frame->linesize[0], 0, 0);
   // Scale to fit
   gdkframe=gdk_pixbuf_scale_simple(gdkframe, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
+  volume_indicator(gdkframe, cam); // Add volume indicator
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
   g_object_unref(oldpixbuf);
   // Encode
@@ -517,6 +520,7 @@ gboolean camplaceholder_update(void* id)
   GdkPixbuf* frame=gdk_pixbuf_animation_iter_get_pixbuf(camplaceholder_iter);
   // Scale and replace the current image on camera
   GdkPixbuf* pixbuf=gdk_pixbuf_scale_simple(frame, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
+  volume_indicator(pixbuf, cam); // Add volume indicator
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), pixbuf);
   if(oldpixbuf){g_object_unref(oldpixbuf);}
   return G_SOURCE_CONTINUE;
@@ -592,8 +596,18 @@ gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
   gsize r;
   int status=g_io_channel_read_chars(iochannel, (char*)buf, 1024, &r, 0);
   if(status!=G_IO_STATUS_NORMAL){return 0;}
+
+  struct camera* cam=camera_find("out");
   // If push-to-talk is enabled but not pushed, return as soon as we've consumed the incoming data
-  if(pushtotalk_enabled && !pushtotalk_pushed){return 1;}
+  if(pushtotalk_enabled && !pushtotalk_pushed)
+  {
+    if(cam){cam->volume=0;}
+    return 1;
+  }
+  if(cam)
+  {
+    camera_calcvolume(cam, (float*)buf, r/sizeof(float));
+  }
   micframe->nb_samples=r/4; // 32bit floats
   micframe->data[0]=buf;
   micframe->linesize[0]=r;
@@ -619,3 +633,49 @@ gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
   return 1;
 }
 #endif
+
+void camera_calcvolume(struct camera* cam, float* samples, unsigned int samplecount)
+{
+  unsigned int i;
+  float max=0;
+  float min=99999;
+  for(i=0; i<samplecount; ++i)
+  {
+    if(samples[i]>max){max=samples[i];}
+    if(samples[i]<min){min=samples[i];}
+  }
+  float diff=max-min;
+  if(diff>cam->volume || cam->volumeold){cam->volume=diff; cam->volumeold=0;}
+}
+
+void volume_indicator(GdkPixbuf* frame, struct camera* cam)
+{
+  if(cam->volumeold>10){return;} // Not sending any audio anymore
+  guchar* pixels=gdk_pixbuf_get_pixels(frame);
+  unsigned int channels=gdk_pixbuf_get_n_channels(frame);
+  unsigned int stride=gdk_pixbuf_get_rowstride(frame);
+  unsigned int size_x=camsize_scale.width/24;
+  unsigned int size_y=camsize_scale.height/5;
+  unsigned int pos_x=camsize_scale.width*47/48-size_x;
+  unsigned int pos_y=camsize_scale.height*47/48-size_y;
+  int volumebar=size_y-cam->volume*size_y;
+  if(volumebar<0){volumebar=0;}
+  unsigned int x, y;
+  for(y=0; y<size_y; ++y)
+  {
+    for(x=0; x<size_x; ++x)
+    {
+      if(y>=volumebar && x>=size_x/8 && x<size_x-size_x/8)
+      { // Green bar
+        pixels[stride*(y+pos_y)+(x+pos_x)*channels]=0x0;
+        pixels[stride*(y+pos_y)+(x+pos_x)*channels+1]=0xff;
+        pixels[stride*(y+pos_y)+(x+pos_x)*channels+2]=0x0;
+      }else{ // Gray background
+        pixels[stride*(y+pos_y)+(x+pos_x)*channels]=0x80;
+        pixels[stride*(y+pos_y)+(x+pos_x)*channels+1]=0x80;
+        pixels[stride*(y+pos_y)+(x+pos_x)*channels+2]=0x80;
+      }
+    }
+  }
+  ++cam->volumeold;
+}

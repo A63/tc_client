@@ -204,6 +204,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
 
     GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
     GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);
+    volume_indicator(gdkframe, cam);
     gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
     g_object_unref(oldpixbuf);
     return 1;
@@ -238,6 +239,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     avcodec_send_packet(cam->actx, &pkt);
     gotframe=avcodec_receive_frame(cam->actx, cam->frame);
     if(gotframe){return 1;}
+    camera_calcvolume(cam, (float*)cam->frame->data[0], cam->frame->nb_samples);
     unsigned int samplecount=cam->frame->nb_samples*SAMPLERATE_OUT/cam->samplerate;
     int16_t outbuf[samplecount];
     void* outdata[]={outbuf, 0};

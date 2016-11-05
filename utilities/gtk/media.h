@@ -46,6 +46,8 @@ struct camera
   SwrContext* swrctx;
 #endif
   unsigned int samplerate;
+  float volume;
+  unsigned int volumeold;
 };
 struct size
 {
@@ -87,4 +89,6 @@ extern gboolean camplaceholder_update(void* id);
 extern GdkPixbuf* scaled_gdk_pixbuf_from_cam(CAM* cam, unsigned int width, unsigned int height, unsigned int maxwidth, unsigned int maxheight);
 extern void* audiothread_in(void* fdp);
 extern gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpointer datap);
+extern void camera_calcvolume(struct camera* cam, float* samples, unsigned int samplecount);
+extern void volume_indicator(GdkPixbuf* frame, struct camera* cam);
 #endif
