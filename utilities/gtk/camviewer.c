@@ -939,6 +939,8 @@ void captcha_done(GtkWidget* button, void* x)
   write(tc_client_in[1], "\n", 1);
 }
 
+void justwait(int x){wait(0);}
+
 int main(int argc, char** argv)
 {
   if(!strncmp(argv[0], "./", 2)){frombuild=1;}
@@ -948,7 +950,7 @@ int main(int argc, char** argv)
   data->vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
   data->vencoder=avcodec_find_encoder(AV_CODEC_ID_FLV1);
 #ifndef _WIN32
-  signal(SIGCHLD, SIG_IGN);
+  signal(SIGCHLD, justwait); // SIG_IGN causes trouble with libpulse's autospawn
 #else
   frombuild=1;
 #endif

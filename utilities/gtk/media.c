@@ -546,6 +546,7 @@ GdkPixbuf* scaled_gdk_pixbuf_from_cam(CAM* cam, unsigned int width, unsigned int
 }
 
 #ifdef HAVE_PULSEAUDIO
+extern void justwait(int);
 void* audiothread_in(void* fdp)
 {
   int fd=*(int*)fdp;
@@ -554,7 +555,10 @@ void* audiothread_in(void* fdp)
   pulsespec.format=PA_SAMPLE_FLOAT32;
   pulsespec.channels=1;
   pulsespec.rate=44100;
+  signal(SIGCHLD, SIG_DFL); // Briefly revert to the default handler to not break pulseaudio's autospawn feature
   pulse=pa_simple_new(0, "tc_client-gtk", PA_STREAM_RECORD, 0, "mic", &pulsespec, 0, 0, 0);
+  signal(SIGCHLD, justwait);
+  if(!pulse){return 0;}
   char buf[1024];
   // Just read/listen and write to the main thread until either reading/listening or writing fails
   while(1)
