@@ -859,8 +859,7 @@ void startsession(GtkButton* button, void* x)
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "startwindow")));
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "channelconfig")));
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordwindow")));
-  gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
-  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk")));
+  GtkWidget* mainwindow=GTK_WIDGET(gtk_builder_get_object(gui, "main"));
   const char* nick=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_nick")));
   channel=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_channel")));
   const char* chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "channelpassword")));
@@ -868,6 +867,11 @@ void startsession(GtkButton* button, void* x)
   const char* acc_user=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_username")));
   const char* acc_pass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "acc_password")));
   const char* cookiename=(acc_user[0]?acc_user:"no_account");
+  char title[strlen("tc_client ()0")+strlen(channel)];
+  sprintf(title, "tc_client (%s)", channel);
+  gtk_window_set_title(GTK_WINDOW(mainwindow), title);
+  gtk_widget_show_all(mainwindow);
+  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk")));
 #ifdef _WIN32
   char cmd[strlen("./tc_client --hexcolors --cookies tinychat_.cookie -u    0")+strlen(cookiename)+strlen(acc_user)+strlen(channel)+strlen(nick)+strlen(chanpass)];
   strcpy(cmd, "./tc_client --hexcolors ");
@@ -939,7 +943,9 @@ void captcha_done(GtkWidget* button, void* x)
   write(tc_client_in[1], "\n", 1);
 }
 
+#ifndef _WIN32
 void justwait(int x){waitpid(-1, 0, WNOHANG);}
+#endif
 
 int main(int argc, char** argv)
 {
