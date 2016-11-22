@@ -1,6 +1,6 @@
 /*
     irchack, a simple application to reuse IRC clients as user interfaces for tc_client
-    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2014-2016  alicia@ion.nu
     Copyright (C) 2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
@@ -314,6 +314,12 @@ printf("Got from tc_client: '%s'\n", buf);
         space[0]=0;
         dprintf(sock, ":server 311 %s %s user host * :Not logged in\n", nick, buf);
         dprintf(sock, ":server 318 %s %s :End of /WHOIS list\n", nick, buf);
+        continue;
+      }
+      if(space && !strcmp(space, " cammed up"))
+      {
+        space[0]=0;
+        dprintf(sock, ":%s!user@host PRIVMSG #%s :\x01""ACTION %s\x01\n", buf, channel, &space[1]);
         continue;
       }
       if(!strcmp(buf, "Banned users:"))
