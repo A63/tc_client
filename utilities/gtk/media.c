@@ -59,33 +59,45 @@ char pushtotalk_pushed=0;
 #endif
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-// Experimental mixer, not sure if it really works
-void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount)
+void camera_playsnd(struct camera* cam, int16_t* samples, unsigned int samplecount)
 {
-  if(cam->samples)
+  cam->samples=realloc(cam->samples, sizeof(int16_t)*(cam->samplecount+samplecount));
+  memcpy(&cam->samples[cam->samplecount], samples, samplecount*sizeof(short));
+  cam->samplecount+=samplecount;
+}
+
+gboolean audiomixer(void* p)
+{
+  int audiopipe=*(int*)p;
+  unsigned int i;
+  int sources=0;
+  for(i=0; i<camcount; ++i){sources+=!!cams[i].samplecount;}
+  if(!sources){return G_SOURCE_CONTINUE;}
+  unsigned int samplecount=SAMPLERATE_OUT/25; // Play one 25th of the samplerate's samples per iteration (which happens 25 times per second)
+  int16_t samples[samplecount];
+  memset(samples, 0, samplecount*sizeof(int16_t));
+  for(i=0; i<camcount; ++i)
   {
-// int sources=1;
-    unsigned int i;
-    for(i=0; i<camcount; ++i)
+    if(!cams[i].samplecount){continue;}
+    unsigned j;
+    for(j=0; j<samplecount && j<cams[i].samplecount; ++j)
     {
-      if(!cams[i].samples){continue;}
-      if(cam==&cams[i]){continue;}
-      unsigned j;
-      for(j=0; j<cam->samplecount && j<cams[i].samplecount; ++j)
-      {
-        cam->samples[j]+=cams[i].samples[j];
-      }
-      free(cams[i].samples);
-      cams[i].samples=0;
-// ++sources;
+      // Divide by number of sources to prevent integer overflow
+      samples[j]+=cams[i].samples[j]/sources;
     }
-    write(audiopipe, cam->samples, cam->samplecount*sizeof(short));
-    free(cam->samples);
-// printf("Mixed sound from %i sources (cam: %p)\n", sources, cam);
+    if(cams[i].samplecount>samplecount)
+    {
+      cams[i].samplecount-=samplecount;
+      // Deal with drift and post-lag floods
+      if(cams[i].samplecount>SAMPLERATE_OUT/5){cams[i].samplecount=0; continue;}
+    }else{
+      cams[i].samplecount=0;
+      continue;
+    }
+    memmove(cams[i].samples, &cams[i].samples[samplecount], sizeof(int16_t)*cams[i].samplecount);
   }
-  cam->samples=malloc(samplecount*sizeof(short));
-  memcpy(cam->samples, samples, samplecount*sizeof(short));
-  cam->samplecount=samplecount;
+  write(audiopipe, samples, samplecount*sizeof(int16_t));
+  return G_SOURCE_CONTINUE;
 }
 #endif
 

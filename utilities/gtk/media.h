@@ -67,7 +67,8 @@ extern char pushtotalk_enabled;
 extern char pushtotalk_pushed;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
-extern void camera_playsnd(int audiopipe, struct camera* cam, short* samples, unsigned int samplecount);
+extern void camera_playsnd(struct camera* cam, int16_t* samples, unsigned int samplecount);
+extern gboolean audiomixer(void* p);
 #endif
 extern void camera_remove(const char* id, char isnick);
 extern struct camera* camera_find(const char* id);

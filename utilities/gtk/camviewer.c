@@ -248,7 +248,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
   #else
     int outlen=swr_convert(cam->swrctx, (void*)outdata, samplecount, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
   #endif
-    if(outlen>0){camera_playsnd(data->audiopipe, cam, outbuf, outlen);}
+    if(outlen>0){camera_playsnd(cam, outbuf, outlen);}
 #endif
     return 1;
   }
@@ -939,7 +939,7 @@ void captcha_done(GtkWidget* button, void* x)
   write(tc_client_in[1], "\n", 1);
 }
 
-void justwait(int x){wait(0);}
+void justwait(int x){waitpid(-1, 0, WNOHANG);}
 
 int main(int argc, char** argv)
 {
@@ -967,6 +967,9 @@ int main(int argc, char** argv)
   gui_init(frombuild);
   campreview.frame=av_frame_alloc();
   campreview.frame->data[0]=0;
+#ifdef HAVE_LIBAO
+  g_timeout_add(40, audiomixer, &audiopipe[1]);
+#endif
   gtk_main();
  
 #ifdef _WIN32
