@@ -14,6 +14,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+extern char* nickname;
 extern void togglecam(GtkCheckMenuItem* item, void* x);
 #ifdef HAVE_PULSEAUDIO
 void togglemic(GtkCheckMenuItem* item, void* x);

@@ -267,6 +267,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
   }
   if(!strncmp(buf, "Connection ID: ", 15)) // Our initial nickname is "guest-" plus our connection ID
   {
+    if(config_get_bool("disablesnapshots")){write(tc_client_in[1], "/disablesnapshots\n", 18);}
     write(tc_client_in[1], "/color\n", 7); // Check which random color tc_client picked
     unsigned int length=strlen(&buf[15]);
     nickname=malloc(length+strlen("guest-")+1);
