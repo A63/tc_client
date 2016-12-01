@@ -14,7 +14,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "../config.h"
+#include "config.h"
 
 #ifdef AVCODEC_NO_SEND_RECEIVE_API
   #include <libavcodec/avcodec.h>

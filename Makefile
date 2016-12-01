@@ -1,5 +1,5 @@
 VERSION=0.41pre
-CFLAGS=-g3 -Wall $(shell curl-config --cflags)
+CFLAGS=-g3 -Wall -I. $(shell curl-config --cflags)
 LDFLAGS=-g3
 PREFIX=/usr/local
 CURL_LIBS=$(shell curl-config --libs)

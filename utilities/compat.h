@@ -14,7 +14,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "../config.h"
+#include "config.h"
 #if defined(__ANDROID__) || defined(_WIN32)
 #include <stdint.h>
 #include <stddef.h>
