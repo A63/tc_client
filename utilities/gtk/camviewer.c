@@ -59,6 +59,7 @@
 #include "logging.h"
 #include "../stringutils.h"
 #include "inputhistory.h"
+#include "playmedia.h"
 #include "main.h"
 
 struct viddata
@@ -161,6 +162,12 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     sizestr[0]=0;
     // Find the camera representation for the given ID
     struct camera* cam=camera_find(&buf[7]);
+    if(!cam){return 1;}
+    if(!cam->vctx)
+    {
+      cam->vctx=avcodec_alloc_context3(data->vdecoder);
+      avcodec_open2(cam->vctx, data->vdecoder, 0);
+    }
     unsigned int size=strtoul(&sizestr[1], 0, 0);
     if(!size){return 1;}
     // Mostly ignore the first byte (contains frame type (e.g. keyframe etc.) in 4 bits and codec in the other 4)
@@ -206,7 +213,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);
     volume_indicator(gdkframe, cam);
     gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
-    g_object_unref(oldpixbuf);
+    if(oldpixbuf){g_object_unref(oldpixbuf);}
     return 1;
   }
   if(!strncmp(buf, "Audio: ", 7))
@@ -342,6 +349,10 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     if(!space){return 1;}
     if(space[-1]==':')
     {
+      char nickbuf[space-nick];
+      memcpy(nickbuf, nick, &space[-1]-nick);
+      nickbuf[&space[-1]-nick]=0;
+      struct user* user=finduser(nickbuf);
       if(config_get_bool("soundradio_cmd"))
       {
 #ifdef _WIN32
@@ -356,48 +367,61 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
         }
 #endif
       }
-      if(!strncmp(space, " /mbs youTube ", 14) && config_get_bool("youtuberadio_cmd"))
+      if(user && user->ismod && !strncmp(space, " /mbs youTube ", 14))
       {
-#ifndef _WIN32
-        if(!fork())
-#else
-        char* spacetmp=space;
-        space=strdup(space);
-#endif
+        if(config_get_bool("youtuberadio_cmd"))
         {
-// TODO: store the PID and make sure it's dead before starting a new video? and upon /mbc?
-// TODO: only play videos from mods?
-          char* id=&space[14];
-          char* offset=strchr(id, ' ');
-          if(!offset){_exit(1);}
-          offset[0]=0;
-          offset=&offset[1];
-          char* end=strchr(offset, ' '); // Ignore any additional arguments after the offset (the modbot utility includes the video title here)
-          if(end){end[0]=0;}
-          // Handle format string
-          const char* fmt=config_get_str("youtubecmd");
-          int len=strlen(fmt)+1;
-          len+=strcount(fmt, "%i")*(strlen(id)-2);
-          len+=strcount(fmt, "%t")*(strlen(id)-2);
-          char cmd[len];
-          cmd[0]=0;
-          while(fmt[0])
+          #ifndef _WIN32
+          if(!fork())
+          #else
+          char* spacetmp=space;
+          space=strdup(space);
+          #endif
           {
-            if(!strncmp(fmt, "%i", 2)){strcat(cmd, id); fmt=&fmt[2]; continue;}
-            if(!strncmp(fmt, "%t", 2)){strcat(cmd, offset); fmt=&fmt[2]; continue;}
-            for(len=0; fmt[len] && strncmp(&fmt[len], "%i", 2) && strncmp(&fmt[len], "%t", 2); ++len);
-            strncat(cmd, fmt, len);
-            fmt=&fmt[len];
+// TODO: store the PID and make sure it's dead before starting a new video? and upon /mbc?
+            char* id=&space[14];
+            char* offset=strchr(id, ' ');
+            if(!offset){_exit(1);}
+            offset[0]=0;
+            offset=&offset[1];
+            char* end=strchr(offset, ' '); // Ignore any additional arguments after the offset (the modbot utility includes the video title here)
+            if(end){end[0]=0;}
+            // Handle format string
+            const char* fmt=config_get_str("youtubecmd");
+            int len=strlen(fmt)+1;
+            len+=strcount(fmt, "%i")*(strlen(id)-2);
+            len+=strcount(fmt, "%t")*(strlen(id)-2);
+            char cmd[len];
+            cmd[0]=0;
+            while(fmt[0])
+            {
+              if(!strncmp(fmt, "%i", 2)){strcat(cmd, id); fmt=&fmt[2]; continue;}
+              if(!strncmp(fmt, "%t", 2)){strcat(cmd, offset); fmt=&fmt[2]; continue;}
+              for(len=0; fmt[len] && strncmp(&fmt[len], "%i", 2) && strncmp(&fmt[len], "%t", 2); ++len);
+              strncat(cmd, fmt, len);
+              fmt=&fmt[len];
+            }
+            #ifdef _WIN32
+            w32_runcmd(cmd);
+            free(space);
+            space=spacetmp;
+            #else
+            execlp("sh", "sh", "-c", cmd, (char*)0);
+            _exit(0);
+            #endif
           }
-#ifdef _WIN32
-          w32_runcmd(cmd);
-          free(space);
-          space=spacetmp;
-#else
-          execlp("sh", "sh", "-c", cmd, (char*)0);
-          _exit(0);
-#endif
         }
+#ifdef HAVE_AVFORMAT
+        else if(config_get_bool("youtuberadio_embed")){media_play(&space[6]);}
+      }
+      else if(user && user->ismod && !strncmp(space, " /mbsk youTube ", 15) && config_get_bool("youtuberadio_embed"))
+      {
+        media_seek(strtol(&space[15], 0, 0));
+      }
+      else if(user && user->ismod && !strncmp(space, " /mbc ", 6) && config_get_bool("youtuberadio_embed"))
+      {
+        media_close();
+#endif
       }
       // Handle incoming PMs
       else if(!strncmp(space, " /msg ", 6))
@@ -510,8 +534,6 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     idend[0]=0;
     camera_remove(nick, 1); // Remove any duplicates
     struct camera* cam=camera_new(nick, id);
-    cam->vctx=avcodec_alloc_context3(data->vdecoder);
-    avcodec_open2(cam->vctx, data->vdecoder, 0);
     updatescaling(0, 0, 1);
     gtk_widget_show_all(cam->box);
     return 1;
@@ -755,6 +777,20 @@ void sendmessage(GtkEntry* entry, void* x)
     sendingmsg=0;
     return;
   }
+#ifdef HAVE_AVFORMAT
+  else if(!strncmp(msg, "/mbs ", 5) && config_get_bool("youtuberadio_embed"))
+  {
+    media_play(&msg[5]);
+  }
+  else if(!strncmp(msg, "/mbsk ", 6) && config_get_bool("youtuberadio_embed"))
+  {
+    media_seek(strtol(&msg[6], 0, 0));
+  }
+  else if(!strncmp(msg, "/mbc ", 5) && config_get_bool("youtuberadio_embed"))
+  {
+    media_close();
+  }
+#endif
   else if(msg[0]!='/') // If we're in a PM tab, send messages as PMs
   {
     GtkNotebook* tabs=GTK_NOTEBOOK(gtk_builder_get_object(gui, "tabs"));

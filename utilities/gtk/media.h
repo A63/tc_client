@@ -16,6 +16,8 @@
 */
 #ifndef MEDIA_H
 #define MEDIA_H
+#include <glib.h>
+#include <gtk/gtk.h>
 #include <libavcodec/avcodec.h>
 #ifdef HAVE_AVRESAMPLE
   #include <libavresample/avresample.h>

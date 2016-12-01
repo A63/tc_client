@@ -15,7 +15,7 @@ mkdir -p deps/src
   cd ffmpeg-3.1.4
   mkdir -p build
   cd build
-  ../configure --prefix="${rootdir}/deps" --enable-gpl --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages --disable-avdevice --disable-avformat --disable-postproc --disable-avfilter --disable-encoders --enable-encoder="flv,nellymoser,speex" --disable-decoders --enable-decoder="flv,nellymoser,speex" --disable-parsers --disable-bsfs --disable-devices --disable-sdl --disable-libxcb --disable-xlib --enable-static --disable-shared
+  ../configure --prefix="${rootdir}/deps" --enable-gpl --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages --disable-avdevice --disable-postproc --disable-avfilter --disable-encoders --enable-encoder="flv,nellymoser,speex" --disable-decoders --enable-decoder="flv,nellymoser,speex,h264,mpeg4,vp8,vp9,aac" --disable-protocols --enable-protocol="tls_gnutls,https" --disable-demuxers --enable-demuxer="webm_dash_manifest,m4v,matroska,aac,h264,mpegvideo" --disable-muxers --disable-parsers --disable-bsfs --disable-devices --disable-sdl --disable-libxcb --disable-xlib --enable-gnutls --enable-static --disable-shared
   make
   make install
 )

@@ -64,5 +64,5 @@ echo "cd bin" > "tc_client-${version}-w32/TC Client.cmd"
 echo "start tc_client-gtk" >> "tc_client-${version}-w32/TC Client.cmd"
 # Some good defaults
 echo 'youtubecmd: http://youtube.com/watch?v=%i' > "tc_client-${version}-w32/bin/config.txt"
-echo 'youtuberadio_cmd: True' >> "tc_client-${version}-w32/bin/config.txt"
+echo 'youtuberadio_embed: True' >> "tc_client-${version}-w32/bin/config.txt"
 zip -r "tc_client-${version}-w32.zip" "tc_client-${version}-w32"

@@ -79,6 +79,10 @@ void settings_reset(GtkBuilder* gui)
   logpath=GTK_WIDGET(gtk_builder_get_object(gui, "logpath_pm"));
   gtk_entry_set_text(GTK_ENTRY(logpath), config_get_str("logpath_pm"));
   // Youtube
+#ifdef HAVE_AVFORMAT
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_embed"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("youtuberadio_embed"));
+#endif
   option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("youtuberadio_cmd"));
   option=GTK_WIDGET(gtk_builder_get_object(gui, "youtubecmd"));
@@ -141,10 +145,14 @@ void savesettings(GtkButton* button, GtkBuilder* gui)
   logpath=GTK_WIDGET(gtk_builder_get_object(gui, "logpath_pm"));
   config_set("logpath_pm", gtk_entry_get_text(GTK_ENTRY(logpath)));
   // Youtube
+#ifdef HAVE_AVFORMAT
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_embed"));
+  config_set("youtuberadio_embed", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
+#endif
   GtkWidget* youtubecmd=GTK_WIDGET(gtk_builder_get_object(gui, "youtubecmd"));
   config_set("youtubecmd", gtk_entry_get_text(GTK_ENTRY(youtubecmd)));
-  GtkWidget* youtuberadio_cmd=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
-  config_set("youtuberadio_cmd", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(youtuberadio_cmd))?"True":"False");
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
+  config_set("youtuberadio_cmd", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
   // Cameras
   option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
   config_set("camdownonjoin", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
@@ -1002,6 +1010,10 @@ void gui_init(char frombuild)
   // Youtube
   option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_cmd"));
   g_signal_connect(option, "toggled", G_CALLBACK(toggle_youtubecmd), gui);
+  #ifndef HAVE_AVFORMAT
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_embed"));
+  gtk_widget_destroy(option);
+  #endif
   // Misc
   option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
 

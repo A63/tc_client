@@ -137,6 +137,7 @@ else
 fi
 
 testpkgconfig libswscale SWSCALE
+testpkgconfig libavformat AVFORMAT
 
 printf 'Checking for libavutil... '
 avutillibs="`pkg-config --libs libavutil 2> /dev/null`"

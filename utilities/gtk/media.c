@@ -165,10 +165,16 @@ struct camera* camera_new(const char* nick, const char* id)
   ++camcount;
   cams=realloc(cams, sizeof(struct camera)*camcount);
   struct camera* cam=&cams[camcount-1];
+  cam->vctx=0;
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
   cam->actx=0;
   cam->samples=0;
   cam->samplecount=0;
+  #ifdef HAVE_AVRESAMPLE
+  cam->resamplectx=0;
+  #else
+  cam->swrctx=0;
+  #endif
 #endif
   cam->nick=strdup(nick);
   cam->id=strdup(id);
