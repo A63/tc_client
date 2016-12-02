@@ -23,6 +23,7 @@
 #include "media.h"
 #include "main.h"
 #include "config.h"
+#include "compat.h"
 #include "playmedia.h"
 
 struct frame
