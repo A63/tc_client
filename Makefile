@@ -11,12 +11,12 @@ else
 	@echo 'Run ./configure first, make sure tc_client-gtk is enabled.'
   endif
 endif
-OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endian.o media.o utilities/compat.o
+OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endianutils.o media.o utilities/compat.o
 IRCHACK_OBJ=utilities/irchack/irchack.o utilities/compat.o
 MODBOT_OBJ=utilities/modbot/modbot.o utilities/list.o utilities/modbot/queue.o utilities/compat.o
 CAMVIEWER_OBJ=utilities/camviewer/camviewer.o utilities/compat.o utilities/compat_av.o libcamera.a
 CURSEDCHAT_OBJ=utilities/cursedchat/cursedchat.o utilities/cursedchat/buffer.o utilities/compat.o utilities/list.o
-TC_CLIENT_GTK_OBJ=utilities/gtk/camviewer.o utilities/gtk/userlist.o utilities/gtk/media.o utilities/gtk/compat.o utilities/gtk/config.o utilities/gtk/gui.o utilities/stringutils.o utilities/gtk/logging.o utilities/gtk/postproc.o utilities/compat.o utilities/compat_av.o utilities/gtk/inputhistory.o utilities/gtk/playmedia.o libcamera.a
+TC_CLIENT_GTK_OBJ=utilities/gtk/camviewer.o utilities/gtk/userlist.o utilities/gtk/media.o utilities/gtk/compat.o utilities/gtk/configfile.o utilities/gtk/gui.o utilities/stringutils.o utilities/gtk/logging.o utilities/gtk/postproc.o utilities/compat.o utilities/compat_av.o utilities/gtk/inputhistory.o utilities/gtk/playmedia.o libcamera.a
 LIBCAMERA_OBJ=utilities/libcamera/camera.o utilities/libcamera/camera_img.o
 UTILS=irchack modbot
 CONFINFO=|Will enable the IRC utility irchack|Will enable the bot utility modbot
@@ -145,12 +145,12 @@ libcamera.a: $(LIBCAMERA_OBJ)
 clean:
 	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk camplaceholder.gif
 
-SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endian.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endian.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure
+SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endianutils.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endianutils.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure
 SOURCES+=utilities/irchack/irchack.c
 SOURCES+=utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/queue.h utilities/modbot/commands.html
 SOURCES+=utilities/camviewer/camviewer.c
 SOURCES+=utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h
-SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/config.c utilities/gtk/gui.c utilities/gtk/logging.c utilities/gtk/postproc.c utilities/gtk/inputhistory.c utilities/gtk/playmedia.c utilities/gtk/main.h utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/gtk/config.h utilities/gtk/gui.h utilities/gtk/logging.h utilities/gtk/postproc.h utilities/gtk/inputhistory.h utilities/gtk/playmedia.h gtkgui.glade
+SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/configfile.c utilities/gtk/gui.c utilities/gtk/logging.c utilities/gtk/postproc.c utilities/gtk/inputhistory.c utilities/gtk/playmedia.c utilities/gtk/main.h utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/gtk/configfile.h utilities/gtk/gui.h utilities/gtk/logging.h utilities/gtk/postproc.h utilities/gtk/inputhistory.h utilities/gtk/playmedia.h gtkgui.glade
 SOURCES+=utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 SOURCES+=utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h utilities/stringutils.c utilities/stringutils.h utilities/compat_av.c utilities/compat_av.h
 SOURCES+=utilities/libcamera/camera.c utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c utilities/libcamera/camera_v4l2.h utilities/libcamera/camera_img.c utilities/libcamera/camera_img.h utilities/libcamera/camera_escapi.cpp utilities/libcamera/camera_escapi.h utilities/libcamera/camera_x11.c utilities/libcamera/camera_x11.h

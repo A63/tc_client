@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/stat.h>
-#include "config.h"
+#include "configfile.h"
 #include "../stringutils.h"
 #include "../compat.h"
 

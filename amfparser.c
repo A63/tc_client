@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h> // For debugging
-#include "endian.h"
+#include "endianutils.h"
 #include "utilities/compat.h"
 #include "amfparser.h"
 

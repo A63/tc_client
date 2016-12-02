@@ -54,7 +54,7 @@
 #include "userlist.h"
 #include "media.h"
 #include "compat.h"
-#include "config.h"
+#include "configfile.h"
 #include "gui.h"
 #include "logging.h"
 #include "../stringutils.h"

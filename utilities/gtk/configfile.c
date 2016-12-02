@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "config.h"
+#include "configfile.h"
 
 struct configitem
 {

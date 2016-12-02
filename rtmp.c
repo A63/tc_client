@@ -18,7 +18,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include "endian.h"
+#include "endianutils.h"
 #include "rtmp.h"
 
 struct chunk

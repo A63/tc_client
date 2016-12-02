@@ -18,7 +18,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "endian.h"
+#include "endianutils.h"
 #include "rtmp.h"
 #include "amfwriter.h"
 

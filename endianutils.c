@@ -14,7 +14,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "endian.h"
+#include "endianutils.h"
 
 uint64_t be64(uint64_t in)
 {

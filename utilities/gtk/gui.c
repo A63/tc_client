@@ -18,7 +18,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <gtk/gtk.h>
-#include "config.h"
+#include "configfile.h"
 #include "logging.h"
 #include "compat.h"
 #include "userlist.h"
