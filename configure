@@ -137,7 +137,10 @@ else
 fi
 
 testpkgconfig libswscale SWSCALE
-testpkgconfig libavformat AVFORMAT
+if testpkgconfig libavformat AVFORMAT && ! testbuild 'avcodec_parameters_to_context' 'void* x=avcodec_parameters_to_context;' 'libavcodec/avcodec.h' "$avcodecflags"; then
+  echo '#define codecpar codec' >> config.h
+  echo '#define avcodec_parameters_to_context(a, b) avcodec_free_context(&a); a=b' >> config.h
+fi
 
 printf 'Checking for libavutil... '
 avutillibs="`pkg-config --libs libavutil 2> /dev/null`"

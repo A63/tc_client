@@ -1,10 +1,28 @@
+/*
+    tc_client-gtk, a graphical user interface for tc_client
+    Copyright (C) 2016  alicia@ion.nu
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, version 3 of the License.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 #ifdef HAVE_AVFORMAT
 #include <stdio.h>
 #include <unistd.h>
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
+#include <libavutil/opt.h>
 #include "media.h"
 #include "main.h"
+#include "config.h"
 #include "playmedia.h"
 
 struct frame
@@ -131,7 +149,7 @@ void* playmedia(void* data)
   cam->samplerate=cam->actx->sample_rate;
   // TODO: Figure out why planar formats don't resample well without pretending they're non-planar (sample case: PXj51mQHz5I)
   //  For now, just pass off the first planar channel as non-planar single-channel
-  enum AVSampleFormat samplefmt=av_get_alt_sample_fmt(cam->actx->sample_fmt, 0);
+  enum AVSampleFormat samplefmt=av_get_packed_sample_fmt(cam->actx->sample_fmt);
   int chanlayout=cam->actx->channel_layout;
   if(samplefmt!=cam->actx->sample_fmt){chanlayout=AV_CH_FRONT_CENTER;}
   #ifdef HAVE_AVRESAMPLE

@@ -14,6 +14,7 @@ tc_client-gtk: rewrote the audio mixer.
 tc_client-gtk: display the channel name in the window title.
 tc_client-gtk: added a setting to control /disablesnapshots and /enablesnapshots.
 tc_client-gtk: added support for integrated youtube videos.
+tc_client-gtk: compatibility with older versions of libavformat.
 dist/appimage.sh: fix audio in appimages by building ffmpeg with support for nellymoser and speex, and depending on the system's libao and libpulse instead of including it in the appimage.
 libcamera(escapi): handle failure to open camera more gracefully.
 irchack: pass along "<user> cammed up" notifications.
