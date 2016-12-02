@@ -94,6 +94,8 @@ if ! testbuild 'dprintf' 'dprintf(1,"test");' 'stdio.h'; then
   echo '#define NO_DPRINTF 1' >> config.h
 fi
 
+if ! uname -s | grep -q MSYS; then # Skip all the GUI stuff when building on msys
+
 if ! testpkgconfig 'gtk+-3.0' GTK; then
   testpkgconfig 'gtk+-2.0' GTK
 fi
@@ -212,6 +214,12 @@ if "$haveresample"; then
   testpkgconfig ao AO
 fi
 
+testpkgconfig libv4l2 LIBV4L2
+testpkgconfig x11 LIBX11
+testpkgconfig libpulse-simple PULSE
+
+fi # Skip all the GUI stuff when building on msys
+
 printf 'Checking for ncurses... '
 notfound=true
 for version in 7 6 5 4; do
@@ -258,10 +266,6 @@ else
   fi
 fi
 rm -f polltest.c polltest
-
-testpkgconfig libv4l2 LIBV4L2
-testpkgconfig x11 LIBX11
-testpkgconfig libpulse-simple PULSE
 
 # TODO: handle crosscompiling better
 printf 'Checking if endianness macros work... '
