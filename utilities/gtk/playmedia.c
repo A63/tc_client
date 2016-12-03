@@ -100,11 +100,11 @@ void* playmedia(void* data)
   int fd=pmd->fd;
   playmedia_seek=pmd->seek;
   // Get the URL for the actual file
-  if(strchr(pmd->id, '\'')){free(pmd->id); free(pmd); return 0;}
-  char cmd[strlen("youtube-dl -f 'best[height<=480]' -g -- ''0")+strlen(pmd->id)];
-  strcpy(cmd, "youtube-dl -f 'best[height<=480]' -g -- '");
+  if(strchr(pmd->id, '"')){free(pmd->id); free(pmd); return 0;}
+  char cmd[strlen("youtube-dl -f \"best[height<=480]\" -g -- \"\"0")+strlen(pmd->id)];
+  strcpy(cmd, "youtube-dl -f \"best[height<=480]\" -g -- \"");
   strcat(cmd, pmd->id);
-  strcat(cmd, "'");
+  strcat(cmd, "\"");
   free(pmd->id);
   free(pmd);
   FILE* ytdl=popen(cmd, "r");

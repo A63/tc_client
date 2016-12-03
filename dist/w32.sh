@@ -50,6 +50,8 @@ cd "$here"
 make || exit 1
 
 cp *.exe gtkgui.glade "tc_client-${version}-w32/bin"
+(cd "tc_client-${version}-w32/bin"
+wget -c 'http://youtube-dl.org/downloads/latest/youtube-dl.exe')
 mkdir -p "tc_client-${version}-w32/share/glib-2.0/schemas"
 cp /mingw32/share/glib-2.0/schemas/gschemas.compiled "tc_client-${version}-w32/share/glib-2.0/schemas"
 . /etc/profile
