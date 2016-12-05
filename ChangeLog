@@ -4,6 +4,7 @@ Enabled compiling in a directory separate from the source directory.
 Added a /disablesnapshots command to disable capturing outgoing cams for the flash client's "snapshot" feature, /enablesnapshots to re-enable.
 Fixes for compiling in a separate directory.
 Buildsystem fixes.
+More fixes for compiling in a separate directory.
 tc_client-gtk: bugfix: don't rely on stack allocated variables for GUI callbacks.
 tc_client-gtk: install the camera placeholder animation for the 'install' target.
 tc_client-gtk: mark outgoing video keyframes as keyframes.

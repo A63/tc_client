@@ -138,7 +138,7 @@ tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif modicon.png
 camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 	utilities/gtk/gencamplaceholder.sh
 
-modicon.png: utilities/gtk/modicon.xcf
+modicon.png: $(SRCDIR)utilities/gtk/modicon.xcf
 	convert -background none $< -layers Merge -scale x20 $@
 
 libcamera.a: $(LIBCAMERA_OBJ)

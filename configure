@@ -304,6 +304,7 @@ if [ "." != "$srcdir" ]; then
   done
   echo "utilities/libcamera/%.o: ${srcdir}/utilities/libcamera/%.cpp" >> Makefile
   echo '	$(CXX) $(CXXFLAGS) -c $< -o $@' >> Makefile
+  echo "SRCDIR=${srcdir}/" >> config.mk
 fi
 
 echo Done

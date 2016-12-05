@@ -18,6 +18,7 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include "gui.h"
+#include "compat.h"
 #include "userlist.h"
 
 struct user* userlist=0;
