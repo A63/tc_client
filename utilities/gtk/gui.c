@@ -593,7 +593,12 @@ void gui_hide_cam(GtkMenuItem* menuitem, void* x)
   struct camera* cam=camera_find(menu_context_cam);
   if(!cam){return;}
   dprintf(tc_client_in[1], "/closecam %s\n", cam->nick);
-  camera_remove(menu_context_cam, 0);
+  if(!strcmp(cam->id, "out"))
+  {
+    stopbroadcasting(0, 0);
+  }else{
+    camera_remove(menu_context_cam, 0);
+  }
 }
 
 gboolean gui_greenscreen_preview(void* x)

@@ -271,6 +271,7 @@ gboolean cam_encode(void* camera_)
   CAM* camera=camera_;
   if(camera!=camout_cam){return G_SOURCE_REMOVE;}
   struct camera* cam=camera_find("out");
+  if(!cam){return G_SOURCE_REMOVE;}
   if(cam->placeholder) // Remove the placeholder animation if it has it
   {
     g_source_remove(cam->placeholder);
