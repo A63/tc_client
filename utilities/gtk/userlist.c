@@ -52,6 +52,7 @@ struct user* adduser(const char* nick)
   userlist=realloc(userlist, sizeof(struct user)*usercount);
   userlist[usercount-1].nick=strdup(nick);
   userlist[usercount-1].label=gtk_label_new(nick); // TODO: some kind of menubutton for actions?
+  userlist[usercount-1].item=userlist[usercount-1].label;
   userlist[usercount-1].pm_tab=0;
   userlist[usercount-1].pm_tablabel=0;
   userlist[usercount-1].pm_chatview=0;
@@ -71,15 +72,7 @@ void renameuser(const char* old, const char* newnick)
   if(!user){return;}
   free(user->nick);
   user->nick=strdup(newnick);
-  if(user->ismod)
-  {
-    char newlabel[strlen(newnick)+2];
-    newlabel[0]='@';
-    strcpy(&newlabel[1], newnick);
-    gtk_label_set_text(GTK_LABEL(user->label), newlabel);
-  }else{
-    gtk_label_set_text(GTK_LABEL(user->label), newnick);
-  }
+  gtk_label_set_text(GTK_LABEL(user->label), newnick);
   if(user->pm_tablabel)
   {
     if(user->pm_highlight)
@@ -99,10 +92,32 @@ void removeuser(const char* nick)
     if(!strcmp(userlist[i].nick, nick))
     {
       free(userlist[i].nick);
-      gtk_widget_destroy(userlist[i].label);
+      gtk_widget_destroy(userlist[i].item);
       --usercount;
       memmove(&userlist[i], &userlist[i+1], (usercount-i)*sizeof(struct user));
       return;
     }
   }
+}
+
+void usersetmod(const char* nick, char mod)
+{
+  struct user* user=finduser(nick);
+  if(!user || mod==user->ismod){return;}
+  user->ismod=mod;
+  g_object_ref(user->label); // Keep label from getting destroyed
+  if(mod)
+  { // Add icon to symbolize being a moderator
+    gtk_container_remove(GTK_CONTAINER(userlistwidget), user->label);
+    user->item=gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_box_pack_start(GTK_BOX(user->item), user->label, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(user->item), gtk_image_new_from_pixbuf(modicon), 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(userlistwidget), user->item, 0, 0, 0);
+    gtk_widget_show_all(user->item);
+  }else{
+    gtk_widget_destroy(user->item);
+    gtk_box_pack_start(GTK_BOX(userlistwidget), user->label, 0, 0, 0);
+    user->item=user->label;
+  }
+  g_object_unref(user->label);
 }

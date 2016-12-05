@@ -74,3 +74,4 @@ extern GtkBuilder* gui;
 extern GdkCursor* gui_cursor_text;
 extern GdkCursor* gui_cursor_link;
 extern struct chatview* mainchat;
+extern GdkPixbuf* modicon;

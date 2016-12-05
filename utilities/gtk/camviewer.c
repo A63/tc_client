@@ -496,19 +496,13 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
   if(space && !strcmp(space, " is a moderator."))
   {
     space[0]=0;
-    struct user* user=finduser(buf);
-    if(user)
-    {
-      user->ismod=1;
-      renameuser(buf, buf); // Update the userlist label
-    }
+    usersetmod(buf, 1);
     return 1;
   }
   if(space && !strcmp(space, " is no longer a moderator."))
   {
     space[0]=0;
-    struct user* user=finduser(buf);
-    if(user){user->ismod=0;}
+    usersetmod(buf, 0);
     return 1;
   }
   // Start a stream when someone cams up

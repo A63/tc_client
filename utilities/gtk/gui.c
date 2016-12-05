@@ -35,6 +35,7 @@ extern gboolean gui_greenscreen_preview(void* x);
 GdkCursor* gui_cursor_text;
 GdkCursor* gui_cursor_link;
 struct chatview* mainchat;
+GdkPixbuf* modicon=0;
 
 void settings_reset(GtkBuilder* gui)
 {
@@ -1067,6 +1068,8 @@ void gui_init(char frombuild)
     camplaceholder=gdk_pixbuf_animation_new_from_file(PREFIX "/share/tc_client/camplaceholder.gif", 0);
   }
   camplaceholder_iter=gdk_pixbuf_animation_get_iter(camplaceholder, 0);
+  // Load moderator icon
+  modicon=gdk_pixbuf_new_from_file(PREFIX "/share/tc_client/modicon.png", 0);
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");
