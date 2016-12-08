@@ -1100,3 +1100,9 @@ void gui_init(char frombuild)
   }
   gtk_widget_show_all(startwindow);
 }
+
+void gui_disableinputs(void)
+{
+  gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(gui, "inputfield")), 0);
+  gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(gui, "menuitem_broadcast")), 0);
+}

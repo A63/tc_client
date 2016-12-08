@@ -69,6 +69,7 @@ extern void stopbroadcasting(GtkMenuItem* x, void* y);
 extern gboolean handleresize(GtkWidget* widget, GdkEventConfigure* event, void* data);
 extern void handleresizepane(GObject* obj, GParamSpec* spec, void* data);
 extern void gui_init(char frombuild);
+extern void gui_disableinputs(void);
 
 extern GtkBuilder* gui;
 extern GdkCursor* gui_cursor_text;

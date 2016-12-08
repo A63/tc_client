@@ -568,6 +568,12 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     printchat(buf, 0, 0, 0);
     return 1;
   }
+  if(!strncmp(buf, "Captcha not completed,", 22))
+  {
+    printchat(buf, 0, 0, 0);
+    gui_disableinputs();
+    return 1;
+  }
   if(!strcmp(buf, "Server disconnected"))
   {
     printchat(buf, 0, 0, 0);
