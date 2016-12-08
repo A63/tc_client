@@ -150,6 +150,10 @@ char* getcookie(const char* channel)
   char url[strlen("http://tinychat.com/cauth?t=&room=0")+snprintf(0,0, "%llu", now)+strlen(channel)];
   sprintf(url, "http://tinychat.com/cauth?t=%llu&room=%s", now, channel);
   char* response=http_get(url, 0);
+  if(strstr(response, "\"lurker\":1"))
+  {
+    printf("Captcha not completed, you will not be able to send any messages or broadcast\n");
+  }
   char* cookie=strstr(response, "\"cookie\":\"");
 
   if(!cookie){return 0;}
