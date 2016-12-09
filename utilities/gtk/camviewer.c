@@ -439,7 +439,10 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     }
     if(config_get_bool("enable_logging")){logger_write(buf, channel, pm);}
     // Insert new content
-    printchat(buf, color, 8, pm);
+    if(space[-1]==':' || !config_get_bool("hide_notifications"))
+    {
+      printchat(buf, color, 8, pm);
+    }
     pm_highlight(pm);
     free(pm);
     if(space[-1]!=':') // Not a message

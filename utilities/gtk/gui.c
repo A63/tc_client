@@ -67,6 +67,8 @@ void settings_reset(GtkBuilder* gui)
   }
   option=GTK_WIDGET(gtk_builder_get_object(gui, "bluelinks"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("blue_links"));
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "hidenotifications"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("hide_notifications"));
   // Sound
   option=GTK_WIDGET(gtk_builder_get_object(gui, "soundradio_cmd"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("soundradio_cmd"));
@@ -132,6 +134,8 @@ void savesettings(GtkButton* button, GtkBuilder* gui)
   }
   option=GTK_WIDGET(gtk_builder_get_object(gui, "bluelinks"));
   config_set("blue_links", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "hidenotifications"));
+  config_set("hide_notifications", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
   // Sound
   GtkWidget* soundcmd=GTK_WIDGET(gtk_builder_get_object(gui, "soundcmd"));
   config_set("soundcmd", gtk_entry_get_text(GTK_ENTRY(soundcmd)));
