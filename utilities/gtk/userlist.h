@@ -36,3 +36,4 @@ extern struct user* adduser(const char* nick);
 extern void renameuser(const char* old, const char* newnick);
 extern void removeuser(const char* nick);
 extern void usersetmod(const char* nick, char mod);
+extern void userlist_sort(void);

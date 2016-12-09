@@ -19,6 +19,8 @@
 #include <gtk/gtk.h>
 #include "gui.h"
 #include "compat.h"
+#include "main.h"
+#include "configfile.h"
 #include "userlist.h"
 
 struct user* userlist=0;
@@ -64,6 +66,7 @@ struct user* adduser(const char* nick)
   userlist[usercount-1].ismod=0;
   gtk_box_pack_start(GTK_BOX(userlistwidget), userlist[usercount-1].label, 0, 0, 0);
   gtk_widget_show(userlist[usercount-1].label);
+  userlist_sort();
   return &userlist[usercount-1];
 }
 
@@ -83,6 +86,7 @@ void renameuser(const char* old, const char* newnick)
       gtk_label_set_text(GTK_LABEL(user->pm_tablabel), newnick);
     }
   }
+  userlist_sort();
 }
 
 void removeuser(const char* nick)
@@ -121,4 +125,34 @@ void usersetmod(const char* nick, char mod)
     user->item=user->label;
   }
   g_object_unref(user->label);
+  userlist_sort();
+}
+
+signed char usercmp(const struct user* a, const struct user* b)
+{
+  if(a==b){return 0;}
+  signed char r=strcasecmp(a->nick, b->nick); // Primarily sort case-insensitively
+  if(!r){r=strcmp(a->nick, b->nick);} // But fall back to case-sensitive if they match
+  if(config_get_bool("userlist_sort_mod") && a->ismod^b->ismod){r=b->ismod-a->ismod;}
+  if(config_get_bool("userlist_sort_self"))
+  {
+    if(!strcmp(a->nick, nickname)){r=-1;}
+    else if(!strcmp(b->nick, nickname)){r=1;}
+  }
+  return r;
+}
+
+void userlist_sort(void)
+{
+  unsigned int i;
+  for(i=0; i<usercount; ++i)
+  {
+    unsigned int position=0;
+    unsigned int i2;
+    for(i2=0; i2<usercount; ++i2)
+    {
+      if(usercmp(&userlist[i], &userlist[i2])>0){++position;}
+    }
+    gtk_box_reorder_child(GTK_BOX(userlistwidget), userlist[i].item, position);
+  }
 }

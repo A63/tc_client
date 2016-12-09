@@ -100,6 +100,11 @@ void settings_reset(GtkBuilder* gui)
   // Misc/cookies
   option=GTK_WIDGET(gtk_builder_get_object(gui, "storecookiecheckbox"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("storecookies"));
+  // Misc/userlist
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "userlist_sort_mod"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("userlist_sort_mod"));
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "userlist_sort_self"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("userlist_sort_self"));
 }
 
 void showsettings(GtkMenuItem* item, GtkBuilder* gui)
@@ -173,6 +178,12 @@ void savesettings(GtkButton* button, GtkBuilder* gui)
   // Misc/cookies
   option=GTK_WIDGET(gtk_builder_get_object(gui, "storecookiecheckbox"));
   config_set("storecookies", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
+  // Misc/userlist
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "userlist_sort_mod"));
+  config_set("userlist_sort_mod", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "userlist_sort_self"));
+  config_set("userlist_sort_self", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
+  userlist_sort();
 
   config_save();
   GtkWidget* settings=GTK_WIDGET(gtk_builder_get_object(gui, "settings"));
@@ -1024,8 +1035,6 @@ void gui_init(char frombuild)
   option=GTK_WIDGET(gtk_builder_get_object(gui, "youtuberadio_embed"));
   gtk_widget_destroy(option);
   #endif
-  // Misc
-  option=GTK_WIDGET(gtk_builder_get_object(gui, "camdownonjoin"));
 
   GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "main"));
   g_signal_connect(window, "configure-event", G_CALLBACK(handleresize), 0);
