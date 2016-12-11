@@ -22,9 +22,10 @@ finddeps()
   rm -f .handleddeps
 }
 
+make clean
 rm -rf escapi*
-# Find and download the latest version of ESCAPI
-curl -s 'http://sol.gfxile.net/zip/?C=M;O=D' | sed -n -e 's|.*<a [^>]*>\(escapi[^<]*\)<.*|http://sol.gfxile.net/zip/\1|p' | head -n 1 | xargs wget
+# Download ESCAPI, stick with version 2.1 because 3.0 seems unstable
+wget -c http://sol.gfxile.net/zip/escapi21.zip
 mkdir escapi
 (cd escapi; unzip ../escapi*.zip)
 version="`sed -n -e 's/^VERSION=//p' Makefile`"
@@ -49,11 +50,17 @@ cd "$here"
 ./configure
 make || exit 1
 
-cp *.exe gtkgui.glade "tc_client-${version}-w32/bin"
+cp *.exe gtkgui.glade camplaceholder.gif modicon.png "tc_client-${version}-w32/bin"
 (cd "tc_client-${version}-w32/bin"
 wget -c 'http://youtube-dl.org/downloads/latest/youtube-dl.exe')
 mkdir -p "tc_client-${version}-w32/share/glib-2.0/schemas"
+glib-compile-schemas /mingw32/share/glib-2.0/schemas
 cp /mingw32/share/glib-2.0/schemas/gschemas.compiled "tc_client-${version}-w32/share/glib-2.0/schemas"
+mkdir -p "tc_client-${version}-w32/share/icons/Adwaita"
+cp -r /mingw32/share/icons/Adwaita/16x16 /mingw32/share/icons/Adwaita/icon-theme.cache /mingw32/share/icons/Adwaita/index.theme "tc_client-${version}-w32/share/icons/Adwaita"
+mkdir -p "tc_client-${version}-w32/lib"
+gdk-pixbuf-query-loaders > /mingw32/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
+cp -r /mingw32/lib/gdk-pixbuf-2.0 "tc_client-${version}-w32/lib"
 . /etc/profile
 cd "$here"
 (

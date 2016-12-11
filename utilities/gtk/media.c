@@ -380,7 +380,7 @@ void camselect_open(void(*cb)(CAM*), void(*ccb)(void))
 void camselect_change(GtkComboBox* combo, void* x)
 {
   if(!camselect.eventsource){return;} // Haven't opened the cam selection window yet (happens at startup)
-  if(camselect.current){cam_close(camselect.current);}
+  if(camselect.current){cam_close(camselect.current); camselect.current=0;}
   camselect.current=cam_open(gtk_combo_box_get_active_id(combo));
   if(!camselect.current){return;}
   camselect.size.width=320;
@@ -432,11 +432,7 @@ void camselect_file_preview(GtkFileChooser* dialog, gpointer data)
 const char* camselect_file(void)
 {
   GtkWidget* preview=gtk_image_new();
-#ifndef _WIN32
   GtkWindow* window=GTK_WINDOW(gtk_builder_get_object(gui, "camselection"));
-#else
-  GtkWindow* window=0;
-#endif
   GtkWidget* dialog=gtk_file_chooser_dialog_new("Open Image", window, GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, (char*)0);
   GtkFileFilter* filter=gtk_file_filter_new();
   gtk_file_filter_add_pixbuf_formats(filter);
@@ -673,6 +669,7 @@ void camera_calcvolume(struct camera* cam, float* samples, unsigned int sampleco
 
 void volume_indicator(GdkPixbuf* frame, struct camera* cam)
 {
+  if(!frame){return;}
   if(cam->volumeold>10){return;} // Not sending any audio anymore
   guchar* pixels=gdk_pixbuf_get_pixels(frame);
   unsigned int channels=gdk_pixbuf_get_n_channels(frame);

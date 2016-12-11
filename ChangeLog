@@ -28,6 +28,7 @@ dist/appimage.sh: fix audio in appimages by building ffmpeg with support for nel
 libcamera(escapi): handle failure to open camera more gracefully.
 irchack: pass along "<user> cammed up" notifications.
 configure: skip looking for libraries used for the GUI applications when building on msys.
+dist/w32.sh: bundle Adwaita icons and gdk-pixbuf loaders.
 0.40:
 Moved the backward compatibility code for avcodec_{send,receive}_{frame,packet} into a separate source file to avoid pulling libavcodec into utilities that don't use it.
 Improved the RTMP acknowledgement code: counting the format 3 headers which were previously skipped, setting a more reasonable acknowledgement interval at startup and giving the server some margin before dropping outgoing video packets.

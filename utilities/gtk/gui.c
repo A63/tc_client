@@ -1082,7 +1082,12 @@ void gui_init(char frombuild)
   }
   camplaceholder_iter=gdk_pixbuf_animation_get_iter(camplaceholder, 0);
   // Load moderator icon
-  modicon=gdk_pixbuf_new_from_file(PREFIX "/share/tc_client/modicon.png", 0);
+  if(frombuild)
+  {
+    modicon=gdk_pixbuf_new_from_file("modicon.png", 0);
+  }else{
+    modicon=gdk_pixbuf_new_from_file(PREFIX "/share/tc_client/modicon.png", 0);
+  }
   // Populate saved channels
   GtkWidget* startbox=GTK_WIDGET(gtk_builder_get_object(gui, "startbox"));
   int channelcount=config_get_int("channelcount");
