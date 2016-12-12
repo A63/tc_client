@@ -20,14 +20,14 @@ Commands supported by tc_client:
 /audio <length> = send a <length> bytes long encoded frame, send the frame data after this line
 /camdown        = close the audio/video stream
 /topic <topic>  = set the channel topic
-/disablesnapshots = disable flash client's snapshots of our stream.
-/enablesnapshots = re-enable flash client's snapshots of our stream.
+/disablesnapshots = disable flash client's snapshots of our stream
+/enablesnapshots = re-enable flash client's snapshots of our stream
+/allow <nick>   = allow user to broadcast (as a mod)
+/getnick <ID>   = get nickname from connection ID
 /help           = list these commands at runtime
 
 Missing features:
 broadcasting support for channels which require a password to broadcast
-broadcasting support for channels where mods need to approve streams
-support for reviewing and approving streams as a mod
 
 Current commands sent by the TC servers that tc_client doesn't know how to handle:
 notice (some, notice is used for many functions)

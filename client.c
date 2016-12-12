@@ -37,6 +37,9 @@
 #include "amfwriter.h"
 #include "utilities/compat.h"
 
+const char* sitearg="tinychat";
+const char* bpassword=0;
+
 struct writebuf
 {
   char* buf;
@@ -91,22 +94,23 @@ char* gethost(char *channel, char *password)
   int urllen;
   if(password)
   {
-    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=tinychat&password=0")+strlen(channel)+strlen(password);
+    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=&password=0")+strlen(channel)+strlen(sitearg)+strlen(password);
   }else{
-    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=tinychat0")+strlen(channel);
+    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=0")+strlen(channel)+strlen(sitearg);
   }
   char url[urllen];
   if(password)
   {
-    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=tinychat&password=%s", channel, password);
+    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=%s&password=%s", channel, sitearg, password);
   }else{
-    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=tinychat", channel);
+    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=%s", channel, sitearg);
   }
   char* response=http_get(url, 0);
   if(!response){exit(-1);}
   //response contains result='(OK|RES)|PW' (latter means a password is required)
   char* result=strstr(response, "result='");
   if(!result){printf("No result\n"); exit(-1);}
+  char* bpass=strstr(response, " bpassword='");
   result+=strlen("result='");
   // Handle the result value
   if(!strncmp(result, "PW", 2)){printf("Password required\n"); exit(-1);}
@@ -118,14 +122,26 @@ char* gethost(char *channel, char *password)
   int len;
   for(len=0; rtmp[len] && rtmp[len]!='/'; ++len);
   char* host=strndup(rtmp, len);
+  // Check if this is a greenroom channel
+  if(strstr(response, "greenroom=\"1\""))
+  {
+    printf("Channel has greenroom\n");
+    fflush(stdout);
+  }
+  char* end;
+  if(bpass && (end=strchr(&bpass[12], '\'')))
+  {
+    end[0]=0;
+    bpassword=strdup(&bpass[12]);
+  }
   free(response);
   return host;
 }
 
 char* getkey(int id, const char* channel)
 {
-  char url[snprintf(0,0, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=tinychat%%5E%s", id, channel)+1];
-  sprintf(url, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=tinychat%%5E%s", id, channel);
+  char url[snprintf(0,0, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel)+1];
+  sprintf(url, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel);
   char* response=http_get(url, 0);
   char* key=strstr(response, "\"key\":\"");
 
@@ -165,18 +181,19 @@ char* getcookie(const char* channel)
   return cookie;
 }
 
-char* getbroadcastkey(const char* channel, const char* nick)
+char* getbroadcastkey(const char* channel, const char* nick, const char* bpassword)
 {
   unsigned int id=idlist_get(nick);
-  char url[strlen("http://apl.tinychat.com/api/broadcast.pw?name=&site=tinychat&nick=&id=0")+128+strlen(channel)+strlen(nick)];
-  sprintf(url, "http://apl.tinychat.com/api/broadcast.pw?name=%s&site=tinychat&nick=%s&id=%u", channel, nick, id);
+  char url[snprintf(0,0, "http://apl.tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"")+1];
+  sprintf(url, "http://apl.tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"");
   char* response=http_get(url, 0);
+  if(strstr(response, " result='PW'")){free(response); return 0;}
   char* key=strstr(response, " token='");
 
-  if(!key){return 0;}
+  if(!key){free(response); return 0;}
   key+=8;
   char* keyend=strchr(key, '\'');
-  if(!keyend){return 0;}
+  if(!keyend){free(response); return 0;}
   key=strndup(key, keyend-key);
   free(response);
   return key;
@@ -325,6 +342,7 @@ int main(int argc, char** argv)
     else if(!strcmp(argv[i], "--rtmplog")){++i; rtmplog=open(argv[i], O_WRONLY|O_CREAT|O_TRUNC, 0600); if(rtmplog<0){perror("rtmplog: open");}}
 #endif
     else if(!strcmp(argv[i], "--hexcolors")){hexcolors=1;}
+    else if(!strcmp(argv[i], "--greenroom")){sitearg="greenroom";}
     else if(!channel){channel=argv[i];}
     else if(!nickname){nickname=strdup(argv[i]);}
     else if(!password){password=argv[i];}
@@ -357,6 +375,9 @@ int main(int argc, char** argv)
       if(account_pass[i]=='\n'||account_pass[i]=='\r'){account_pass[i]=0; break;}
     }
   }
+  char loggedin=0;
+  // Log in if user account is specified
+  char* modkey=getmodkey(account_user, account_pass, channel, &loggedin);
   char* server=gethost(channel, password);
   struct addrinfo* res;
   // Separate IP/domain and port
@@ -393,9 +414,6 @@ int main(int argc, char** argv)
   b_read(sock, handshake, 1536); // Read our junk back, we don't bother checking that it's the same
   printf("Handshake complete\n");
   struct rtmp rtmp={0,0,0,0,0};
-  // Handshake complete, log in (if user account is specified)
-  char loggedin=0;
-  char* modkey=getmodkey(account_user, account_pass, channel, &loggedin);
   if(!loggedin){free(account_pass); account_user=0; account_pass=0;}
   getcaptcha();
   char* cookie=getcookie(channel);
@@ -453,7 +471,7 @@ int main(int argc, char** argv)
     amfstring(&amf, account_user?account_user:"");
 
     amfobjitem(&amf, "prefix");
-    amfstring(&amf, "tinychat");
+    amfstring(&amf, sitearg);
 
     amfobjitem(&amf, "room");
     amfstring(&amf, channel);
@@ -525,8 +543,10 @@ int main(int argc, char** argv)
                  "/audio <length> = send a <length> bytes long encoded frame, send the frame data after this line\n"
                  "/topic <topic>  = set the channel topic\n"
                  "/whois <nick/ID> = check a user's username\n"
-                 "/disablesnapshots = disable flash client's snapshots of our stream.\n"
-                 "/enablesnapshots = re-enable flash client's snapshots of our stream.\n");
+                 "/disablesnapshots = disable flash client's snapshots of our stream\n"
+                 "/enablesnapshots = re-enable flash client's snapshots of our stream\n"
+                 "/allow <nick>   = allow user to broadcast\n"
+                 "/getnick <ID>   = get nickname from connection ID\n");
           fflush(stdout);
           continue;
         }
@@ -679,7 +699,7 @@ int main(int argc, char** argv)
         else if(!strcmp(buf, "/camup"))
         {
           // Retrieve and send the key for broadcasting access
-          char* key=getbroadcastkey(channel, nickname);
+          char* key=getbroadcastkey(channel, nickname, bpassword);
           amfinit(&amf, 3);
           amfstring(&amf, "bauth");
           amfnum(&amf, 0);
@@ -738,6 +758,20 @@ int main(int argc, char** argv)
         else if(!strcmp(buf, "/disablesnapshots") || !strcmp(buf, "/enablesnapshots"))
         {
           setallowsnapshots(sock, buf[1]=='e'); // True for "/enablesnapshots", false for "/disablesnapshots"
+          continue;
+        }
+        else if(!strncmp(buf, "/allow ", 7))
+        {
+          if(!bpassword){continue;}
+          privfield=getprivfield(&buf[7]);
+          if(!privfield){continue;}
+          len=sprintf(buf, "/allowbroadcast %s", bpassword);
+        }
+        else if(!strncmp(buf, "/getnick ", 9))
+        {
+          int id=atoi(&buf[9]);
+          const char* nick=idlist_getnick(id);
+          if(nick){printf("Nickname of connection %i: %s\n", id, nick); fflush(stdout);}
           continue;
         }
       }
@@ -806,19 +840,15 @@ int main(int argc, char** argv)
         line=nextline;
       }
       char* response=0;
-      if(len==18 && !strncmp(msg, "/userinfo $request", 18))
+      if(!strncmp(msg, "/allowbroadcast ", 16))
       {
-        if(account_user)
+        if(getbroadcastkey(channel, nickname, &msg[16])) // Validate password
         {
-          unsigned int len=strlen("/userinfo ")+strlen(account_user);
-          char buf[len+1];
-          sprintf(buf, "/userinfo %s", account_user);
-          response=tonumlist(buf, len);
-        }else{
-          response=tonumlist("/userinfo $noinfo", 17);
+          free((void*)bpassword);
+          bpassword=strdup(&msg[16]);
         }
       }
-      else if(len==8 && !strncmp(msg, "/version", 8))
+      else if(!strcmp(msg, "/version"))
       {
         response=tonumlist("/version tc_client-" VERSION, strlen(VERSION)+19);
       }

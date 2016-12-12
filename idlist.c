@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2014-2016  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
@@ -100,6 +100,19 @@ char idlist_is_op(const char* name)
     if(!strcmp(name, idlist[i].name))
     {
       return idlist[i].op;
+    }
+  }
+  return 0;
+}
+
+const char* idlist_getnick(int id)
+{
+  int i;
+  for(i=0; i<idlistlen; ++i)
+  {
+    if(idlist[i].id==id)
+    {
+      return idlist[i].name;
     }
   }
   return 0;
