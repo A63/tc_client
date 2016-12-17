@@ -60,6 +60,7 @@
 #include "../stringutils.h"
 #include "inputhistory.h"
 #include "playmedia.h"
+#include "greenroom.h"
 #include "main.h"
 
 struct viddata
@@ -75,8 +76,8 @@ int tc_client_in[2];
 const char* channel=0;
 const char* mycolor=0;
 char* nickname=0;
+char hasgreenroom=0;
 char frombuild=0; // Running from the build directory
-#define TC_CLIENT (frombuild?"./tc_client":"tc_client")
 #ifdef _WIN32
   PROCESS_INFORMATION coreprocess={.hProcess=0};
 #endif
@@ -143,9 +144,9 @@ void printchat(const char* text, const char* color, unsigned int offset, const c
 }
 
 unsigned int cameventsource=0;
-char buf[1024];
 gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
 {
+  static char buf[1024];
   gsize r;
   unsigned int i;
   for(i=0; i<1023; ++i)
@@ -160,14 +161,6 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     char* sizestr=strchr(&buf[7], ' ');
     if(!sizestr){return 1;}
     sizestr[0]=0;
-    // Find the camera representation for the given ID
-    struct camera* cam=camera_find(&buf[7]);
-    if(!cam){return 1;}
-    if(!cam->vctx)
-    {
-      cam->vctx=avcodec_alloc_context3(data->vdecoder);
-      avcodec_open2(cam->vctx, data->vdecoder, 0);
-    }
     unsigned int size=strtoul(&sizestr[1], 0, 0);
     if(!size){return 1;}
     // Mostly ignore the first byte (contains frame type (e.g. keyframe etc.) in 4 bits and codec in the other 4)
@@ -176,6 +169,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     av_init_packet(&pkt);
     unsigned char databuf[size+4];
     pkt.data=databuf;
+    pkt.size=size;
     unsigned char frameinfo;
     g_io_channel_read_chars(iochannel, (gchar*)&frameinfo, 1, 0, 0);
 //   printf("Frametype-frame: %x\n", ((unsigned int)frameinfo&0xf0)/16);
@@ -187,33 +181,10 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
       pos+=r;
     }
     if((frameinfo&0xf)!=2){return 1;} // Not FLV1, get data but discard it
+    // Find the camera representation for the given ID
+    struct camera* cam=camera_find(&buf[7]);
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
-    pkt.size=size;
-    int gotframe;
-    avcodec_send_packet(cam->vctx, &pkt);
-    gotframe=avcodec_receive_frame(cam->vctx, cam->frame);
-    if(gotframe){return 1;}
-
-    if(cam->placeholder) // Remove the placeholder animation if it has it
-    {
-      g_source_remove(cam->placeholder);
-      cam->placeholder=0;
-    }
-    // Scale and convert to RGB24 format
-    unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, camsize_scale.width, camsize_scale.height, 1);
-    unsigned char* buf=malloc(bufsize);
-    cam->dstframe->data[0]=buf;
-    cam->dstframe->linesize[0]=camsize_scale.width*3;
-    struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, camsize_scale.width, camsize_scale.height, AV_PIX_FMT_RGB24, SWS_BICUBIC, 0, 0, 0);
-    sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
-    sws_freeContext(swsctx);
-    postprocess(&cam->postproc, cam->dstframe->data[0], camsize_scale.width, camsize_scale.height);
-
-    GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
-    GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, camsize_scale.width, camsize_scale.height, cam->dstframe->linesize[0], freebuffer, 0);
-    volume_indicator(gdkframe, cam);
-    gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
-    if(oldpixbuf){g_object_unref(oldpixbuf);}
+    camera_decode(cam, &pkt, camsize_scale.width, camsize_scale.height);
     return 1;
   }
   if(!strncmp(buf, "Audio: ", 7))
@@ -242,21 +213,27 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     struct camera* cam=camera_find(&buf[7]);
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
     if(!cam->actx && camera_init_audio(cam, frameinfo)){return 1;}
-    int gotframe;
-    avcodec_send_packet(cam->actx, &pkt);
-    gotframe=avcodec_receive_frame(cam->actx, cam->frame);
-    if(gotframe){return 1;}
-    camera_calcvolume(cam, (float*)cam->frame->data[0], cam->frame->nb_samples);
-    unsigned int samplecount=cam->frame->nb_samples*SAMPLERATE_OUT/cam->samplerate;
-    int16_t outbuf[samplecount];
-    void* outdata[]={outbuf, 0};
-  #ifdef HAVE_AVRESAMPLE
-    int outlen=avresample_convert(cam->resamplectx, (void*)outdata, samplecount*sizeof(uint8_t), samplecount, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
-  #else
-    int outlen=swr_convert(cam->swrctx, (void*)outdata, samplecount, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
-  #endif
-    if(outlen>0){camera_playsnd(cam, outbuf, outlen);}
+    mic_decode(cam, &pkt);
 #endif
+    return 1;
+  }
+  if(!strncmp(buf, "Nickname of connection ", 23))
+  {
+    char* nick=strstr(&buf[23], ": ");
+    if(nick)
+    {
+      nick[0]=0;
+      if(greenroom_gotnick(&buf[23], &nick[2]))
+      {
+        char buf[strlen(&nick[2])+strlen(" is waiting in the greenroom0")];
+        strcpy(buf, &nick[2]);
+        strcat(buf, " is waiting in the greenroom");
+        printchat(buf, 0, 0, 0);
+      }else{
+        nick[0]=':';
+        printchat(buf, 0, 0, 0);
+      }
+    }
     return 1;
   }
   if(!strncmp(buf, "Currently online: ", 18))
@@ -279,6 +256,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     unsigned int length=strlen(&buf[15]);
     nickname=malloc(length+strlen("guest-")+1);
     sprintf(nickname, "guest-%s", &(buf[15]));
+    if(hasgreenroom){greenroom_join(&buf[15]);}
     return 1;
   }
   if(!strncmp(buf, "Captcha: ", 9))
@@ -479,6 +457,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
           free(nickname);
           nickname=strdup(&space[21]);
         }
+        greenroom_changenick(nick, &space[21]);
       }
     }
     free(color);
@@ -530,14 +509,14 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     if(!idend){return 1;}
     idend[0]=0;
     camera_remove(nick, 1); // Remove any duplicates
-    struct camera* cam=camera_new(nick, id);
+    struct camera* cam=camera_new(nick, id, CAMFLAG_NONE);
     updatescaling(0, 0, 1);
     gtk_widget_show_all(cam->box);
     return 1;
   }
   if(!strcmp(buf, "Starting outgoing media stream"))
   {
-    struct camera* cam=camera_new(nickname, "out");
+    struct camera* cam=camera_new(nickname, "out", CAMFLAG_NONE);
     cam->vctx=avcodec_alloc_context3(data->vencoder);
     cam->vctx->pix_fmt=AV_PIX_FMT_YUV420P;
     cam->vctx->time_base.num=1;
@@ -575,6 +554,11 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
   {
     printchat(buf, 0, 0, 0);
     gui_disableinputs();
+    return 1;
+  }
+  if(!strcmp(buf, "Channel has greenroom"))
+  {
+    hasgreenroom=1;
     return 1;
   }
   if(!strcmp(buf, "Server disconnected"))
@@ -831,7 +815,8 @@ void sendmessage(GtkEntry* entry, void* x)
      !strcmp(msg, "/camup") ||
      !strcmp(msg, "/camdown") ||
      !strncmp(msg, "/video ", 7) ||
-     !strncmp(msg, "/topic ", 7))
+     !strncmp(msg, "/topic ", 7) ||
+     !strncmp(msg, "/getnick ", 9))
   {
     gtk_entry_set_text(entry, "");
     sendingmsg=0;
@@ -981,6 +966,7 @@ void captcha_done(GtkWidget* button, void* x)
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "captcha")));
   gtk_widget_show(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
   write(tc_client_in[1], "\n", 1);
+  if(greenroompipe_in[1]>-1){write(greenroompipe_in[1], "\n", 1);}
 }
 
 #ifndef _WIN32

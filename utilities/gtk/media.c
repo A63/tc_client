@@ -160,7 +160,7 @@ struct camera* camera_findbynick(const char* nick)
   return 0;
 }
 
-struct camera* camera_new(const char* nick, const char* id)
+struct camera* camera_new(const char* nick, const char* id, unsigned char flags)
 {
   ++camcount;
   cams=realloc(cams, sizeof(struct camera)*camcount);
@@ -181,19 +181,26 @@ struct camera* camera_new(const char* nick, const char* id)
   cam->frame=av_frame_alloc();
   cam->dstframe=av_frame_alloc();
   cam->cam=gtk_image_new();
-  cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-  gtk_box_set_homogeneous(GTK_BOX(cam->box), 0);
-  // Wrap cam image in an event box to catch (right) clicks
-  GtkWidget* eventbox=gtk_event_box_new();
-  gtk_container_add(GTK_CONTAINER(eventbox), cam->cam);
-  gtk_event_box_set_above_child(GTK_EVENT_BOX(eventbox), 1);
-  cam->label=gtk_label_new(cam->nick);
-  gtk_box_pack_start(GTK_BOX(cam->box), eventbox, 0, 0, 0);
-  gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
-  g_signal_connect(eventbox, "button-release-event", G_CALLBACK(gui_show_cam_menu), cam->id);
-  cam->placeholder=g_timeout_add(100, camplaceholder_update, cam->id);
+  if(flags&CAMFLAG_GREENROOM)
+  {
+    cam->box=0;
+    cam->placeholder=0;
+  }else{
+    cam->box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_box_set_homogeneous(GTK_BOX(cam->box), 0);
+    // Wrap cam image in an event box to catch (right) clicks
+    GtkWidget* eventbox=gtk_event_box_new();
+    gtk_container_add(GTK_CONTAINER(eventbox), cam->cam);
+    gtk_event_box_set_above_child(GTK_EVENT_BOX(eventbox), 1);
+    cam->label=gtk_label_new(cam->nick);
+    gtk_box_pack_start(GTK_BOX(cam->box), eventbox, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(cam->box), cam->label, 0, 0, 0);
+    g_signal_connect(eventbox, "button-release-event", G_CALLBACK(gui_show_cam_menu), cam->id);
+    cam->placeholder=g_timeout_add(100, camplaceholder_update, cam->id);
+  }
   cam->volume=0;
   cam->volumeold=1024;
+  cam->flags=flags;
   // Initialize postprocessing values
   postproc_init(&cam->postproc);
   return cam;
@@ -451,7 +458,13 @@ const char* camselect_file(void)
 
 void updatescaling(unsigned int width, unsigned int height, char changedcams)
 {
-  if(!camcount){return;}
+  unsigned int boxcount=0;
+  unsigned int i;
+  for(i=0; i<camcount; ++i)
+  {
+    if(!cams[i].flags&CAMFLAG_GREENROOM){++boxcount;}
+  }
+  if(!boxcount){return;}
   if(!width){width=gtk_widget_get_allocated_width(GTK_WIDGET(gtk_builder_get_object(gui, "main")));}
   if(!height){height=gtk_widget_get_allocated_height(GTK_WIDGET(gtk_builder_get_object(gui, "camerascroll")));}
 
@@ -461,11 +474,11 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
   camsize_scale.height=1;
   unsigned int rowcount=1;
   unsigned int rows;
-  for(rows=1; rows<=camcount; ++rows)
+  for(rows=1; rows<=boxcount; ++rows)
   {
     struct size scale;
-    unsigned int cams_per_row=camcount/rows;
-    if(camcount%rows){++cams_per_row;}
+    unsigned int cams_per_row=boxcount/rows;
+    if(boxcount%rows){++cams_per_row;}
     scale.width=width/cams_per_row;
     // 3/4 ratio
     scale.height=scale.width*3/4;
@@ -484,11 +497,11 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
     }else if(scale.width<camsize_scale.width){break;} // Only getting smaller from here, use the last one that increased
   }
 
-  unsigned int i;
   if(rowcount!=camrowcount || changedcams) // Changed the number of rows, shuffle everything around to fit. Or added/removed a camera, in which case we need to shuffle things around anyway
   {
     for(i=0; i<camcount; ++i)
     {
+      if(cams[i].flags&CAMFLAG_GREENROOM){continue;}
       g_object_ref(cams[i].box); // Increase reference counts so that they are not deallocated while they are temporarily detached from the rows
       GtkContainer* parent=GTK_CONTAINER(gtk_widget_get_parent(cams[i].box));
       if(parent){gtk_container_remove(parent, cams[i].box);}
@@ -503,11 +516,14 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
       gtk_widget_set_halign(camrows[i], GTK_ALIGN_CENTER);
       gtk_widget_show(camrows[i]);
     }
-    unsigned int cams_per_row=camcount/camrowcount;
-    if(camcount%camrowcount){++cams_per_row;}
+    unsigned int cams_per_row=boxcount/camrowcount;
+    if(boxcount%camrowcount){++cams_per_row;}
+    unsigned int index=0;
     for(i=0; i<camcount; ++i)
     {
-      gtk_box_pack_start(GTK_BOX(camrows[i/cams_per_row]), cams[i].box, 0, 0, 0);
+      if(cams[i].flags&CAMFLAG_GREENROOM){continue;}
+      gtk_box_pack_start(GTK_BOX(camrows[index/cams_per_row]), cams[i].box, 0, 0, 0);
+      ++index;
       g_object_unref(cams[i].box); // Decrease reference counts once they're attached again
     }
   }
@@ -517,6 +533,7 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
   // Rescale current images to fit
   for(i=0; i<camcount; ++i)
   {
+    if(cams[i].flags&CAMFLAG_GREENROOM){continue;}
     GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cams[i].cam));
     if(!pixbuf){continue;}
     GdkPixbuf* old=pixbuf;
@@ -699,3 +716,58 @@ void volume_indicator(GdkPixbuf* frame, struct camera* cam)
   }
   ++cam->volumeold;
 }
+
+void camera_decode(struct camera* cam, AVPacket* pkt, unsigned int width, unsigned int height)
+{
+  if(!cam->vctx)
+  {
+    AVCodec* codec=avcodec_find_decoder(AV_CODEC_ID_FLV1);
+    cam->vctx=avcodec_alloc_context3(codec);
+    avcodec_open2(cam->vctx, codec, 0);
+  }
+  int gotframe;
+  avcodec_send_packet(cam->vctx, pkt);
+  gotframe=avcodec_receive_frame(cam->vctx, cam->frame);
+  if(gotframe){return;}
+
+  if(cam->placeholder) // Remove the placeholder animation if it has it
+  {
+    g_source_remove(cam->placeholder);
+    cam->placeholder=0;
+  }
+  // Scale and convert to RGB24 format
+  unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, width, height, 1);
+  unsigned char* buf=malloc(bufsize);
+  cam->dstframe->data[0]=buf;
+  cam->dstframe->linesize[0]=width*3;
+  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, width, height, AV_PIX_FMT_RGB24, SWS_BICUBIC, 0, 0, 0);
+  sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
+  sws_freeContext(swsctx);
+  postprocess(&cam->postproc, cam->dstframe->data[0], width, height);
+
+  GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, width, height, cam->dstframe->linesize[0], freebuffer, 0);
+  volume_indicator(gdkframe, cam);
+  gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
+  if(oldpixbuf){g_object_unref(oldpixbuf);}
+}
+
+#ifdef HAVE_LIBAO
+void mic_decode(struct camera* cam, AVPacket* pkt)
+{
+  int gotframe;
+  avcodec_send_packet(cam->actx, pkt);
+  gotframe=avcodec_receive_frame(cam->actx, cam->frame);
+  if(gotframe){return;}
+  camera_calcvolume(cam, (float*)cam->frame->data[0], cam->frame->nb_samples);
+  unsigned int samplecount=cam->frame->nb_samples*SAMPLERATE_OUT/cam->samplerate;
+  int16_t outbuf[samplecount];
+  void* outdata[]={outbuf, 0};
+#ifdef HAVE_AVRESAMPLE
+  int outlen=avresample_convert(cam->resamplectx, (void*)outdata, samplecount*sizeof(uint8_t), samplecount, cam->frame->data, cam->frame->linesize[0], cam->frame->nb_samples);
+#else
+  int outlen=swr_convert(cam->swrctx, (void*)outdata, samplecount, (const uint8_t**)cam->frame->data, cam->frame->nb_samples);
+#endif
+  if(outlen>0){camera_playsnd(cam, outbuf, outlen);}
+}
+#endif

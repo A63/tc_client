@@ -156,3 +156,10 @@ void userlist_sort(void)
     gtk_box_reorder_child(GTK_BOX(userlistwidget), userlist[i].item, position);
   }
 }
+
+char user_ismod(const char* nick)
+{
+  struct user* user=finduser(nick);
+  if(!user){return 0;}
+  return user->ismod;
+}

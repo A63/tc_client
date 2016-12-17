@@ -27,6 +27,8 @@
 #include "../libcamera/camera.h"
 #include "postproc.h"
 #define SAMPLERATE_OUT 11025 // 11025 is the most common input sample rate, and it is more CPU-efficient to keep it that way than upsampling or downsampling it when converting from flt to s16
+#define CAMFLAG_NONE      0
+#define CAMFLAG_GREENROOM 1
 struct camera
 {
   AVFrame* frame;
@@ -50,6 +52,7 @@ struct camera
   unsigned int samplerate;
   float volume;
   unsigned int volumeold;
+  unsigned char flags;
 };
 struct size
 {
@@ -75,7 +78,7 @@ extern gboolean audiomixer(void* p);
 extern void camera_remove(const char* id, char isnick);
 extern struct camera* camera_find(const char* id);
 extern struct camera* camera_findbynick(const char* nick);
-extern struct camera* camera_new(const char* nick, const char* id);
+extern struct camera* camera_new(const char* nick, const char* id, unsigned char flags);
 extern char camera_init_audio(struct camera* cam, uint8_t frameinfo);
 extern void camera_cleanup(void);
 extern void freebuffer(guchar* pixels, gpointer data);
@@ -94,4 +97,8 @@ extern void* audiothread_in(void* fdp);
 extern gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpointer datap);
 extern void camera_calcvolume(struct camera* cam, float* samples, unsigned int samplecount);
 extern void volume_indicator(GdkPixbuf* frame, struct camera* cam);
+extern void camera_decode(struct camera* cam, AVPacket* pkt, unsigned int width, unsigned int height);
+#ifdef HAVE_LIBAO
+extern void mic_decode(struct camera* cam, AVPacket* pkt);
+#endif
 #endif
