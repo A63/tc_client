@@ -133,6 +133,7 @@ char* gethost(char *channel, char *password)
   {
     end[0]=0;
     bpassword=strdup(&bpass[12]);
+    printf("Authenticated to broadcast\n");
   }
   free(response);
   return host;
@@ -846,6 +847,7 @@ int main(int argc, char** argv)
         {
           free((void*)bpassword);
           bpassword=strdup(&msg[16]);
+          printf("Authenticated to broadcast\n");
         }
       }
       else if(!strcmp(msg, "/version"))
