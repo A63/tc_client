@@ -20,9 +20,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <sys/stat.h>
-#ifndef NO_PRCTL
-  #include <sys/prctl.h>
-#endif
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <libswscale/swscale.h>
@@ -30,6 +27,10 @@
   #include <libavutil/imgutils.h>
 #else
   #include <libavcore/imgutils.h>
+#endif
+#include "../compat.h"
+#ifndef NO_PRCTL
+  #include <sys/prctl.h>
 #endif
 #include "compat.h"
 #include "gui.h"
@@ -294,7 +295,7 @@ char greenroom_gotnick(const char* id, const char* nick)
 void greenroom_join(const char* id)
 {
   // Only add greenroom menu if mod (or optionally see greenroom anyway?)
-  if(user_ismod(nickname))
+  if(user_ismod(nickname) || config_get_bool("showgreenroom"))
   {
     menuitem=gtk_menu_item_new_with_label("Greenroom");
     gtk_menu_shell_append(GTK_MENU_SHELL(gtk_builder_get_object(gui, "menubar")), menuitem);

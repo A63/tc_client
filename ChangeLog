@@ -26,6 +26,7 @@ tc_client-gtk: disable the input field and the broadcast menu when in "lurker" m
 tc_client-gtk: added an option to hide join/quit/nickname notifications.
 tc_client-gtk: made the user list sorted.
 tc_client-gtk: added support for viewing and approving greenroom cameras.
+tc_client-gtk: added an option to show the greenroom menu even when you're not a moderator.
 dist/appimage.sh: fix audio in appimages by building ffmpeg with support for nellymoser and speex, and depending on the system's libao and libpulse instead of including it in the appimage.
 libcamera(escapi): handle failure to open camera more gracefully.
 irchack: pass along "<user> cammed up" notifications.

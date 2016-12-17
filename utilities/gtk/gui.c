@@ -97,6 +97,8 @@ void settings_reset(GtkBuilder* gui)
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_set("autoopencams")?config_get_bool("autoopencams"):1);
   option=GTK_WIDGET(gtk_builder_get_object(gui, "disablesnapshots"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("disablesnapshots"));
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "showgreenroom"));
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("showgreenroom"));
   // Misc/cookies
   option=GTK_WIDGET(gtk_builder_get_object(gui, "storecookiecheckbox"));
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(option), config_get_bool("storecookies"));
@@ -175,6 +177,8 @@ void savesettings(GtkButton* button, GtkBuilder* gui)
     write(tc_client_in[1], v?"/disablesnapshots\n":"/enablesnapshots\n", v?18:17);
   }
   config_set("disablesnapshots", v?"True":"False");
+  option=GTK_WIDGET(gtk_builder_get_object(gui, "showgreenroom"));
+  config_set("showgreenroom", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
   // Misc/cookies
   option=GTK_WIDGET(gtk_builder_get_object(gui, "storecookiecheckbox"));
   config_set("storecookies", gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(option))?"True":"False");
