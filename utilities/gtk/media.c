@@ -33,6 +33,8 @@
 #include "../compat.h"
 #include "../compat_av.h"
 #include "gui.h"
+#include "main.h"
+#include "greenroom.h"
 #include "media.h"
 
 #define PREVIEW_MAX_WIDTH 640
@@ -57,6 +59,7 @@ CAM* camout_cam=0;
 char pushtotalk_enabled=0;
 char pushtotalk_pushed=0;
 #endif
+unsigned int camout_delay;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 void camera_playsnd(struct camera* cam, int16_t* samples, unsigned int samplecount)
@@ -258,12 +261,12 @@ void camera_cleanup(void)
 
 void freebuffer(guchar* pixels, gpointer data){free(pixels);}
 
-unsigned int camout_delay;
 void startcamout(CAM* cam)
 {
   if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_mic"))))
   { // Only /camup if we're not already broadcasting mic
-    dprintf(tc_client_in[1], "/camup\n");
+    int fd=((hasgreenroom && !greenroom_gotpass)?greenroompipe_in[1]:tc_client_in[1]);
+    dprintf(fd, "/camup\n");
   }
   camout_cam=cam;
   camout_delay=500;
@@ -310,6 +313,14 @@ gboolean cam_encode(void* camera_)
   // Scale to fit
   gdkframe=gdk_pixbuf_scale_simple(gdkframe, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
   volume_indicator(gdkframe, cam); // Add volume indicator
+  int fd;
+  if(hasgreenroom && !greenroom_gotpass)
+  {
+    fd=greenroompipe_in[1];
+    greenroom_indicator(gdkframe); // Add greenroom indicator
+  }else{
+    fd=tc_client_in[1];
+  }
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
   g_object_unref(oldpixbuf);
   // Encode
@@ -333,9 +344,9 @@ gboolean cam_encode(void* camera_)
   char key=!!(packet.flags&AV_PKT_FLAG_KEY);
   unsigned char frameinfo=(key?0x12:0x22); // In the first 4 bits: 1=keyframe, 2=interframe
   // Send video
-  dprintf(tc_client_in[1], "/video %i\n", packet.size+1);
-  write(tc_client_in[1], &frameinfo, 1);
-  ssize_t w=write(tc_client_in[1], packet.data, packet.size);
+  dprintf(fd, "/video %i\n", packet.size+1);
+  write(fd, &frameinfo, 1);
+  ssize_t w=write(fd, packet.data, packet.size);
 if(w!=packet.size){printf("Error: wrote %zi of %i bytes\n", w, packet.size);}
 
   av_packet_unref(&packet);
@@ -661,9 +672,10 @@ gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpointer data
   if(avcodec_receive_packet(avctx, &packet)){return 1;}
   unsigned char frameinfo=0x6c; // 6=Nellymoser, 3<<2=44100 samplerate
   // Send audio
-  dprintf(tc_client_in[1], "/audio %i\n", packet.size+1);
-  write(tc_client_in[1], &frameinfo, 1);
-  write(tc_client_in[1], packet.data, packet.size);
+  int fd=((hasgreenroom && !greenroom_gotpass)?greenroompipe_in[1]:tc_client_in[1]);
+  dprintf(fd, "/audio %i\n", packet.size+1);
+  write(fd, &frameinfo, 1);
+  write(fd, packet.data, packet.size);
 
   av_packet_unref(&packet);
   return 1;
@@ -691,10 +703,12 @@ void volume_indicator(GdkPixbuf* frame, struct camera* cam)
   guchar* pixels=gdk_pixbuf_get_pixels(frame);
   unsigned int channels=gdk_pixbuf_get_n_channels(frame);
   unsigned int stride=gdk_pixbuf_get_rowstride(frame);
-  unsigned int size_x=camsize_scale.width/24;
-  unsigned int size_y=camsize_scale.height/5;
-  unsigned int pos_x=camsize_scale.width*47/48-size_x;
-  unsigned int pos_y=camsize_scale.height*47/48-size_y;
+  unsigned int width=gdk_pixbuf_get_width(frame);
+  unsigned int height=gdk_pixbuf_get_height(frame);
+  unsigned int size_x=width/24;
+  unsigned int size_y=height/5;
+  unsigned int pos_x=width*47/48-size_x;
+  unsigned int pos_y=height*47/48-size_y;
   int volumebar=size_y-cam->volume*size_y;
   if(volumebar<0){volumebar=0;}
   unsigned int x, y;

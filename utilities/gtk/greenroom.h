@@ -15,6 +15,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 extern int greenroompipe_in[2];
+extern char greenroom_gotpass;
 extern char greenroom_gotnick(const char* id, const char* nick);
 extern void greenroom_join(const char* id);
 extern void greenroom_changenick(const char* from, const char* to);
+extern void greenroom_allowed(void);
+extern void greenroom_indicator(GdkPixbuf* frame);

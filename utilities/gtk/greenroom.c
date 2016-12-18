@@ -38,11 +38,14 @@
 #include "configfile.h"
 #include "userlist.h"
 #include "greenroom.h"
+#ifdef _WIN32
+  #include <wtypes.h>
+  extern PROCESS_INFORMATION grprocess;
+#endif
 
 int greenroompipe[2];
 int greenroompipe_in[2]={-1,-1};
-// TODO: Handle outgoing cam, sending to greenroom if we don't have the broadcast password yet
-// TODO: Option to show greenroom as non-mod
+char greenroom_gotpass=0;
 
 struct greenmap
 {
@@ -248,6 +251,27 @@ static gboolean greenroom_handleline(GIOChannel* iochannel, GIOCondition conditi
     greenroom_updatecount();
     return 1;
   }
+  if(!strcmp(buf, "Starting outgoing media stream"))
+  {
+    struct camera* cam=camera_new(nickname, "out", CAMFLAG_NONE);
+    AVCodec* codec=avcodec_find_encoder(AV_CODEC_ID_FLV1);
+    cam->vctx=avcodec_alloc_context3(codec);
+    cam->vctx->pix_fmt=AV_PIX_FMT_YUV420P;
+    cam->vctx->time_base.num=1;
+    cam->vctx->time_base.den=10;
+    cam->vctx->width=camsize_out.width;
+    cam->vctx->height=camsize_out.height;
+    avcodec_open2(cam->vctx, codec, 0);
+    cam->frame->data[0]=0;
+    cam->frame->width=0;
+    cam->frame->height=0;
+    cam->dstframe->data[0]=0;
+
+    cam->actx=0;
+    updatescaling(0, 0, 1);
+    gtk_widget_show_all(cam->box);
+    return 1;
+  }
   if(!strncmp(buf, "Captcha: ", 9))
   {
     // If we're a mod, don't bother with the captcha (since we're only here to look at cams)
@@ -314,7 +338,7 @@ void greenroom_join(const char* id)
   strcat(cmd, channel);
   strcat(cmd, " ");
   strcat(cmd, id);
-  w32_runcmdpipes(cmd, greenroompipe_in, greenroompipe, coreprocess);
+  w32_runcmdpipes(cmd, greenroompipe_in, greenroompipe, grprocess);
 #else
   pipe(greenroompipe);
   pipe(greenroompipe_in);
@@ -360,4 +384,32 @@ void greenroom_changenick(const char* from, const char* to)
       if(cam){gtk_label_set_text(GTK_LABEL(cam->label), to);}
     }
   }
+}
+
+void greenroom_allowed(void)
+{
+  greenroom_gotpass=1;
+  if(camera_find("out"))
+  {
+    camout_delay=600;
+    write(greenroompipe_in[1], "/camdown\n", 9);
+    write(tc_client_in[1], "/camup\n", 7);
+  }
+}
+
+void greenroom_indicator(GdkPixbuf* frame)
+{
+  static GdkPixbuf* indicator=0;
+  static double indicatorwidth;
+  static double indicatorheight;
+  if(!indicator)
+  {
+    indicator=gdk_pixbuf_new_from_file(frombuild ? "greenroomindicator.png" : PREFIX "/share/tc_client/greenroomindicator.png", 0);
+    if(!indicator){return;}
+    indicatorwidth=gdk_pixbuf_get_width(indicator);
+    indicatorheight=gdk_pixbuf_get_height(indicator);
+  }
+  int framewidth=gdk_pixbuf_get_width(frame);
+  int frameheight=gdk_pixbuf_get_height(frame);
+  gdk_pixbuf_composite(indicator, frame, 0, frameheight*3/4, framewidth, frameheight/4, 0, frameheight*3/4, (double)framewidth/indicatorwidth, (double)frameheight/indicatorheight/4.0, GDK_INTERP_BILINEAR, 255);
 }

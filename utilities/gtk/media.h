@@ -70,6 +70,7 @@ extern GdkPixbufAnimationIter* camplaceholder_iter;
 extern CAM* camout_cam;
 extern char pushtotalk_enabled;
 extern char pushtotalk_pushed;
+extern unsigned int camout_delay;
 
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void camera_playsnd(struct camera* cam, int16_t* samples, unsigned int samplecount);

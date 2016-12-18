@@ -80,6 +80,7 @@ char hasgreenroom=0;
 char frombuild=0; // Running from the build directory
 #ifdef _WIN32
   PROCESS_INFORMATION coreprocess={.hProcess=0};
+  PROCESS_INFORMATION grprocess={.hProcess=0}; // Greenroom
 #endif
 
 void printchat(const char* text, const char* color, unsigned int offset, const char* pm)
@@ -282,6 +283,11 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
       if(next){next[0]=0;}
       dprintf(tc_client_in[1], "/opencam %s\n", user);
     }
+    return 1;
+  }
+  if(!strcmp(buf, "Authenticated to broadcast"))
+  {
+    greenroom_allowed();
     return 1;
   }
   if(!strcmp(buf, "Password required"))
@@ -516,6 +522,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
   }
   if(!strcmp(buf, "Starting outgoing media stream"))
   {
+    if(camera_find("out")){return 1;} // In case we're just moving out of greenroom
     struct camera* cam=camera_new(nickname, "out", CAMFLAG_NONE);
     cam->vctx=avcodec_alloc_context3(data->vencoder);
     cam->vctx->pix_fmt=AV_PIX_FMT_YUV420P;
@@ -611,7 +618,8 @@ void togglecam(GtkCheckMenuItem* item, void* x)
     // TODO: if switching from cam+mic to just mic, send something to tell other clients to drop the last video frame and show a mic instead
     if(camera_find("out"))
     {
-      dprintf(tc_client_in[1], "/camdown\n");
+      int fd=((hasgreenroom && !greenroom_gotpass)?greenroompipe_in[1]:tc_client_in[1]);
+      dprintf(fd, "/camdown\n");
       camera_remove("out", 0); // Close our local display
     }
     return;
@@ -624,6 +632,7 @@ void togglemic(GtkCheckMenuItem* item, void* x)
 {
   static int micpipe[2];
   static int eventsource=0;
+  int fd=((hasgreenroom && !greenroom_gotpass)?greenroompipe_in[1]:tc_client_in[1]);
   if(!gtk_check_menu_item_get_active(item)) // Stop mic broadcast
   {
     gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "pushtotalk")));
@@ -636,7 +645,7 @@ void togglemic(GtkCheckMenuItem* item, void* x)
     if(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera")))){return;}
     if(camera_find("out"))
     {
-      dprintf(tc_client_in[1], "/camdown\n");
+      dprintf(fd, "/camdown\n");
       camera_remove("out", 0); // Close our local display
     }
     return;
@@ -658,7 +667,7 @@ void togglemic(GtkCheckMenuItem* item, void* x)
   // Start mic broadcast
   if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(gtk_builder_get_object(gui, "menuitem_broadcast_camera"))))
   { // Only /camup if we're not already broadcasting video
-    dprintf(tc_client_in[1], "/camup\n");
+    dprintf(fd, "/camup\n");
   }
   pipe(micpipe);
   g_thread_new("audio_in", audiothread_in, &micpipe[1]);
@@ -1008,6 +1017,10 @@ int main(int argc, char** argv)
   if(coreprocess.hProcess)
   {
     TerminateProcess(coreprocess.hProcess, 0);
+  }
+  if(grprocess.hProcess)
+  {
+    TerminateProcess(grprocess.hProcess, 0);
   }
 #endif
   camera_cleanup();

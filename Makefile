@@ -132,7 +132,7 @@ camviewer: $(CAMVIEWER_OBJ)
 cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
 
-tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif modicon.png
+tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif modicon.png greenroomindicator.png
 	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AVFORMAT_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) $(LIBX11_LIBS) $(PULSE_LIBS) -o $@
 
 camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
@@ -140,6 +140,9 @@ camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplacehol
 
 modicon.png: $(SRCDIR)utilities/gtk/modicon.xcf
 	convert -background none $< -layers Merge -scale x20 $@
+
+greenroomindicator.png: $(SRCDIR)utilities/gtk/greenroomindicator.xcf
+	convert $< -layers Merge $@
 
 libcamera.a: $(LIBCAMERA_OBJ)
 	$(AR) cru $@ $^
@@ -154,7 +157,7 @@ SOURCES+=utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/que
 SOURCES+=utilities/camviewer/camviewer.c
 SOURCES+=utilities/cursedchat/cursedchat.c utilities/cursedchat/buffer.c utilities/cursedchat/buffer.h
 SOURCES+=utilities/gtk/camviewer.c utilities/gtk/userlist.c utilities/gtk/media.c utilities/gtk/compat.c utilities/gtk/configfile.c utilities/gtk/gui.c utilities/gtk/logging.c utilities/gtk/postproc.c utilities/gtk/inputhistory.c utilities/gtk/playmedia.c utilities/gtk/greenroom.c utilities/gtk/main.h utilities/gtk/userlist.h utilities/gtk/media.h utilities/gtk/compat.h utilities/gtk/configfile.h utilities/gtk/gui.h utilities/gtk/logging.h utilities/gtk/postproc.h utilities/gtk/inputhistory.h utilities/gtk/playmedia.h utilities/gtk/greenroom.h gtkgui.glade
-SOURCES+=utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf utilities/gtk/modicon.xcf
+SOURCES+=utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf utilities/gtk/modicon.xcf utilities/gtk/greenroomindicator.xcf
 SOURCES+=utilities/compat.c utilities/compat.h utilities/list.c utilities/list.h utilities/stringutils.c utilities/stringutils.h utilities/compat_av.c utilities/compat_av.h
 SOURCES+=utilities/libcamera/camera.c utilities/libcamera/camera.h utilities/libcamera/camera_v4l2.c utilities/libcamera/camera_v4l2.h utilities/libcamera/camera_img.c utilities/libcamera/camera_img.h utilities/libcamera/camera_escapi.cpp utilities/libcamera/camera_escapi.h utilities/libcamera/camera_x11.c utilities/libcamera/camera_x11.h
 tarball:
@@ -170,6 +173,7 @@ ifdef SWSCALE_LIBS
 	install -D gtkgui.glade "$(PREFIX)/share/tc_client/gtkgui.glade"
 	install -D camplaceholder.gif "$(PREFIX)/share/tc_client/camplaceholder.gif"
 	install -D modicon.png "$(PREFIX)/share/tc_client/modicon.png"
+	install -D greenroomindicator.png "$(PREFIX)/share/tc_client/greenroomindicator.png"
 endif
 endif
 endif
