@@ -68,7 +68,7 @@ cd "$here"
   finddeps tc_client-gtk.exe
   finddeps cursedchat.exe
 ) | while read file; do cp "$file" "tc_client-${version}-w32/bin"; done
-cp escapi/bin/Win32/escapi.dll "tc_client-${version}-w32/bin"
+cp escapi/escapi.dll "tc_client-${version}-w32/bin"
 echo "cd bin" > "tc_client-${version}-w32/TC Client.cmd"
 echo "start tc_client-gtk" >> "tc_client-${version}-w32/TC Client.cmd"
 # Some good defaults
