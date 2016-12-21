@@ -276,6 +276,34 @@ void startcamout(CAM* cam)
   g_timeout_add(camout_delay, cam_encode, cam);
 }
 
+GdkPixbuf* scaleframe(void* data, unsigned int width, unsigned int height, unsigned int linesize, unsigned int towidth, unsigned int toheight)
+{
+  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(data, GDK_COLORSPACE_RGB, 0, 8, width, height, linesize, 0, 0);
+  // Scale to fit
+  GdkPixbuf* scaled=gdk_pixbuf_new(GDK_COLORSPACE_RGB, 0, 8, towidth, toheight);
+  double scalex=(double)towidth/(double)width;
+  double scaley=(double)toheight/(double)height;
+  unsigned int offsetx=0;
+  unsigned int offsety=0;
+  if(height*4/3>width)
+  {
+    scalex=scaley;
+    offsetx=(towidth-width*toheight/height)/2;
+    towidth=width*toheight/height;
+    gdk_pixbuf_fill(scaled, 0);
+  }
+  else if(width*3/4>height)
+  {
+    scaley=scalex;
+    offsety=(toheight-height*towidth/width)/2;
+    toheight=height*towidth/width;
+    gdk_pixbuf_fill(scaled, 0);
+  }
+  gdk_pixbuf_scale(gdkframe, scaled, offsetx, offsety, towidth, toheight, offsetx, offsety, scalex, scaley, GDK_INTERP_BILINEAR);
+  g_object_unref(gdkframe);
+  return scaled;
+}
+
 gboolean cam_encode(void* camera_)
 {
   CAM* camera=camera_;
@@ -309,9 +337,7 @@ gboolean cam_encode(void* camera_)
   postprocess(&cam->postproc, cam->frame->data[0], cam->frame->width, cam->frame->height);
   // Update our local display
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
-  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->frame->data[0], GDK_COLORSPACE_RGB, 0, 8, cam->frame->width, cam->frame->height, cam->frame->linesize[0], 0, 0);
-  // Scale to fit
-  gdkframe=gdk_pixbuf_scale_simple(gdkframe, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
+  GdkPixbuf* gdkframe=scaleframe(cam->frame->data[0], cam->frame->width, cam->frame->height, cam->frame->linesize[0], camsize_scale.width, camsize_scale.height);
   volume_indicator(gdkframe, cam); // Add volume indicator
   int fd;
   if(hasgreenroom && !greenroom_gotpass)
@@ -750,17 +776,17 @@ void camera_decode(struct camera* cam, AVPacket* pkt, unsigned int width, unsign
     cam->placeholder=0;
   }
   // Scale and convert to RGB24 format
-  unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, width, height, 1);
-  unsigned char* buf=malloc(bufsize);
+  unsigned int bufsize=av_image_get_buffer_size(AV_PIX_FMT_RGB24, cam->frame->width, cam->frame->height, 1);
+  unsigned char buf[bufsize];
   cam->dstframe->data[0]=buf;
-  cam->dstframe->linesize[0]=width*3;
-  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, width, height, AV_PIX_FMT_RGB24, SWS_BICUBIC, 0, 0, 0);
+  cam->dstframe->linesize[0]=cam->frame->width*3;
+  struct SwsContext* swsctx=sws_getContext(cam->frame->width, cam->frame->height, cam->frame->format, cam->frame->width, cam->frame->height, AV_PIX_FMT_RGB24, SWS_BICUBIC, 0, 0, 0);
   sws_scale(swsctx, (const uint8_t*const*)cam->frame->data, cam->frame->linesize, 0, cam->frame->height, cam->dstframe->data, cam->dstframe->linesize);
   sws_freeContext(swsctx);
-  postprocess(&cam->postproc, cam->dstframe->data[0], width, height);
+  postprocess(&cam->postproc, cam->dstframe->data[0], cam->frame->width, cam->frame->height);
 
   GdkPixbuf* oldpixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cam->cam));
-  GdkPixbuf* gdkframe=gdk_pixbuf_new_from_data(cam->dstframe->data[0], GDK_COLORSPACE_RGB, 0, 8, width, height, cam->dstframe->linesize[0], freebuffer, 0);
+  GdkPixbuf* gdkframe=scaleframe(cam->dstframe->data[0], cam->frame->width, cam->frame->height, cam->dstframe->linesize[0], width, height);
   volume_indicator(gdkframe, cam);
   gtk_image_set_from_pixbuf(GTK_IMAGE(cam->cam), gdkframe);
   if(oldpixbuf){g_object_unref(oldpixbuf);}
