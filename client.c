@@ -94,16 +94,16 @@ char* gethost(char *channel, char *password)
   int urllen;
   if(password)
   {
-    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=&password=0")+strlen(channel)+strlen(sitearg)+strlen(password);
+    urllen=strlen("http://tinychat.com/api/find.room/?site=&password=0")+strlen(channel)+strlen(sitearg)+strlen(password);
   }else{
-    urllen=strlen("http://apl.tinychat.com/api/find.room/?site=0")+strlen(channel)+strlen(sitearg);
+    urllen=strlen("http://tinychat.com/api/find.room/?site=0")+strlen(channel)+strlen(sitearg);
   }
   char url[urllen];
   if(password)
   {
-    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=%s&password=%s", channel, sitearg, password);
+    sprintf(url, "http://tinychat.com/api/find.room/%s?site=%s&password=%s", channel, sitearg, password);
   }else{
-    sprintf(url, "http://apl.tinychat.com/api/find.room/%s?site=%s", channel, sitearg);
+    sprintf(url, "http://tinychat.com/api/find.room/%s?site=%s", channel, sitearg);
   }
   char* response=http_get(url, 0);
   if(!response){exit(-1);}
@@ -141,8 +141,8 @@ char* gethost(char *channel, char *password)
 
 char* getkey(int id, const char* channel)
 {
-  char url[snprintf(0,0, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel)+1];
-  sprintf(url, "http://apl.tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel);
+  char url[snprintf(0,0, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel)+1];
+  sprintf(url, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel);
   char* response=http_get(url, 0);
   char* key=strstr(response, "\"key\":\"");
 
@@ -185,8 +185,8 @@ char* getcookie(const char* channel)
 char* getbroadcastkey(const char* channel, const char* nick, const char* bpassword)
 {
   unsigned int id=idlist_get(nick);
-  char url[snprintf(0,0, "http://apl.tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"")+1];
-  sprintf(url, "http://apl.tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"");
+  char url[snprintf(0,0, "http://tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"")+1];
+  sprintf(url, "http://tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"");
   char* response=http_get(url, 0);
   if(strstr(response, " result='PW'")){free(response); return 0;}
   char* key=strstr(response, " token='");
