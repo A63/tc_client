@@ -65,7 +65,7 @@ const char* resolvecolor(const char* tc_color)
   int i;
   for(i=0; i<COLORCOUNT; ++i)
   {
-    if(!strcmp(colors[i], tc_color)){return termcolors[i];}
+    if(!strncmp(colors[i], tc_color, 7)){return termcolors[i];}
   }
   return "0";
 }

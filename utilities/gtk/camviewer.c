@@ -255,6 +255,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
     if(config_get_bool("disablesnapshots")){write(tc_client_in[1], "/disablesnapshots\n", 18);}
     write(tc_client_in[1], "/color\n", 7); // Check which random color tc_client picked
     unsigned int length=strlen(&buf[15]);
+    free(nickname);
     nickname=malloc(length+strlen("guest-")+1);
     sprintf(nickname, "guest-%s", &(buf[15]));
     if(hasgreenroom){greenroom_join(&buf[15]);}
@@ -895,6 +896,8 @@ void startsession(GtkButton* button, void* x)
   gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "channelpasswordwindow")));
   GtkWidget* mainwindow=GTK_WIDGET(gtk_builder_get_object(gui, "main"));
   const char* nick=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_nick")));
+  free(nickname);
+  nickname=strdup(nick);
   channel=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_channel")));
   const char* chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "channelpassword")));
   if(!chanpass[0]){chanpass=gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(gui, "cc_password")));}

@@ -1,4 +1,4 @@
-VERSION=0.41.1
+VERSION=0.42pre
 CFLAGS=-g3 -Wall -I. $(shell curl-config --cflags)
 LDFLAGS=-g3
 PREFIX=/usr/local
@@ -11,7 +11,7 @@ else
 	@echo 'Run ./configure first, make sure tc_client-gtk is enabled.'
   endif
 endif
-OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endianutils.o media.o utilities/compat.o
+OBJ=client.o amfparser.o rtmp.o numlist.o amfwriter.o idlist.o colors.o endianutils.o media.o tinychat.o kageshi.o utilities/compat.o
 IRCHACK_OBJ=utilities/irchack/irchack.o utilities/compat.o
 MODBOT_OBJ=utilities/modbot/modbot.o utilities/list.o utilities/modbot/queue.o utilities/compat.o
 CAMVIEWER_OBJ=utilities/camviewer/camviewer.o utilities/compat.o utilities/compat_av.o libcamera.a

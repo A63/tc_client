@@ -36,14 +36,13 @@ char stream_idtaken(unsigned int id)
   return 0;
 }
 
-void stream_start(const char* nick, int sock) // called upon privmsg "/opencam ..."
+void stream_start(const char* nick, const char* camid, int sock) // called upon privmsg "/opencam ..."
 {
-  unsigned int userid=idlist_get(nick);
   unsigned int streamid=1;
   while(stream_idtaken(streamid)){++streamid;}
   ++streamcount;
   streams=realloc(streams, sizeof(struct stream)*streamcount);
-  streams[streamcount-1].userid=userid;
+  streams[streamcount-1].camid=strdup(camid);
   streams[streamcount-1].streamid=streamid;
   streams[streamcount-1].outgoing=0;
   struct rtmp amf;
@@ -52,17 +51,17 @@ void stream_start(const char* nick, int sock) // called upon privmsg "/opencam .
   amfnum(&amf, streamid+1);
   amfnull(&amf);
   amfsend(&amf, sock);
-  printf("Starting media stream for %s (%u)\n", nick, userid);
+  printf("Starting media stream for %s (%s)\n", nick, camid);
   fflush(stdout);
 }
 
-void streamout_start(unsigned int id, int sock) // called upon privmsg "/camup"
+void streamout_start(const char* id, int sock) // called upon privmsg "/camup"
 {
   unsigned int streamid=1;
   while(stream_idtaken(streamid)){++streamid;}
   ++streamcount;
   streams=realloc(streams, sizeof(struct stream)*streamcount);
-  streams[streamcount-1].userid=id;
+  streams[streamcount-1].camid=id;
   streams[streamcount-1].streamid=streamid;
   streams[streamcount-1].outgoing=1;
   struct rtmp amf;
@@ -83,13 +82,11 @@ void stream_play(struct amf* amf, int sock) // called upon _result
     if(streams[i].streamid==amf->items[2].number)
     {
       struct rtmp amf;
-      amfinit(&amf, 8);
+      amfinit(&amf, streams[i].streamid*6+2);
       amfstring(&amf, streams[i].outgoing?"publish":"play");
       amfnum(&amf, 0);
       amfnull(&amf);
-      char camid[snprintf(0,0,"%u0", streams[i].userid)];
-      sprintf(camid, "%u", streams[i].userid);
-      amfstring(&amf, camid);
+      amfstring(&amf, streams[i].camid);
       if(streams[i].outgoing){amfstring(&amf, "live");}
       amf.msgid=le32(streams[i].streamid);
       amfsend(&amf, sock);
@@ -118,9 +115,9 @@ void stream_handledata(struct rtmp* rtmp)
 // fprintf(stderr, "Chunk: chunkid: %u, streamid: %u, userid: %u\n", rtmp->chunkid, rtmp->msgid, streams[i].userid);
     if(rtmp->type==RTMP_VIDEO)
     {
-      printf("Video: %u %u\n", streams[i].userid, rtmp->length);
+      printf("Video: %s %u\n", streams[i].camid, rtmp->length);
     }else if(rtmp->type==RTMP_AUDIO){
-      printf("Audio: %u %u\n", streams[i].userid, rtmp->length);
+      printf("Audio: %s %u\n", streams[i].camid, rtmp->length);
     }
     fwrite(rtmp->buf, rtmp->length, 1, stdout);
     fflush(stdout);
@@ -140,9 +137,8 @@ void stream_handlestatus(struct amf* amf, int sock)
   if(code->type!=AMF_STRING || details->type!=AMF_STRING){return;}
   if(!strcmp(code->string.string, "NetStream.Play.Stop"))
   {
-    unsigned int id=strtoul(details->string.string, 0, 0);
-    printf("VideoEnd: %u\n", id);
-    stream_stopvideo(sock, id);
+    printf("VideoEnd: %s\n", details->string.string);
+    stream_stopvideo(sock, details->string.string);
   }
 }
 
@@ -165,12 +161,12 @@ void stream_sendframe(int sock, void* buf, size_t len, unsigned char type)
   }
 }
 
-void stream_stopvideo(int sock, unsigned int id)
+void stream_stopvideo(int sock, const char* id)
 {
   unsigned int i;
   for(i=0; i<streamcount; ++i)
   {
-    if(streams[i].userid==id)
+    if(!strcmp(streams[i].camid, id))
     {
       struct rtmp amf;
       // Close the stream
@@ -187,6 +183,7 @@ void stream_stopvideo(int sock, unsigned int id)
       amfnull(&amf);
       amfnum(&amf, streams[i].streamid);
       amfsend(&amf, sock);
+      free((void*)streams[i].camid);
       // Remove from list of streams
       --streamcount;
       memmove(&streams[i], &streams[i+1], sizeof(struct stream)*(streamcount-i));

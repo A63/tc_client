@@ -244,6 +244,11 @@ if ! testbuild 'prctl' 'prctl(PR_SET_PDEATHSIG, SIGHUP);return 0;' 'sys/prctl.h 
   echo '#define NO_PRCTL 1' >> config.h
 fi
 
+if testpkgconfig glib-2.0 GLIB; then
+  echo 'LIBS+=$(GLIB_LIBS)' >> config.mk
+  echo 'CFLAGS+=$(GLIB_CFLAGS) -DHAVE_GLIB=1' >> config.mk
+fi
+
 printf 'Checking if we have a working poll()... '
 echo '#include <poll.h>' > polltest.c
 echo '#include <sys/socket.h>' >> polltest.c
@@ -259,11 +264,7 @@ if ./polltest 2> /dev/null; then
   echo yes
 else
   echo no
-  if testpkgconfig glib-2.0 GLIB; then
-    echo '#define POLL_BROKEN_OR_MISSING 1' >> config.h
-    echo 'LIBS+=$(GLIB_LIBS)' >> config.mk
-    echo 'CFLAGS+=$(GLIB_CFLAGS)' >> config.mk
-  fi
+  echo '#define POLL_BROKEN_OR_MISSING 1' >> config.h
 fi
 rm -f polltest.c polltest
 

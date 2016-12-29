@@ -4,7 +4,7 @@ rm -rf testbuilds
 mkdir -p testbuilds
 cd testbuilds
 
-printf "Without mic support, with gtk+-2.x, without RTMP_DEBUG, without youtube support: "
+printf "Without mic support, with gtk+-2.x, without RTMP_DEBUG, without youtube support, with glib: "
 res="[31mbroken[0m"
 while true; do
   ../configure > /dev/null 2> /dev/null || break
@@ -14,6 +14,7 @@ while true; do
   if ! grep -q 'GTK_LIBS=.*-lgtk-[^- ]*-2' config.mk; then res="gtk+-2.x not found, can't test"; break; fi
   if ! grep -q '^AVCODEC_LIBS' config.mk; then res="libavcodec not found, can't test"; break; fi
   if ! grep -q '^SWSCALE_LIBS' config.mk; then res="libswscale not found, can't test"; break; fi
+  if ! grep -q '^GLIB_LIBS' config.mk; then res="glib not found, can't test"; break; fi
   sed -i -e '/^AO_LIBS/d' config.mk
   sed -i -e '/^AVFORMAT_LIBS/d' config.mk
   echo 'CFLAGS+=-Werror' >> config.mk
@@ -31,7 +32,7 @@ mv camviewer camviewer.gtk2 > /dev/null 2> /dev/null
 mv tc_client-gtk tc_client-gtk.gtk2 > /dev/null 2> /dev/null
 
 make clean > /dev/null 2> /dev/null
-printf "With mic support, with gtk+-3.x, with RTMP_DEBUG, with youtube support: "
+printf "With mic support, with gtk+-3.x, with RTMP_DEBUG, with youtube support, without glib: "
 res="[31mbroken[0m"
 while true; do
   ../configure > /dev/null 2> /dev/null || break
@@ -41,6 +42,7 @@ while true; do
   if ! grep -q '^AVCODEC_LIBS' config.mk; then res="libavcodec not found, can't test"; break; fi
   if ! grep -q '^SWSCALE_LIBS' config.mk; then res="libswscale not found, can't test"; break; fi
   if ! grep -q '^AVFORMAT_LIBS' config.mk; then res="libavformat not found, can't test"; break; fi
+  sed -i -e '/GLIB_/d' config.mk
   echo 'CFLAGS+=-DRTMP_DEBUG=1 -Werror' >> config.mk
   if ! make utils > /dev/null 2> /dev/null; then
     sed -i -e 's/-Werror[^ ]*//g' config.mk

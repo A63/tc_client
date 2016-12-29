@@ -36,26 +36,26 @@
 #include "media.h"
 #include "amfwriter.h"
 #include "utilities/compat.h"
+#include "client.h"
 
-const char* sitearg="tinychat";
-const char* bpassword=0;
+struct command
+{
+  const char* command;
+  void(*callback)(struct amf*,int);
+  unsigned int minargs;
+};
+static struct command* commands=0;
+static unsigned int commandcount=0;
+
+char greenroom=0;
+char* channel=0;
+char* nickname=0;
 
 struct writebuf
 {
   char* buf;
   int len;
 };
-
-void b_read(int sock, void* buf, size_t len)
-{
-  while(len>0)
-  {
-    size_t r=read(sock, buf, len);
-    if(r<1){return;}
-    len-=r;
-    buf+=r;
-  }
-}
 
 size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
 {
@@ -68,10 +68,10 @@ size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
   return size;
 }
 
-CURL* curl=0;
 const char* cookiefile="";
 char* http_get(const char* url, const char* post)
 {
+  static CURL* curl=0;
   if(!curl){curl=curl_easy_init();}
   if(!curl){return 0;}
   curl_easy_setopt(curl, CURLOPT_URL, url);
@@ -89,160 +89,6 @@ char* http_get(const char* url, const char* post)
   return writebuf.buf; // should be free()d when no longer needed
 }
 
-char* gethost(char *channel, char *password)
-{
-  int urllen;
-  if(password)
-  {
-    urllen=strlen("http://tinychat.com/api/find.room/?site=&password=0")+strlen(channel)+strlen(sitearg)+strlen(password);
-  }else{
-    urllen=strlen("http://tinychat.com/api/find.room/?site=0")+strlen(channel)+strlen(sitearg);
-  }
-  char url[urllen];
-  if(password)
-  {
-    sprintf(url, "http://tinychat.com/api/find.room/%s?site=%s&password=%s", channel, sitearg, password);
-  }else{
-    sprintf(url, "http://tinychat.com/api/find.room/%s?site=%s", channel, sitearg);
-  }
-  char* response=http_get(url, 0);
-  if(!response){exit(-1);}
-  //response contains result='(OK|RES)|PW' (latter means a password is required)
-  char* result=strstr(response, "result='");
-  if(!result){printf("No result\n"); exit(-1);}
-  char* bpass=strstr(response, " bpassword='");
-  result+=strlen("result='");
-  // Handle the result value
-  if(!strncmp(result, "PW", 2)){printf("Password required\n"); exit(-1);}
-  if(strncmp(result, "OK", 2) && strncmp(result, "RES", 3)){printf("Result not OK\n"); exit(-1);}
-  // Find and extract the server responsible for this channel
-  char* rtmp=strstr(response, "rtmp='rtmp://");
-  if(!rtmp){printf("No rtmp found.\n"); exit(-1);}
-  rtmp+=strlen("rtmp='rtmp://");
-  int len;
-  for(len=0; rtmp[len] && rtmp[len]!='/'; ++len);
-  char* host=strndup(rtmp, len);
-  // Check if this is a greenroom channel
-  if(strstr(response, "greenroom=\"1\""))
-  {
-    printf("Channel has greenroom\n");
-    fflush(stdout);
-  }
-  char* end;
-  if(bpass && (end=strchr(&bpass[12], '\'')))
-  {
-    end[0]=0;
-    bpassword=strdup(&bpass[12]);
-    printf("Authenticated to broadcast\n");
-  }
-  free(response);
-  return host;
-}
-
-char* getkey(int id, const char* channel)
-{
-  char url[snprintf(0,0, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel)+1];
-  sprintf(url, "http://tinychat.com/api/captcha/check.php?guest%%5Fid=%i&room=%s%%5E%s", id, sitearg, channel);
-  char* response=http_get(url, 0);
-  char* key=strstr(response, "\"key\":\"");
-
-  if(!key){return 0;}
-  key+=7;
-  char* keyend=strchr(key, '"');
-  if(!keyend){return 0;}
-  char* backslash;
-  while((backslash=strchr(key, '\\')))
-  {
-    memmove(backslash, &backslash[1], strlen(backslash));
-    --keyend;
-  }
-  key=strndup(key, keyend-key);
-  free(response);
-  return key;
-}
-
-char* getcookie(const char* channel)
-{
-  unsigned long long now=time(0);
-  char url[strlen("http://tinychat.com/cauth?t=&room=0")+snprintf(0,0, "%llu", now)+strlen(channel)];
-  sprintf(url, "http://tinychat.com/cauth?t=%llu&room=%s", now, channel);
-  char* response=http_get(url, 0);
-  if(strstr(response, "\"lurker\":1"))
-  {
-    printf("Captcha not completed, you will not be able to send any messages or broadcast\n");
-  }
-  char* cookie=strstr(response, "\"cookie\":\"");
-
-  if(!cookie){return 0;}
-  cookie+=10;
-  char* end=strchr(cookie, '"');
-  if(!end){return 0;}
-  cookie=strndup(cookie, end-cookie);
-  free(response);
-  return cookie;
-}
-
-char* getbroadcastkey(const char* channel, const char* nick, const char* bpassword)
-{
-  unsigned int id=idlist_get(nick);
-  char url[snprintf(0,0, "http://tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"")+1];
-  sprintf(url, "http://tinychat.com/api/broadcast.pw?name=%s&site=%s&nick=%s&id=%u%s%s", channel, sitearg, nick, id, bpassword?"&password=":"", bpassword?bpassword:"");
-  char* response=http_get(url, 0);
-  if(strstr(response, " result='PW'")){free(response); return 0;}
-  char* key=strstr(response, " token='");
-
-  if(!key){free(response); return 0;}
-  key+=8;
-  char* keyend=strchr(key, '\'');
-  if(!keyend){free(response); return 0;}
-  key=strndup(key, keyend-key);
-  free(response);
-  return key;
-}
-
-char* getmodkey(const char* user, const char* pass, const char* channel, char* loggedin)
-{
-  // TODO: if possible, do this in a neater way than digging the key out from an HTML page.
-  if(!user||!pass){return 0;}
-  char post[strlen("form_sent=1&username=&password=&next=http://tinychat.com/0")+strlen(user)+strlen(pass)+strlen(channel)];
-  sprintf(post, "form_sent=1&username=%s&password=%s&next=http://tinychat.com/%s", user, pass, channel);
-  char* response=http_get("http://tinychat.com/login", post);
-  char* key=strstr(response, "autoop: \"");
-  if(key)
-  {
-    key=&key[9];
-    char* end=strchr(key, '"');
-    if(end)
-    {
-      end[0]=0;
-      key=strdup(key);
-    }else{key=0;}
-  }
-  if(strstr(response, "<div class='name'")){*loggedin=1;}
-  free(response);
-  return key;
-}
-
-void getcaptcha(void)
-{
-  char* url="http://tinychat.com/cauth/captcha";
-  char* page=http_get(url, 0);
-  char* token=strstr(page, "\"token\":\"");
-  if(token)
-  {
-    token=&token[9];
-    char* end=strchr(token, '"');
-    if(end)
-    {
-      end[0]=0;
-      printf("Captcha: http://tinychat.com/cauth/recaptcha?token=%s\n", token);
-      fflush(stdout);
-      fgetc(stdin);
-    }
-  }
-  free(page);
-}
-
 char timestampbuf[8];
 char* timestamp()
 {
@@ -253,47 +99,46 @@ char* timestamp()
   return timestampbuf;
 }
 
-char checknick(const char* nick) // Returns zero if the nick is valid, otherwise returning the character that failed the check
+int connectto(const char* host, const char* port)
 {
-  unsigned int i;
-  for(i=0; nick[i]; ++i)
+  struct addrinfo* res;
+  getaddrinfo(host, port, 0, &res);
+  int sock=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if(connect(sock, res->ai_addr, res->ai_addrlen))
   {
-    if(!strchr("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-^[]{}`\\|", nick[i])){return nick[i];}
+    perror("Failed to connect");
+    freeaddrinfo(res);
+    return 1;
   }
-  return 0;
+  freeaddrinfo(res);
+  int i=1;
+  setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &i, sizeof(i));
+  return sock;
 }
 
-char* getprivfield(char* nick)
+void registercmd(const char* command, void(*callback)(struct amf*,int), unsigned int minargs)
 {
-  unsigned int id;
-  unsigned int privlen;
-  for(privlen=0; nick[privlen]&&nick[privlen]!=' '; ++privlen);
-  id=idlist_get(nick);
-  if(id<0)
-  {
-    nick[privlen]=0;
-    printf("No such nick: %s\n", nick);
-    fflush(stdout);
-    return 0;
-  }
-  char* priv=malloc(snprintf(0, 0, "n%i-", id)+privlen+1);
-  sprintf(priv, "n%i-", id); // 'n' for not-broadcasting
-  strncat(priv, nick, privlen);
-  return priv;
+  ++commandcount;
+  commands=realloc(commands, sizeof(struct command)*commandcount);
+  commands[commandcount-1].command=strdup(command);
+  commands[commandcount-1].callback=callback;
+  commands[commandcount-1].minargs=minargs;
 }
 
-void usage(const char* me)
+static void usage(const char* me)
 {
   printf("Usage: %s [options] <channelname> <nickname> [channelpassword]\n"
          "Options include:\n"
-         "-h, --help           Show this help text and exit\n"
+         "-h, --help           Show this help text and exit.\n"
          "-v, --version        Show the program version and exit.\n"
          "-u, --user <user>    Username of tinychat account to use.\n"
          "-p, --pass <pass>    Password of tinychat account to use.\n"
          "-c, --color <value>  Color to use in chat.\n"
+         "-s, --site <site>    Site to connect to.\n"
          "    --hexcolors      Print hex colors instead of ANSI color codes.\n"
          "    --cookies <file> File to store cookies in (not having to solve\n"
          "                       the captchas every time)\n"
+         "    --greenroom      Join a channel's greenroom.\n"
 #ifdef RTMP_DEBUG
          "    --rtmplog <file> Write RTMP input to file.\n"
 #endif
@@ -303,13 +148,15 @@ void usage(const char* me)
 extern int rtmplog;
 #endif
 
+extern int init_tinychat(const char* chanpass, const char* username, const char* userpass, struct site* site);
+extern int init_kageshi(const char* chanpass, const char* username, const char* userpass, struct site* site);
+extern int init_kageshicam(struct site* site);
 int main(int argc, char** argv)
 {
-  char* channel=0;
-  char* nickname=0;
   char* password=0;
   char* account_user=0;
   char* account_pass=0;
+  const char* sitestr=0;
   int i;
   for(i=1; i<argc; ++i)
   {
@@ -334,6 +181,11 @@ int main(int argc, char** argv)
       ++i;
       currentcolor=atoi(argv[i]);
     }
+    else if(!strcmp(argv[i], "-s")||!strcmp(argv[i], "--site"))
+    {
+      ++i;
+      sitestr=argv[i];
+    }
     else if(!strcmp(argv[i], "--cookies"))
     {
       ++i;
@@ -343,17 +195,22 @@ int main(int argc, char** argv)
     else if(!strcmp(argv[i], "--rtmplog")){++i; rtmplog=open(argv[i], O_WRONLY|O_CREAT|O_TRUNC, 0600); if(rtmplog<0){perror("rtmplog: open");}}
 #endif
     else if(!strcmp(argv[i], "--hexcolors")){hexcolors=1;}
-    else if(!strcmp(argv[i], "--greenroom")){sitearg="greenroom";}
+    else if(!strcmp(argv[i], "--greenroom")){greenroom=1;}
     else if(!channel){channel=argv[i];}
     else if(!nickname){nickname=strdup(argv[i]);}
     else if(!password){password=argv[i];}
   }
   // Check for required arguments
   if(!channel||!nickname){usage(argv[0]); return 1;}
-  char badchar;
-  if((badchar=checknick(nickname)))
+  if(sitestr &&
+     strcmp(sitestr, "tinychat") &&
+     strcmp(sitestr, "kageshi") &&
+     strcmp(sitestr, "kageshicam"))
   {
-    printf("'%c' is not allowed in nicknames.\n", badchar);
+    printf("Unknown site '%s'. Currently supported sites:\n"
+           "tinychat\n"
+           "kageshi\n"
+           "kageshicam (server/camname/numkey as channel)\n", sitestr);
     return 1;
   }
   setlocale(LC_ALL, "");
@@ -376,120 +233,45 @@ int main(int argc, char** argv)
       if(account_pass[i]=='\n'||account_pass[i]=='\r'){account_pass[i]=0; break;}
     }
   }
-  char loggedin=0;
-  // Log in if user account is specified
-  char* modkey=getmodkey(account_user, account_pass, channel, &loggedin);
-  char* server=gethost(channel, password);
-  struct addrinfo* res;
-  // Separate IP/domain and port
-  char* port=strchr(server, ':');
-  if(!port){return 3;}
-  port[0]=0;
-  ++port;
-  // Connect
-  getaddrinfo(server, port, 0, &res);
-  int sock=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if(connect(sock, res->ai_addr, res->ai_addrlen))
+
+  // Accept URL as "channel" and pick site accordingly (in addition to --site)
+  char* domain;
+  if((domain=strstr(channel, "://")))
   {
-    perror("Failed to connect");
-    freeaddrinfo(res);
-    return 1;
+    domain=&domain[3];
+    if(!strncmp(domain, "www.", 4)){domain=&domain[4];}
+    if(!strncmp(domain, "tinychat.com/", 13))
+    {
+      sitestr="tinychat";
+      channel=&domain[13];
+    }
+    else if(!strncmp(domain, "kageshi.com/rooms/", 18))
+    {
+      sitestr="kageshi";
+      channel=&domain[18];
+    }
   }
-  freeaddrinfo(res);
-  i=1;
-  setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &i, sizeof(i));
+  struct site site;
+  int sock;
+  if(!sitestr || !strcmp(sitestr, "tinychat"))
+  {
+    sock=init_tinychat(password, account_user, account_pass, &site);
+  }
+  else if(!strcmp(sitestr, "kageshi"))
+  {
+    sock=init_kageshi(password, account_user, account_pass, &site);
+  }
+  else if(!strcmp(sitestr, "kageshicam"))
+  {
+    sock=init_kageshicam(&site);
+  }
+  free(account_pass);
   int random=open("/dev/urandom", O_RDONLY);
-  // RTMP handshake
-  unsigned char handshake[1536];
-  read(random, handshake, 1536);
   if(currentcolor>=COLORCOUNT)
   {
     read(random, &currentcolor, sizeof(currentcolor));
   }
   close(random);
-  write(sock, "\x03", 1); // Send 0x03 and 1536 bytes of random junk
-  write(sock, handshake, 1536);
-  read(sock, handshake, 1); // Receive server's 0x03+junk
-  b_read(sock, handshake, 1536);
-  write(sock, handshake, 1536); // Send server's junk back
-  b_read(sock, handshake, 1536); // Read our junk back, we don't bother checking that it's the same
-  printf("Handshake complete\n");
-  struct rtmp rtmp={0,0,0,0,0};
-  if(!loggedin){free(account_pass); account_user=0; account_pass=0;}
-  getcaptcha();
-  char* cookie=getcookie(channel);
-  // Send connect request
-  struct rtmp amf;
-  amfinit(&amf, 3);
-  amfstring(&amf, "connect");
-  amfnum(&amf, 0);
-  amfobjstart(&amf);
-    amfobjitem(&amf, "app");
-    amfstring(&amf, "tinyconf");
-
-    amfobjitem(&amf, "flashVer");
-    amfstring(&amf, "no flash");
-
-    amfobjitem(&amf, "swfUrl");
-    amfstring(&amf, "no flash");
-
-    amfobjitem(&amf, "tcUrl");
-    char str[strlen("rtmp://:/tinyconf0")+strlen(server)+strlen(port)];
-    sprintf(str, "rtmp://%s:%s/tinyconf", server, port);
-    amfstring(&amf, str);
-
-    amfobjitem(&amf, "fpad");
-    amfbool(&amf, 0);
-
-    amfobjitem(&amf, "capabilities");
-    amfnum(&amf, 0);
-
-    amfobjitem(&amf, "audioCodecs");
-    amfnum(&amf, 0);
-
-    amfobjitem(&amf, "videoCodecs");
-    amfnum(&amf, 0);
-
-    amfobjitem(&amf, "videoFunction");
-    amfnum(&amf, 0);
-
-    amfobjitem(&amf, "pageUrl");
-    char pageurl[strlen("http://tinychat.com/0") + strlen(channel)];
-    sprintf(pageurl, "http://tinychat.com/%s", channel);
-    amfstring(&amf, pageurl);
-
-    amfobjitem(&amf, "objectEncoding");
-    amfnum(&amf, 0);
-  amfobjend(&amf);
-  amfobjstart(&amf);
-    amfobjitem(&amf, "version");
-    amfstring(&amf, "Desktop");
-
-    amfobjitem(&amf, "type");
-    amfstring(&amf, "default"); // This item is called roomtype in the same HTTP response that gives us the server (IP+port) to connect to, but "default" seems to work fine too.
-
-    amfobjitem(&amf, "account");
-    amfstring(&amf, account_user?account_user:"");
-
-    amfobjitem(&amf, "prefix");
-    amfstring(&amf, sitearg);
-
-    amfobjitem(&amf, "room");
-    amfstring(&amf, channel);
-
-    if(modkey)
-    {
-      amfobjitem(&amf, "autoop");
-      amfstring(&amf, modkey);
-    }
-    amfobjitem(&amf, "cookie");
-    amfstring(&amf, cookie);
-  amfobjend(&amf);
-  amfsend(&amf, sock);
-  free(modkey);
-  free(cookie);
-
-  char* unban=0;
   struct pollfd pfd[2];
   pfd[0].fd=0;
   pfd[0].events=POLLIN;
@@ -497,6 +279,7 @@ int main(int argc, char** argv)
   pfd[1].fd=sock;
   pfd[1].events=POLLIN;
   pfd[1].revents=0;
+  struct rtmp rtmp={0,0,0,0,0};
   while(1)
   {
     // Poll for input, very crude chat UI
@@ -517,7 +300,6 @@ int main(int argc, char** argv)
       while(len>0 && (buf[len-1]=='\n'||buf[len-1]=='\r')){--len;}
       if(!len){continue;} // Don't send empty lines
       buf[len]=0;
-      char* privfield=0;
       if(buf[0]=='/') // Got a command
       {
         if(!strcmp(buf, "/help"))
@@ -577,93 +359,47 @@ int main(int argc, char** argv)
         }
         else if(!strncmp(buf, "/nick ", 6))
         {
-          if((badchar=checknick(&buf[6])))
-          {
-            printf("'%c' is not allowed in nicknames.\n", badchar);
-            continue;
-          }
-          amfinit(&amf, 3);
-          amfstring(&amf, "nick");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          amfstring(&amf, &buf[6]);
-          amfsend(&amf, sock);
+          site.nick(sock, &buf[6]);
           continue;
         }
         else if(!strncmp(buf, "/msg ", 5))
         {
-          privfield=getprivfield(&buf[5]);
-          if(!privfield){continue;}
-        }
-        else if(!strncmp(buf, "/priv ", 6))
-        {
-          char* end=strchr(&buf[6], ' ');
-          if(!end){continue;}
-          privfield=getprivfield(&buf[6]);
-          if(!privfield){continue;}
-          len=strlen(&end[1]);
-          memmove(buf, &end[1], len+1);
+          char* msg=strchr(&buf[5], ' ');
+          if(msg)
+          {
+            msg[0]=0;
+            site.sendpm(sock, &msg[1], &buf[5]);
+            continue;
+          }
         }
         else if(!strncmp(buf, "/opencam ", 9))
         {
-          stream_start(&buf[9], sock);
+          site.opencam(sock, &buf[9]);
           continue;
         }
         else if(!strncmp(buf, "/closecam ", 10))
         {
-          stream_stopvideo(sock, idlist_get(&buf[10]));
+          site.closecam(sock, &buf[10]);
           continue;
         }
         else if(!strncmp(buf, "/close ", 7)) // Stop someone's cam/mic broadcast
         {
-          char nick[strlen(&buf[7])+1];
-          strcpy(nick, &buf[7]);
-          amfinit(&amf, 2);
-          amfstring(&amf, "owner_run");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          sprintf(buf, "_close%s", nick);
-          amfstring(&amf, buf);
-          amfsend(&amf, sock);
-          len=sprintf(buf, "closed: %s", nick);
+          site.mod_close(sock, &buf[7]);
+          continue;
         }
         else if(!strncmp(buf, "/ban ", 5)) // Ban someone
         {
-          char nick[strlen(&buf[5])+1];
-          strcpy(nick, &buf[5]);
-          amfinit(&amf, 3);
-          amfstring(&amf, "owner_run");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          sprintf(buf, "notice%s%%20was%%20banned%%20by%%20%s%%20(%s)", nick, nickname, account_user);
-          amfstring(&amf, buf);
-          amfsend(&amf, sock);
-          printf("%s %s was banned by %s (%s)\n", timestamp(), nick, nickname, account_user);
-          // kick (this does the actual banning)
-          amfinit(&amf, 3);
-          amfstring(&amf, "kick");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          amfstring(&amf, nick);
-          sprintf(buf, "%i", idlist_get(nick));
-          amfstring(&amf, buf);
-          amfsend(&amf, sock);
+          site.mod_ban(sock, &buf[5]);
           continue;
         }
-        else if(!strcmp(buf, "/banlist") || !strncmp(buf, "/forgive ", 9))
+        else if(!strcmp(buf, "/banlist"))
         {
-          free(unban);
-          if(buf[1]=='f') // forgive
-          {
-            unban=strdup(&buf[9]);
-          }else{
-            unban=0;
-          }
-          amfinit(&amf, 3);
-          amfstring(&amf, "banlist");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          amfsend(&amf, sock);
+          site.mod_banlist(sock);
+          continue;
+        }
+        else if(!strncmp(buf, "/forgive ", 9))
+        {
+          site.mod_unban(sock, &buf[9]);
           continue;
         }
         else if(!strcmp(buf, "/names"))
@@ -679,42 +415,22 @@ int main(int argc, char** argv)
         }
         else if(!strcmp(buf, "/mute"))
         {
-          amfinit(&amf, 3);
-          amfstring(&amf, "owner_run");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          amfstring(&amf, "mute");
-          amfsend(&amf, sock);
+          site.mod_mute(sock);
           continue;
         }
         else if(!strcmp(buf, "/push2talk"))
         {
-          amfinit(&amf, 3);
-          amfstring(&amf, "owner_run");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          amfstring(&amf, "push2talk");
-          amfsend(&amf, sock);
+          site.mod_push2talk(sock);
           continue;
         }
         else if(!strcmp(buf, "/camup"))
         {
-          // Retrieve and send the key for broadcasting access
-          char* key=getbroadcastkey(channel, nickname, bpassword);
-          amfinit(&amf, 3);
-          amfstring(&amf, "bauth");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          amfstring(&amf, key);
-          amfsend(&amf, sock);
-          free(key);
-          // Initiate stream
-          streamout_start(idlist_get(nickname), sock);
+          site.camup(sock);
           continue;
         }
         else if(!strcmp(buf, "/camdown"))
         {
-          stream_stopvideo(sock, idlist_get(nickname));
+          site.camdown(sock);
           continue;
         }
         else if(!strncmp(buf, "/video ", 7)) // Send video data
@@ -735,13 +451,7 @@ int main(int argc, char** argv)
         }
         else if(!strncmp(buf, "/topic ", 7))
         {
-          amfinit(&amf, 3);
-          amfstring(&amf, "topic");
-          amfnum(&amf, 0);
-          amfnull(&amf);
-          amfstring(&amf, &buf[7]);
-          amfstring(&amf, "");
-          amfsend(&amf, sock);
+          site.mod_topic(sock, &buf[7]);
           continue;
         }
         else if(!strncmp(buf, "/whois ", 7)) // Get account username
@@ -763,10 +473,8 @@ int main(int argc, char** argv)
         }
         else if(!strncmp(buf, "/allow ", 7))
         {
-          if(!bpassword){continue;}
-          privfield=getprivfield(&buf[7]);
-          if(!privfield){continue;}
-          len=sprintf(buf, "/allowbroadcast %s", bpassword);
+          site.mod_allowbroadcast(sock, &buf[7]);
+          continue;
         }
         else if(!strncmp(buf, "/getnick ", 9))
         {
@@ -776,32 +484,7 @@ int main(int argc, char** argv)
           continue;
         }
       }
-      char* msg=tonumlist(buf, len);
-      amfinit(&amf, 3);
-      amfstring(&amf, "privmsg");
-      amfnum(&amf, 0);
-      amfnull(&amf);
-      amfstring(&amf, msg);
-      amfstring(&amf, colors[currentcolor%COLORCOUNT]);
-      // For PMs, add a string like "n<numeric ID>-<nick>" to make the server only send it to the intended recipient
-      if(privfield)
-      {
-        amfstring(&amf, privfield);
-        // And one in case they're broadcasting
-        privfield[0]='b'; // 'b' for broadcasting
-        struct rtmp bamf;
-        amfinit(&bamf, 3);
-        amfstring(&bamf, "privmsg");
-        amfnum(&bamf, 0);
-        amfnull(&bamf);
-        amfstring(&bamf, msg);
-        amfstring(&bamf, colors[currentcolor%COLORCOUNT]);
-        amfstring(&bamf, privfield);
-        amfsend(&bamf, sock);
-        free(privfield);
-      }
-      amfsend(&amf, sock);
-      free(msg);
+      site.sendmessage(sock, buf);
       continue;
     }
     // Got data from server
@@ -813,328 +496,16 @@ int main(int argc, char** argv)
     if(rtmp.type==RTMP_VIDEO || rtmp.type==RTMP_AUDIO){stream_handledata(&rtmp); continue;}
     if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); fflush(stdout); continue;}
     struct amf* amfin=amf_parse(rtmp.buf, rtmp.length);
-    if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING)
+    for(i=0; i<commandcount; ++i)
     {
-//      printf("Got command: '%s'\n", amfin->items[0].string.string);
-      if(!strcmp(amfin->items[0].string.string, "_error"))
-        printamf(amfin);
-    }
-    // Items for privmsg: 0=cmd, 2=channel, 3=msg, 4=color/lang, 5=nick
-    if(amfin->itemcount>5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "privmsg") && amfin->items[3].type==AMF_STRING && amfin->items[4].type==AMF_STRING && amfin->items[5].type==AMF_STRING)
-    {
-      size_t len;
-      char* msg=fromnumlist(amfin->items[3].string.string, &len);
-      const char* color=color_start(amfin->items[4].string.string);
-      char* line=msg;
-      while(line)
+      if(amfin->itemcount>=commands[i].minargs && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, commands[i].command))
       {
-        // Handle multi-line messages
-        char* nextline=0;
-        unsigned int linelen;
-        for(linelen=0; &line[linelen]<&msg[len]; ++linelen)
-        {
-          if(line[linelen]=='\r' || line[linelen]=='\n'){nextline=&line[linelen+1]; break;}
-        }
-        printf("%s %s%s: ", timestamp(), color, amfin->items[5].string.string);
-        fwrite(line, linelen, 1, stdout);
-        printf("%s\n", color_end());
-        line=nextline;
-      }
-      char* response=0;
-      if(!strncmp(msg, "/allowbroadcast ", 16))
-      {
-        if(getbroadcastkey(channel, nickname, &msg[16])) // Validate password
-        {
-          free((void*)bpassword);
-          bpassword=strdup(&msg[16]);
-          printf("Authenticated to broadcast\n");
-        }
-      }
-      else if(!strcmp(msg, "/version"))
-      {
-        response=tonumlist("/version tc_client-" VERSION, strlen(VERSION)+19);
-      }
-      if(response)
-      {
-        // Send our command reponse with a privacy field
-        amfinit(&amf, 3);
-        amfstring(&amf, "privmsg");
-        amfnum(&amf, 0);
-        amfnull(&amf);
-        amfstring(&amf, response);
-        amfstring(&amf, "#0,en");
-        int id=idlist_get(amfin->items[5].string.string);
-        char priv[snprintf(0, 0, "n%i-%s", id, amfin->items[5].string.string)+1];
-        sprintf(priv, "n%i-%s", id, amfin->items[5].string.string);
-        amfstring(&amf, priv);
-        amfsend(&amf, sock);
-        // And again in case they're broadcasting
-        amfinit(&amf, 3);
-        amfstring(&amf, "privmsg");
-        amfnum(&amf, 0);
-        amfnull(&amf);
-        amfstring(&amf, response);
-        amfstring(&amf, "#0,en");
-        priv[0]='b';
-        amfstring(&amf, priv);
-        amfsend(&amf, sock);
-        free(response);
-      }
-      free(msg);
-      fflush(stdout);
-    }
-    // users on channel entry.  there's also a "joinsdone" command for some reason...
-    else if(amfin->itemcount>2 && amfin->items[0].type==AMF_STRING && (amf_comparestrings_c(&amfin->items[0].string, "joins") || amf_comparestrings_c(&amfin->items[0].string, "join") || amf_comparestrings_c(&amfin->items[0].string, "registered")))
-    {
-      if(amf_comparestrings_c(&amfin->items[0].string, "joins"))
-      {
-        printf("Currently online: ");
-      }else{
-        printf("%s ", timestamp());
-      }
-      int i;
-      for(i = 2; i < amfin->itemcount; ++i)
-      {
-        if(amfin->items[i].type==AMF_OBJECT)
-        {
-          struct amfitem* item=amf_getobjmember(&amfin->items[i].object, "id");
-          if(item->type!=AMF_NUMBER){continue;}
-          int id=item->number;
-          item=amf_getobjmember(&amfin->items[i].object, "nick");
-          if(item->type!=AMF_STRING){continue;}
-          const char* nick=item->string.string;
-          item=amf_getobjmember(&amfin->items[i].object, "account");
-          if(item->type!=AMF_STRING){continue;}
-          const char* account=(item->string.string[0]?item->string.string:0);
-          item=amf_getobjmember(&amfin->items[i].object, "mod");
-          if(item->type!=AMF_BOOL){continue;}
-          char mod=item->boolean;
-          idlist_add(id, nick, account, mod);
-          printf("%s%s", (i==2?"":", "), nick);
-          if(amf_comparestrings_c(&amfin->items[0].string, "registered"))
-          {
-            // Tell the server how often to let us know it got our packets
-            struct rtmp setbw={
-              .type=RTMP_SERVER_BW,
-              .chunkid=2,
-              .length=4,
-              .msgid=0,
-              .buf="\x00\x00\x40\x00" // Every 0x4000 bytes
-            };
-            rtmp_send(sock, &setbw);
-            char* key=getkey(id, channel);
-            curl_easy_cleanup(curl); // At this point we should be done with HTTP requests
-            curl=0;
-            if(!key){printf("Failed to get channel key\n"); return 1;}
-            amfinit(&amf, 3);
-            amfstring(&amf, "cauth");
-            amfnum(&amf, 0);
-            amfnull(&amf); // Means nothing but is apparently critically important for cauth at least
-            amfstring(&amf, key);
-            amfsend(&amf, sock);
-            free(key);
-            // Set the given nickname
-            amfinit(&amf, 3);
-            amfstring(&amf, "nick");
-            amfnum(&amf, 0);
-            amfnull(&amf);
-            amfstring(&amf, nickname);
-            amfsend(&amf, sock);
-            // Keep what the server gave us, just in case
-            free(nickname);
-            nickname=strdup(nick);
-          }
-        }
-      }
-      if(amf_comparestrings_c(&amfin->items[0].string, "joins"))
-      {
-        printf("\n");
-        for(i=0; i<idlistlen; ++i)
-        {
-          if(idlist[i].op){printf("%s is a moderator.\n", idlist[i].name);}
-        }
-        printf("Currently on cam: ");
-        char first=1;
-        for(i = 2; i < amfin->itemcount; ++i)
-        {
-          if(amfin->items[i].type==AMF_OBJECT)
-          {
-            struct amfitem* item=amf_getobjmember(&amfin->items[i].object, "bf");
-            if(item->type!=AMF_BOOL || !item->boolean){continue;}
-            item=amf_getobjmember(&amfin->items[i].object, "nick");
-            if(item->type!=AMF_STRING){continue;}
-            printf("%s%s", (first?"":", "), item->string.string);
-            first=0;
-          }
-        }
-        printf("\n");
-      }else{
-        printf(" entered the channel\n");
-        if(idlist[idlistlen-1].op){printf("%s is a moderator.\n", idlist[idlistlen-1].name);}
-        if(amf_comparestrings_c(&amfin->items[0].string, "registered"))
-        {
-          printf("Connection ID: %i\n", idlist[0].id);
-        }
-      }
-      fflush(stdout);
-    }
-    // quit/part
-    else if(amfin->itemcount>2 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "quit") && amfin->items[2].type==AMF_STRING)
-    {
-      idlist_remove(amfin->items[2].string.string);
-      printf("%s %s left the channel\n", timestamp(), amfin->items[2].string.string);
-      fflush(stdout);
-    }
-    // nick
-    else if(amfin->itemcount==5 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "nick") && amfin->items[2].type==AMF_STRING && amfin->items[3].type==AMF_STRING)
-    {
-      if(!strcmp(amfin->items[2].string.string, nickname)) // Successfully changed our own nickname
-      {
-        free(nickname);
-        nickname=strdup(amfin->items[3].string.string);
-      }
-      idlist_rename(amfin->items[2].string.string, amfin->items[3].string.string);
-      printf("%s %s changed nickname to %s\n", timestamp(), amfin->items[2].string.string, amfin->items[3].string.string);
-      fflush(stdout);
-    }
-    // kick
-    else if(amfin->itemcount==4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "kick") && amfin->items[2].type==AMF_STRING)
-    {
-      if(atoi(amfin->items[2].string.string) == idlist_get(nickname))
-      {
-        printf("%s You have been kicked out\n", timestamp());
+        commands[i].callback(amfin, sock);
         fflush(stdout);
+        break;
       }
     }
-    // banned
-    else if(amfin->itemcount==2 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "banned"))
-    {
-      printf("%s You are banned from %s\n", timestamp(), channel);
-      fflush(stdout);
-      // When banned and reconnecting, tinychat doesn't disconnect us itself, we need to disconnect
-      close(sock);
-      return 1; // Getting banned is a failure, right?
-    }
-    // from_owner: notices, mute, push2talk, closing cams
-    else if(amfin->itemcount==3 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "from_owner") && amfin->items[2].type==AMF_STRING)
-    {
-      if(!strncmp("notice", amfin->items[2].string.string, 6))
-      {
-        char* notice=strdup(&amfin->items[2].string.string[6]);
-        // replace "%20" with spaces
-        char* space;
-        while((space=strstr(notice, "%20")))
-        {
-          memmove(space, &space[2], strlen(&space[2])+1);
-          space[0]=' ';
-        }
-        printf("%s %s\n", timestamp(), notice);
-        fflush(stdout);
-      }
-      else if(!strcmp("mute", amfin->items[2].string.string))
-      {
-        printf("%s Non-moderators have been temporarily muted.\n", timestamp());
-        fflush(stdout);
-      }
-      else if(!strcmp("push2talk", amfin->items[2].string.string))
-      {
-        printf("%s Push to talk request has been sent to non-moderators.\n", timestamp());
-        fflush(stdout);
-      }
-      else if(!strncmp("_close", amfin->items[2].string.string, 6) && !strcmp(&amfin->items[2].string.string[6], nickname))
-      {
-        printf("Outgoing media stream was closed\n");
-        fflush(stdout);
-        stream_stopvideo(sock, idlist_get(nickname));
-      }
-    }
-    // nickinuse, the nick we wanted to change to is already taken
-    else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING &&  amf_comparestrings_c(&amfin->items[0].string, "nickinuse"))
-    {
-      printf("Nick is already in use.\n");
-      fflush(stdout);
-    }
-    // Room topic
-    else if(amfin->itemcount>2 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "topic") && amfin->items[2].type==AMF_STRING && strlen(amfin->items[2].string.string) > 0)
-    {
-      printf("Room topic: %s\n", amfin->items[2].string.string);
-      fflush(stdout);
-    }
-    // Get list of banned users
-    else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING &&  amf_comparestrings_c(&amfin->items[0].string, "banlist"))
-    {
-      unsigned int i;
-      if(unban) // This is not a response to /banlist but to /forgive
-      {
-        for(i=2; i+1<amfin->itemcount; i+=2)
-        {
-          if(amfin->items[i].type!=AMF_STRING || amfin->items[i+1].type!=AMF_STRING){break;}
-          if(!strcmp(amfin->items[i+1].string.string, unban) || !strcmp(amfin->items[i].string.string, unban))
-          {
-            amfinit(&amf, 3);
-            amfstring(&amf, "forgive");
-            amfnum(&amf, 0);
-            amfnull(&amf);
-            amfstring(&amf, amfin->items[i].string.string);
-            amfsend(&amf, sock);
-          }
-          // If the nickname isn't found in the banlist we assume it's an ID
-        }
-        continue;
-      }
-      printf("Banned users:\n");
-      printf("ID         Nickname\n");
-      for(i=2; i+1<amfin->itemcount; i+=2)
-      {
-        if(amfin->items[i].type!=AMF_STRING || amfin->items[i+1].type!=AMF_STRING){break;}
-        unsigned int len=printf("%s", amfin->items[i].string.string);
-        for(;len<10; ++len){printf(" ");}
-        printf(" %s\n", amfin->items[i+1].string.string);
-      }
-      printf("Use /forgive <ID/nick> to unban someone\n");
-      fflush(stdout);
-    }
-    else if(amfin->itemcount>4 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "notice") && amfin->items[2].type==AMF_STRING && amf_comparestrings_c(&amfin->items[2].string, "avon"))
-    {
-      if(amfin->items[4].type==AMF_STRING)
-      {
-        printf("%s cammed up\n", amfin->items[4].string.string);
-        fflush(stdout);
-      }
-    }
-    // Handle results for various requests, haven't seen much of a pattern to it, always successful?
-    else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "_result"))
-    {
-      // Creating a new stream worked, now play media (cam/mic) on it (if that's what the result was for)
-      stream_play(amfin, sock);
-    }
-    else if(amfin->itemcount>0 && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, "onStatus"))
-    {
-      stream_handlestatus(amfin, sock);
-    }
-    else if(amfin->itemcount>2 && amfin->items[0].type==AMF_STRING && amfin->items[2].type==AMF_OBJECT && amf_comparestrings_c(&amfin->items[0].string, "account"))
-    {
-      struct amfitem* id=amf_getobjmember(&amfin->items[2].object, "id");
-      struct amfitem* account=amf_getobjmember(&amfin->items[2].object, "account");
-      if(id && account && id->type==AMF_NUMBER && account->type==AMF_STRING)
-      {
-        for(i=0; i<idlistlen; ++i)
-        {
-          if(id->number==idlist[i].id)
-          {
-            if(strcmp(account->string.string, "$noinfo"))
-            {
-              printf("%s is logged in as %s\n", idlist[i].name, account->string.string);
-            }else{
-              printf("%s is not logged in\n", idlist[i].name);
-            }
-            fflush(stdout);
-            break;
-          }
-        }
-      }
-    }
-    // else{printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
+    // if(i==commandcount){printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
     amf_free(amfin);
   }
   free(rtmp.buf);

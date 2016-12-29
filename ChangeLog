@@ -1,5 +1,6 @@
 0.42:
 Improved RTMP compatibility by responding to RTMP ping requests and always starting new chunk streams with a format 0 packet.
+Added some basic support for kageshi (using the -s/--site option)
 0.41.1:
 Use tinychat.com instead of apl.tinychat.com (works around SSL/TLS issues on windows)
 0.41:

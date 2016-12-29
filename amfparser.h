@@ -14,6 +14,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#ifndef AMFPARSER_H
+#define AMFPARSER_H
 enum
 {
   AMF_NUMBER,
@@ -68,3 +70,4 @@ extern void amf_free(struct amf* amf);
 extern struct amfitem* amf_getobjmember(struct amfobject* obj, const char* name);
 
 extern void printamf(struct amf* amf);
+#endif

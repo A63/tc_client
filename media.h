@@ -19,18 +19,18 @@
 struct stream
 {
   unsigned int streamid;
-  unsigned int userid;
+  const char* camid;
   char outgoing;
 };
 
 extern struct stream* streams;
 extern unsigned int streamcount;
 
-extern void stream_start(const char* nick, int sock); // called upon privmsg "/opencam ..."
-extern void streamout_start(unsigned int id, int sock); // called upon privmsg "/camup"
+extern void stream_start(const char* nick, const char* camid, int sock); // called upon privmsg "/opencam ..."
+extern void streamout_start(const char* id, int sock); // called upon privmsg "/camup"
 extern void stream_play(struct amf* amf, int sock); // called upon _result
 extern void stream_handledata(struct rtmp* rtmp);
 extern void stream_handlestatus(struct amf* amf, int sock);
 extern void stream_sendframe(int sock, void* buf, size_t len, unsigned char type);
-extern void stream_stopvideo(int sock, unsigned int id);
+extern void stream_stopvideo(int sock, const char* id);
 extern void setallowsnapshots(int sock, char v);
