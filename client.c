@@ -25,16 +25,13 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <poll.h>
-#include <sys/socket.h>
 #include <locale.h>
 #include <ctype.h>
 #include <termios.h>
 #include <curl/curl.h>
-#include "numlist.h"
 #include "idlist.h"
 #include "colors.h"
 #include "media.h"
-#include "amfwriter.h"
 #include "utilities/compat.h"
 #include "client.h"
 
