@@ -14,6 +14,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#ifndef RTMP_H
+#define RTMP_H
 #define RTMP_SET_PACKET_SIZE 0x01
 #define RTMP_ACKNOWLEDGEMENT 0x03
 #define RTMP_PING            0x04
@@ -37,3 +39,5 @@ struct rtmp
 extern size_t fullread(int fd, void* buf, size_t len);
 extern char rtmp_get(int sock, struct rtmp* rtmp);
 extern void rtmp_send(int sock, struct rtmp* rtmp);
+extern void rtmp_handshake(int sock);
+#endif

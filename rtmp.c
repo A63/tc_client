@@ -150,6 +150,20 @@ char rtmp_get(int sock, struct rtmp* rtmp)
     {
       uint32_t bytes=*(unsigned int*)chunk->buf;
       rtmpack=be32(bytes)+ackwindow;
+      free(chunk->buf);
+      chunk->buf=0;
+      return 2;
+    }
+    else if(chunk->type==RTMP_PING)
+    {
+      if(!memcmp(chunk->buf, "\x00\x06", 2)) // Ping request
+      {
+        ((unsigned char*)chunk->buf)[1]=7;
+        struct rtmp pong={.type=RTMP_PING, .chunkid=2, .length=chunk->length, .msgid=0, .buf=chunk->buf};
+        rtmp_send(sock, &pong);
+      }
+      free(chunk->buf);
+      chunk->buf=0;
       return 2;
     }
 // printf("Got chunk: chunkid=%u, type=%u, length=%u, streamid=%u\n", chunk->id, chunk->type, chunk->length, chunk->streamid);
@@ -166,14 +180,43 @@ char rtmp_get(int sock, struct rtmp* rtmp)
   return 2;
 }
 
-char firstpacket=1;
+static char firstpacket(unsigned int chunkid)
+{
+/* Possibly over-optimized, not sure if it's even any faster
+  static char* ids=0;
+  static unsigned int size;
+  if(chunkid<size)
+  {
+    char ret=ids[chunkid];
+    ids[chunkid]=0;
+    return ret;
+  }else{
+    ids=realloc(ids, chunkid+1);
+    memset(&ids[size], 1, chunkid-size);
+    size=chunkid+1;
+    return (ids[chunkid]=0);
+  }
+*/
+  static unsigned int* notfirst=0;
+  static unsigned int count=0;
+  unsigned int i;
+  for(i=0; i<count; ++i)
+  {
+    if(notfirst[i]==chunkid){return 0;}
+  }
+  ++count;
+  notfirst=realloc(notfirst, sizeof(unsigned int)*count);
+  notfirst[count-1]=chunkid;
+  return 1;
+}
+
 void rtmp_send(int sock, struct rtmp* rtmp)
 {
   #define rwrite(x,y,z) write(x,y,z); rtmpsent+=z // Add to the data sent counter
   if(rtmpsent>rtmpack && rtmp->type==RTMP_VIDEO){return;}
   // Header format and stream ID
   unsigned int fmt=(rtmp->msgid?0:1);
-  if(firstpacket){firstpacket=fmt=0;}
+  if(firstpacket(rtmp->chunkid)){fmt=0;}
   unsigned char basicheader=(rtmp->chunkid<64?rtmp->chunkid:(rtmp->chunkid<256?0:1)) | (fmt<<6);
   rwrite(sock, &basicheader, sizeof(basicheader));
   if(rtmp->chunkid>=64) // Handle large stream IDs
@@ -219,4 +262,18 @@ void rtmp_send(int sock, struct rtmp* rtmp)
     pos+=128;
   }
   rtmpsent+=rtmp->length;
+}
+
+void rtmp_handshake(int sock)
+{
+  int random=open("/dev/urandom", O_RDONLY);
+  unsigned char handshake[1536];
+  read(random, handshake, 1536);
+  close(random);
+  write(sock, "\x03", 1); // Send 0x03 and 1536 bytes of random junk
+  write(sock, handshake, 1536);
+  fullread(sock, handshake, 1); // Receive server's 0x03+junk
+  fullread(sock, handshake, 1536);
+  write(sock, handshake, 1536); // Send server's junk back
+  fullread(sock, handshake, 1536); // Read our junk back, we don't bother checking that it's the same
 }
