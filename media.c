@@ -61,7 +61,7 @@ void streamout_start(const char* id, int sock) // called upon privmsg "/camup"
   while(stream_idtaken(streamid)){++streamid;}
   ++streamcount;
   streams=realloc(streams, sizeof(struct stream)*streamcount);
-  streams[streamcount-1].camid=id;
+  streams[streamcount-1].camid=strdup(id);
   streams[streamcount-1].streamid=streamid;
   streams[streamcount-1].outgoing=1;
   struct rtmp amf;
