@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2016  alicia@ion.nu
+    Copyright (C) 2014-2017  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
     Copyright (C) 2015  Pamela Hiatt
 
@@ -79,6 +79,9 @@ char* http_get(const char* url, const char* post)
   curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookiefile);
   curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookiefile);
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla Firefox");
+  #ifdef __CYGWIN__ // The windows builds lack a ca bundle, so just don't verify certificates
+  curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+  #endif
   if(post){curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post);}
   char err[CURL_ERROR_SIZE];
   curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, err);
