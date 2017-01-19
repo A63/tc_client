@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2016  alicia@ion.nu
+    Copyright (C) 2014-2017  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
@@ -166,9 +166,9 @@ static char* getmodkey(const char* user, const char* pass, const char* channel, 
 {
   // TODO: if possible, do this in a neater way than digging the key out from an HTML page.
   if(!user||!pass){return 0;}
-  char post[strlen("form_sent=1&username=&password=&next=http://tinychat.com/0")+strlen(user)+strlen(pass)+strlen(channel)];
-  sprintf(post, "form_sent=1&username=%s&password=%s&next=http://tinychat.com/%s", user, pass, channel);
-  char* response=http_get("http://tinychat.com/login", post);
+  char post[strlen("form_sent=1&referer=&username=&password=&next=http://tinychat.com/0")+strlen(user)+strlen(pass)+strlen(channel)];
+  sprintf(post, "form_sent=1&referer=&username=%s&password=%s&next=http://tinychat.com/%s", user, pass, channel);
+  char* response=http_get("https://tinychat.com/login", post);
   char* key=strstr(response, "autoop: \"");
   if(key)
   {

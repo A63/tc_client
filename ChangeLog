@@ -4,6 +4,7 @@ Added some basic support for kageshi (using the -s/--site option)
 Small bugfix regarding outgoing streams.
 Cleaned up no-longer-needed headers in client.c
 Don't bother trying to verify certificates on windows (lacking a ca bundle)
+Fixed tinychat account support.
 0.41.1:
 Use tinychat.com instead of apl.tinychat.com (works around SSL/TLS issues on windows)
 0.41:
