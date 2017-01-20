@@ -261,6 +261,7 @@ int main(int argc, char** argv)
   char* logfile=0;
   char verbose=0;
   char disablelists=0;
+  char disableunapproved=0;
   unsigned int i;
   for(i=1; i<argc; ++i)
   {
@@ -300,6 +301,15 @@ int main(int argc, char** argv)
       argv[argc]=0;
       --i;
     }
+    else if(!strcmp(argv[i], "--no-unapproved"))
+    {
+      disableunapproved=1;
+      // Remove non-tc_client argument
+      --argc;
+      memmove(&argv[i], &argv[i+1], sizeof(char*)*(argc-i));
+      argv[argc]=0;
+      --i;
+    }
     else if(!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
     {
       printf("Additional options for modbot:\n"
@@ -307,6 +317,8 @@ int main(int argc, char** argv)
              "-l/--log <file> = log output into <file>\n"
              "-v/--verbose    = print/log all incoming messages\n"
              "--disable-lists = disable playlists\n"
+             "--no-unapproved = don't add unapproved videos to queue\n"
+             "                  (a mod must have played it first)\n"
              "\n");
       execvp(strncmp(argv[0], "./", 2)?"tc_client":"./tc_client", argv);
       return 1;
@@ -513,6 +525,11 @@ int main(int argc, char** argv)
             list_save(&badvids, "badvids.txt");
           }
 
+          if(disableunapproved && !list_contains(&goodvids, vid))
+          {
+            say(pm, "The video I found for '%s' is not approved.\n", &msg[9]);
+            continue;
+          }
           queue_add(&queue, vid, nick, title, timeoffset);
           if(!list_contains(&goodvids, vid))
           {
