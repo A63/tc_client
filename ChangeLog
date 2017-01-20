@@ -5,6 +5,7 @@ Small bugfix regarding outgoing streams.
 Cleaned up no-longer-needed headers in client.c
 Don't bother trying to verify certificates on windows (lacking a ca bundle)
 Fixed tinychat account support.
+modbot: use https instead of http and use the tcclient subdomain since some DNSes have trouble with underscores.
 0.41.1:
 Use tinychat.com instead of apl.tinychat.com (works around SSL/TLS issues on windows)
 0.41:

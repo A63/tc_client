@@ -1,6 +1,6 @@
 /*
     modbot, a bot for tc_client that queues and plays videos
-    Copyright (C) 2015  alicia@ion.nu
+    Copyright (C) 2015-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -232,7 +232,7 @@ void playnext(int x)
       {
         if(list_contains(&goodvids, queue.items[i].video))
         {
-          say(0, "Skipping http://youtube.com/watch?v=%s because it is still not approved after 2 minutes\n", queue.items[0].video);
+          say(0, "Skipping https://youtube.com/watch?v=%s because it is still not approved after 2 minutes\n", queue.items[0].video);
           queue_movetofront(&queue, i);
           waitskip=0;
           break;
@@ -626,7 +626,7 @@ int main(int argc, char** argv)
         }
         else if(!strcmp(msg, "!help"))
         {
-          say(pm, "http://tc_client.ion.nu/misc/modbotcommands.html\n");
+          say(pm, "https://tcclient.ion.nu/misc/modbotcommands.html\n");
         }
         else if(!strcmp(msg, "!modstats"))
         {
@@ -664,7 +664,7 @@ int main(int argc, char** argv)
         else if(!strcmp(msg, "!nowplaying"))
         {
           if(!playing){say(pm, "Nothing is playing\n");}
-          else{say(pm, "Currently playing: %s (http://youtube.com/watch?v=%s )\n", title, playing);}
+          else{say(pm, "Currently playing: %s (https://youtube.com/watch?v=%s )\n", title, playing);}
         }
         else if(list_contains(&mods, nick)) // Mods-only commands
         {
