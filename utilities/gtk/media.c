@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015-2016  alicia@ion.nu
+    Copyright (C) 2015-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -45,8 +45,8 @@ struct camera campreview={
   .postproc.max_brightness=255,
   .postproc.autoadjust=0
 };
-struct camera* cams=0;
-unsigned int camcount=0;
+static struct camera** cams=0;
+static unsigned int camcount=0;
 struct size camsize_out={.width=320, .height=240};
 struct size camsize_scale={.width=320, .height=240};
 GtkWidget* cambox;
@@ -74,30 +74,30 @@ gboolean audiomixer(void* p)
   int audiopipe=*(int*)p;
   unsigned int i;
   int sources=0;
-  for(i=0; i<camcount; ++i){sources+=!!cams[i].samplecount;}
+  for(i=0; i<camcount; ++i){sources+=!!cams[i]->samplecount;}
   if(!sources){return G_SOURCE_CONTINUE;}
   unsigned int samplecount=SAMPLERATE_OUT/25; // Play one 25th of the samplerate's samples per iteration (which happens 25 times per second)
   int16_t samples[samplecount];
   memset(samples, 0, samplecount*sizeof(int16_t));
   for(i=0; i<camcount; ++i)
   {
-    if(!cams[i].samplecount){continue;}
+    if(!cams[i]->samplecount){continue;}
     unsigned j;
-    for(j=0; j<samplecount && j<cams[i].samplecount; ++j)
+    for(j=0; j<samplecount && j<cams[i]->samplecount; ++j)
     {
       // Divide by number of sources to prevent integer overflow
-      samples[j]+=cams[i].samples[j]/sources;
+      samples[j]+=cams[i]->samples[j]/sources;
     }
-    if(cams[i].samplecount>samplecount)
+    if(cams[i]->samplecount>samplecount)
     {
-      cams[i].samplecount-=samplecount;
+      cams[i]->samplecount-=samplecount;
       // Deal with drift and post-lag floods
-      if(cams[i].samplecount>SAMPLERATE_OUT/5){cams[i].samplecount=0; continue;}
+      if(cams[i]->samplecount>SAMPLERATE_OUT/5){cams[i]->samplecount=0; continue;}
     }else{
-      cams[i].samplecount=0;
+      cams[i]->samplecount=0;
       continue;
     }
-    memmove(cams[i].samples, &cams[i].samples[samplecount], sizeof(int16_t)*cams[i].samplecount);
+    memmove(cams[i]->samples, &cams[i]->samples[samplecount], sizeof(int16_t)*cams[i]->samplecount);
   }
   write(audiopipe, samples, samplecount*sizeof(int16_t));
   return G_SOURCE_CONTINUE;
@@ -124,6 +124,7 @@ void camera_free(struct camera* cam)
   free(cam->nick);
 
   postproc_free(&cam->postproc);
+  free(cam);
 }
 
 void camera_remove(const char* id, char isnick)
@@ -131,12 +132,12 @@ void camera_remove(const char* id, char isnick)
   unsigned int i;
   for(i=0; i<camcount; ++i)
   {
-    if(!strcmp(isnick?cams[i].nick:cams[i].id, id))
+    if(!strcmp(isnick?cams[i]->nick:cams[i]->id, id))
     {
-      gtk_widget_destroy(cams[i].box);
-      camera_free(&cams[i]);
+      gtk_widget_destroy(cams[i]->box);
+      camera_free(cams[i]);
       --camcount;
-      memmove(&cams[i], &cams[i+1], (camcount-i)*sizeof(struct camera));
+      memmove(&cams[i], &cams[i+1], (camcount-i)*sizeof(struct camera*));
       break;
     }
   }
@@ -148,7 +149,7 @@ struct camera* camera_find(const char* id)
   unsigned int i;
   for(i=0; i<camcount; ++i)
   {
-    if(!strcmp(cams[i].id, id)){return &cams[i];}
+    if(!strcmp(cams[i]->id, id)){return cams[i];}
   }
   return 0;
 }
@@ -158,16 +159,14 @@ struct camera* camera_findbynick(const char* nick)
   unsigned int i;
   for(i=0; i<camcount; ++i)
   {
-    if(!strcmp(cams[i].nick, nick)){return &cams[i];}
+    if(!strcmp(cams[i]->nick, nick)){return cams[i];}
   }
   return 0;
 }
 
 struct camera* camera_new(const char* nick, const char* id, unsigned char flags)
 {
-  ++camcount;
-  cams=realloc(cams, sizeof(struct camera)*camcount);
-  struct camera* cam=&cams[camcount-1];
+  struct camera* cam=malloc(sizeof(struct camera));
   cam->vctx=0;
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
   cam->actx=0;
@@ -206,6 +205,10 @@ struct camera* camera_new(const char* nick, const char* id, unsigned char flags)
   cam->flags=flags;
   // Initialize postprocessing values
   postproc_init(&cam->postproc);
+  // Add new cam to the list
+  cams=realloc(cams, sizeof(struct camera*)*(camcount+1));
+  cams[camcount]=cam;
+  ++camcount;
   return cam;
 }
 
@@ -254,7 +257,7 @@ void camera_cleanup(void)
   unsigned int i;
   for(i=0; i<camcount; ++i)
   {
-    camera_free(&cams[i]);
+    camera_free(cams[i]);
   }
   free(cams);
 }
@@ -499,14 +502,14 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
   unsigned int i;
   for(i=0; i<camcount; ++i)
   {
-    if(!cams[i].flags&CAMFLAG_GREENROOM){++boxcount;}
+    if(!cams[i]->flags&CAMFLAG_GREENROOM){++boxcount;}
   }
   if(!boxcount){return;}
   if(!width){width=gtk_widget_get_allocated_width(GTK_WIDGET(gtk_builder_get_object(gui, "main")));}
   if(!height){height=gtk_widget_get_allocated_height(GTK_WIDGET(gtk_builder_get_object(gui, "camerascroll")));}
 
   GtkRequisition label;
-  gtk_widget_get_preferred_size(cams[0].label, &label, 0);
+  gtk_widget_get_preferred_size(cams[0]->label, &label, 0);
   camsize_scale.width=1;
   camsize_scale.height=1;
   unsigned int rowcount=1;
@@ -538,10 +541,10 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
   {
     for(i=0; i<camcount; ++i)
     {
-      if(cams[i].flags&CAMFLAG_GREENROOM){continue;}
-      g_object_ref(cams[i].box); // Increase reference counts so that they are not deallocated while they are temporarily detached from the rows
-      GtkContainer* parent=GTK_CONTAINER(gtk_widget_get_parent(cams[i].box));
-      if(parent){gtk_container_remove(parent, cams[i].box);}
+      if(cams[i]->flags&CAMFLAG_GREENROOM){continue;}
+      g_object_ref(cams[i]->box); // Increase reference counts so that they are not deallocated while they are temporarily detached from the rows
+      GtkContainer* parent=GTK_CONTAINER(gtk_widget_get_parent(cams[i]->box));
+      if(parent){gtk_container_remove(parent, cams[i]->box);}
     }
     for(i=0; i<camrowcount; ++i){gtk_widget_destroy(camrows[i]);} // Erase old rows
     camrowcount=rowcount;
@@ -558,10 +561,10 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
     unsigned int index=0;
     for(i=0; i<camcount; ++i)
     {
-      if(cams[i].flags&CAMFLAG_GREENROOM){continue;}
-      gtk_box_pack_start(GTK_BOX(camrows[index/cams_per_row]), cams[i].box, 0, 0, 0);
+      if(cams[i]->flags&CAMFLAG_GREENROOM){continue;}
+      gtk_box_pack_start(GTK_BOX(camrows[index/cams_per_row]), cams[i]->box, 0, 0, 0);
       ++index;
-      g_object_unref(cams[i].box); // Decrease reference counts once they're attached again
+      g_object_unref(cams[i]->box); // Decrease reference counts once they're attached again
     }
   }
   // libswscale doesn't handle unreasonably small sizes well
@@ -570,12 +573,12 @@ void updatescaling(unsigned int width, unsigned int height, char changedcams)
   // Rescale current images to fit
   for(i=0; i<camcount; ++i)
   {
-    if(cams[i].flags&CAMFLAG_GREENROOM){continue;}
-    GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cams[i].cam));
+    if(cams[i]->flags&CAMFLAG_GREENROOM){continue;}
+    GdkPixbuf* pixbuf=gtk_image_get_pixbuf(GTK_IMAGE(cams[i]->cam));
     if(!pixbuf){continue;}
     GdkPixbuf* old=pixbuf;
     pixbuf=gdk_pixbuf_scale_simple(pixbuf, camsize_scale.width, camsize_scale.height, GDK_INTERP_BILINEAR);
-    gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i].cam), pixbuf);
+    gtk_image_set_from_pixbuf(GTK_IMAGE(cams[i]->cam), pixbuf);
     g_object_unref(old);
   }
 }

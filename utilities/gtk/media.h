@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015-2016  alicia@ion.nu
+    Copyright (C) 2015-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -60,8 +60,6 @@ struct size
   int height;
 };
 extern struct camera campreview;
-extern struct camera* cams;
-extern unsigned int camcount;
 extern struct size camsize_out;
 extern struct size camsize_scale;
 extern GtkWidget* cambox;

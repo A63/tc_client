@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2016  alicia@ion.nu
+    Copyright (C) 2016-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -132,10 +132,10 @@ void* playmedia(void* data)
   // Ask the main thread to set up the camera for us
   write(fd, "Starting media stream for YouTube (media)\n", 42);
   struct camera* cam;
-  unsigned int i=0;
-  while(!(cam=camera_find("media")) && i<30){++i; usleep(1000);}
+  while(!(cam=camera_find("media")) && playingmedia){usleep(1000);}
   if(!cam)
   {
+    write(fd, "VideoEnd: media\n", 16);
     avformat_close_input(&avfctx);
     return 0;
   }
