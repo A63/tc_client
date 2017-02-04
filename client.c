@@ -66,9 +66,9 @@ size_t writehttp(char* ptr, size_t size, size_t nmemb, void* x)
 }
 
 const char* cookiefile="";
+static CURL* curl=0;
 char* http_get(const char* url, const char* post)
 {
-  static CURL* curl=0;
   if(!curl){curl=curl_easy_init();}
   if(!curl){return 0;}
   curl_easy_setopt(curl, CURLOPT_URL, url);
@@ -509,6 +509,7 @@ int main(int argc, char** argv)
     amf_free(amfin);
   }
   free(rtmp.buf);
+  curl_easy_cleanup(curl);
   close(sock);
   return 0;
 }
