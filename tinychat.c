@@ -166,9 +166,16 @@ static char* getmodkey(const char* user, const char* pass, const char* channel, 
 {
   // TODO: if possible, do this in a neater way than digging the key out from an HTML page.
   if(!user||!pass){return 0;}
-  char post[strlen("form_sent=1&referer=&username=&password=&next=http://tinychat.com/0")+strlen(user)+strlen(pass)+strlen(channel)];
-  sprintf(post, "form_sent=1&referer=&username=%s&password=%s&next=http://tinychat.com/%s", user, pass, channel);
-  char* response=http_get("https://tinychat.com/login", post);
+  // Get token
+  char* response=http_get("https://tinychat.com/start/", 0);
+  char* token=strstr(response, "\" name=\"_token\"");
+  token[0]=0;
+  while(token>response && strncmp(token, "value=\"", 7)){--token;}
+  token=&token[7];
+  // Log in
+  char post[strlen("login_username=&login_password=&_token=&next=https://tinychat.com/0")+strlen(user)+strlen(pass)+strlen(token)+strlen(channel)];
+  sprintf(post, "login_username=%s&login_password=%s&_token=%s&next=https://tinychat.com/%s", user, pass, token, channel);
+  response=http_get("https://tinychat.com/login", post);
   char* key=strstr(response, "autoop: \"");
   if(key)
   {
@@ -646,6 +653,7 @@ static void camup(int sock)
 {
   // Retrieve and send the key for broadcasting access
   char* key=getbroadcastkey(channel, nickname, bpassword);
+  if(!key){printf("Failed to get the broadcast key\n"); return;}
   struct rtmp amf;
   amfinit(&amf, 3);
   amfstring(&amf, "bauth");
