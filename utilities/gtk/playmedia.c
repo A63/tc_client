@@ -185,7 +185,7 @@ void* playmedia(void* data)
       queue_push(&aqueue, &packet, num*1000000*packet.duration/den, pts);
     }
     // TODO: Handle video-only and audio-only?
-    if(aqueue.len<2 || vqueue.len<2){continue;}
+    if(aqueue.len<2 || vqueue.len<2){av_packet_unref(&packet); continue;}
     if(aqueue.frames[0].duration>vqueue.frames[0].duration)
     {
       aqueue.frames[0].duration-=vqueue.frames[0].duration;
@@ -209,6 +209,7 @@ void* playmedia(void* data)
       queue_empty(&vqueue);
       queue_empty(&aqueue);
     }
+    av_packet_unref(&packet);
   }
   write(fd, "VideoEnd: media\n", 16);
   queue_empty(&vqueue);

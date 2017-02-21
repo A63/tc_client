@@ -11,6 +11,7 @@ Added workaround in the RTMP acknowledgement code for when 4 gigabytes of data h
 modbot: use https instead of http and use the tcclient subdomain since some DNSes have trouble with underscores.
 modbot: added an option (--no-unapproved) to not add any unapproved videos to queue (videos still get approved by mods requesting or playing them manually)
 tc_client-gtk: fixed a race-condition in the builtin video player.
+tc_client-gtk: fixed some memory leaks.
 0.41.1:
 Use tinychat.com instead of apl.tinychat.com (works around SSL/TLS issues on windows)
 0.41:

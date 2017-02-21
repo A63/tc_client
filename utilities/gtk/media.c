@@ -108,6 +108,7 @@ void camera_free(struct camera* cam)
 {
   if(cam->placeholder){g_source_remove(cam->placeholder);}
   av_frame_free(&cam->frame);
+  av_frame_free(&cam->dstframe);
   avcodec_free_context(&cam->vctx);
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
   if(cam->actx)
