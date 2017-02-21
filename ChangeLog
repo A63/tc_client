@@ -7,6 +7,7 @@ Don't bother trying to verify certificates on windows (lacking a ca bundle)
 Fixed tinychat account support.
 Call curl_easy_cleanup() at the end of the session to make sure cookies get written.
 Adjusted tinychat account support for the latest compatibility-breaking changes.
+Added workaround in the RTMP acknowledgement code for when 4 gigabytes of data has been sent and the 32bit integer rolls around to 0.
 modbot: use https instead of http and use the tcclient subdomain since some DNSes have trouble with underscores.
 modbot: added an option (--no-unapproved) to not add any unapproved videos to queue (videos still get approved by mods requesting or playing them manually)
 tc_client-gtk: fixed a race-condition in the builtin video player.

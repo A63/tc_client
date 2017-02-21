@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2015-2016  alicia@ion.nu
+    Copyright (C) 2015-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -213,7 +213,10 @@ static char firstpacket(unsigned int chunkid)
 void rtmp_send(int sock, struct rtmp* rtmp)
 {
   #define rwrite(x,y,z) write(x,y,z); rtmpsent+=z // Add to the data sent counter
-  if(rtmpsent>rtmpack && rtmp->type==RTMP_VIDEO){return;}
+  if(rtmpsent>rtmpack && rtmp->type==RTMP_VIDEO && rtmpsent<UINT32_MAX-ackwindow)
+  {
+    return;
+  }
   // Header format and stream ID
   unsigned int fmt=(rtmp->msgid?0:1);
   if(firstpacket(rtmp->chunkid)){fmt=0;}
