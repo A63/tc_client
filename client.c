@@ -250,6 +250,8 @@ int main(int argc, char** argv)
       sitestr="kageshi";
       channel=&domain[18];
     }
+    char* slash=strchr(channel, '/');
+    if(slash){slash[0]=0;}
   }
   struct site site;
   int sock;
