@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2016  alicia@ion.nu
+    Copyright (C) 2016-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -267,6 +267,7 @@ int init_kageshi(const char* chanpass, const char* username, const char* userpas
   site->camup=notimplemented;
   site->camdown=notimplemented;
   int sock=connectto("107.191.96.85", "1935");
+  if(sock==-1){return -1;}
   rtmp_handshake(sock);
   // Send connect request
   struct rtmp amf;
@@ -416,6 +417,7 @@ int init_kageshicam(struct site* site)
   site->camup=notimplemented2;
   site->camdown=notimplemented2;
   int sock=connectto(server, "1935");
+  if(sock==-1){return -1;}
   rtmp_handshake(sock);
   // Send connect request
   struct rtmp amf;

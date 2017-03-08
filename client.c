@@ -265,6 +265,7 @@ int main(int argc, char** argv)
   {
     sock=init_kageshicam(&site);
   }
+  if(sock==-1){return 1;}
   free(account_pass);
   int random=open("/dev/urandom", O_RDONLY);
   if(currentcolor>=COLORCOUNT)

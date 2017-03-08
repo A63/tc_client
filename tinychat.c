@@ -733,6 +733,7 @@ int init_tinychat(const char* chanpass, const char* username, const char* userpa
   port[0]=0;
   ++port;
   int sock=connectto(server, port);
+  if(sock==-1){return -1;}
 
   rtmp_handshake(sock);
   if(!loggedin){username=0; userpass=0;}
