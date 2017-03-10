@@ -377,7 +377,6 @@ printf("Got from tc_client: '%s'\n", buf);
             dprintf(sock, ":%s!user@host NICK :%s\n", nick, name);
           }
           dprintf(sock, ":%s!user@host JOIN #%s\n", name, channel);
-          dprintf(1, "Sending to IRC client: ':%s!user@host JOIN #%s'\n", name, channel);
         }
         else if(!strncmp(msg, "changed nickname to ", 20))
         {
