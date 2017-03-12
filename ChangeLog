@@ -10,6 +10,7 @@ Adjusted tinychat account support for the latest compatibility-breaking changes.
 Added workaround in the RTMP acknowledgement code for when 4 gigabytes of data has been sent and the 32bit integer rolls around to 0.
 Bugfix: exit with non-zero status if connection fails.
 When getting site and channel from a URL, ignore anything after a slash after the channel name.
+Added a /quit command.
 modbot: use https instead of http and use the tcclient subdomain since some DNSes have trouble with underscores.
 modbot: added an option (--no-unapproved) to not add any unapproved videos to queue (videos still get approved by mods requesting or playing them manually)
 tc_client-gtk: fixed a race-condition in the builtin video player.

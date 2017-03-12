@@ -486,6 +486,7 @@ int main(int argc, char** argv)
           if(nick){printf("Nickname of connection %i: %s\n", id, nick); fflush(stdout);}
           continue;
         }
+        else if(!strcmp(buf, "/quit")){break;}
       }
       site.sendmessage(sock, buf);
       continue;
