@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015-2016  alicia@ion.nu
+    Copyright (C) 2015-2017  alicia@ion.nu
     Copyright (C) 2015  Pamela Hiatt
 
     This program is free software: you can redistribute it and/or modify
@@ -1015,6 +1015,9 @@ int main(int argc, char** argv)
   g_timeout_add(40, audiomixer, &audiopipe[1]);
 #endif
   gtk_main();
+  write(tc_client_in[1], "/quit\n", 6);
+  write(greenroompipe_in[1], "/quit\n", 6);
+  sleep(1);
  
 #ifdef _WIN32
   if(coreprocess.hProcess)

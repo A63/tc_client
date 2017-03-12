@@ -15,6 +15,7 @@ modbot: use https instead of http and use the tcclient subdomain since some DNSe
 modbot: added an option (--no-unapproved) to not add any unapproved videos to queue (videos still get approved by mods requesting or playing them manually)
 tc_client-gtk: fixed a race-condition in the builtin video player.
 tc_client-gtk: fixed some memory leaks.
+tc_client-gtk: use /quit to guarantee a clean exit.
 irchack: don't rely on connection ID.
 0.41.1:
 Use tinychat.com instead of apl.tinychat.com (works around SSL/TLS issues on windows)
