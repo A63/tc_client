@@ -1015,6 +1015,7 @@ int main(int argc, char** argv)
   g_timeout_add(40, audiomixer, &audiopipe[1]);
 #endif
   gtk_main();
+  camera_cleanup();
   write(tc_client_in[1], "/quit\n", 6);
   write(greenroompipe_in[1], "/quit\n", 6);
   sleep(1);
@@ -1029,6 +1030,5 @@ int main(int argc, char** argv)
     TerminateProcess(grprocess.hProcess, 0);
   }
 #endif
-  camera_cleanup();
   return 0;
 }

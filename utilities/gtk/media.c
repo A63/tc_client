@@ -261,6 +261,7 @@ void camera_cleanup(void)
     camera_free(cams[i]);
   }
   free(cams);
+  camcount=0;
 }
 
 void freebuffer(guchar* pixels, gpointer data){free(pixels);}
