@@ -108,7 +108,7 @@ int connectto(const char* host, const char* port)
   {
     perror("Failed to connect");
     freeaddrinfo(res);
-    return 1;
+    return -1;
   }
   freeaddrinfo(res);
   int i=1;
