@@ -103,7 +103,7 @@ static char* getkey(int id, const char* channel)
   return key;
 }
 
-static void getcaptcha(void)
+static void getcaptcha(const char* channel)
 {
   char* url="http://tinychat.com/cauth/captcha";
   char* page=http_get(url, 0);
@@ -115,7 +115,7 @@ static void getcaptcha(void)
     if(end)
     {
       end[0]=0;
-      printf("Captcha: http://tinychat.com/cauth/recaptcha?token=%s\n", token);
+      printf("Captcha: http://tinychat.com/%s + javascript:void(ShowRecaptcha('%s'));\n", channel, token);
       fflush(stdout);
       fgetc(stdin);
     }
@@ -737,7 +737,7 @@ int init_tinychat(const char* chanpass, const char* username, const char* userpa
 
   rtmp_handshake(sock);
   if(!loggedin){username=0; userpass=0;}
-  getcaptcha();
+  getcaptcha(channel);
   char* cookie=getcookie(channel);
   // Send connect request
   struct rtmp amf;
