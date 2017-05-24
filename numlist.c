@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2015  alicia@ion.nu
+    Copyright (C) 2014-2015, 2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -47,7 +47,7 @@ char* fromnumlist(char* in, size_t* outlen)
   }
   string[len]=0;
 
-  iconv_t cd=iconv_open("", "utf-16"ENDIAN);
+  iconv_t cd=iconv_open("//IGNORE", "utf-16"ENDIAN);
   char* outbuf=malloc(len*4);
   char* i_out=outbuf;
   char* i_in=(char*)string;
