@@ -28,6 +28,9 @@ ifdef SWSCALE_LIBS
   UTILS+=camviewer tc_client-gtk
   CFLAGS+=$(GTK_CFLAGS) $(AVCODEC_CFLAGS) $(AVUTIL_CFLAGS) $(SWSCALE_CFLAGS)
   INSTALLDEPS+=tc_client-gtk gtkgui.glade
+  ifdef HAVE_WEBKITGTK
+    CFLAGS+=-DHAVE_WEBKITGTK=1 $(WEBKITGTK_CFLAGS)
+  endif
   ifdef HAVE_PULSE
     AUDIO_CFLAGS=-DHAVE_PULSEAUDIO=1 $(PULSE_CFLAGS)
     HAVE_AUDIOLIB=1
@@ -139,7 +142,7 @@ cursedchat: $(CURSEDCHAT_OBJ)
 	$(CC) $(LDFLAGS) $^ $(LIBS) $(READLINE_LIBS) $(CURSES_LIBS) -o $@
 
 tc_client-gtk: $(TC_CLIENT_GTK_OBJ) camplaceholder.gif modicon.png greenroomindicator.png
-	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AVFORMAT_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) $(LIBX11_LIBS) $(PULSE_LIBS) -o $@
+	$(CC) $(LDFLAGS) $(TC_CLIENT_GTK_OBJ) $(LIBS) $(GTK_LIBS) $(AVCODEC_LIBS) $(AVUTIL_LIBS) $(SWSCALE_LIBS) $(AVRESAMPLE_LIBS) $(SWRESAMPLE_LIBS) $(AVFORMAT_LIBS) $(AO_LIBS) $(LIBV4L2_LIBS) $(LIBX11_LIBS) $(PULSE_LIBS) $(WEBKITGTK_LIBS) -o $@
 
 camplaceholder.gif: utilities/gtk/gencamplaceholder.sh utilities/gtk/camplaceholder.xcf utilities/gtk/spinnerdot.xcf
 	utilities/gtk/gencamplaceholder.sh

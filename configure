@@ -252,6 +252,9 @@ if testpkgconfig glib-2.0 GLIB; then
   echo 'CFLAGS+=$(GLIB_CFLAGS) -DHAVE_GLIB=1' >> config.mk
 fi
 
+testpkgconfig webkit2gtk-4.0 WEBKITGTK || \
+testpkgconfig webkit2gtk-3.0 WEBKITGTK
+
 printf 'Checking if we have a working poll()... '
 echo '#include <poll.h>' > polltest.c
 echo '#include <sys/socket.h>' >> polltest.c

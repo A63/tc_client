@@ -117,7 +117,7 @@ static void getcaptcha(const char* channel)
       end[0]=0;
       printf("Captcha: http://tinychat.com/%s + javascript:void(ShowRecaptcha('%s'));\n", channel, token);
       fflush(stdout);
-      fgetc(stdin);
+      if(fgetc(stdin)==EOF){exit(0);}
     }
   }
   free(page);

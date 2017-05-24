@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2015-2016  alicia@ion.nu
+    Copyright (C) 2015-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -28,4 +28,4 @@ void togglemic(GtkCheckMenuItem* item, void* x);
 extern gboolean inputkeys(GtkWidget* widget, GdkEventKey* event, void* data);
 extern void sendmessage(GtkEntry* entry, void* x);
 extern void startsession(GtkButton* button, void* x);
-extern void captcha_done(GtkWidget* button, void* x);
+extern void captcha_done(void* x, void* y);

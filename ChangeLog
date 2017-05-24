@@ -22,6 +22,7 @@ tc_client-gtk: use /quit to guarantee a clean exit.
 tc_client-gtk: fixed segfault at exit by doing camera cleanup earlier.
 tc_client-gtk: made the automatic brightness postprocessing adjustment gradual.
 tc_client-gtk: use pulseaudio for incoming audio if it's available (preferred over libao) and display the volume indicator even if no audio playback library is available.
+tc_client-gtk: added a webkitview for solving captchas without an external browser.
 irchack: don't rely on connection ID.
 0.41.1:
 Use tinychat.com instead of apl.tinychat.com (works around SSL/TLS issues on windows)

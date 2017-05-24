@@ -50,6 +50,9 @@
 #endif
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#ifdef HAVE_WEBKITGTK
+#include <webkit2/webkit2.h>
+#endif
 #include "../compat.h"
 #include "../compat_av.h"
 #ifndef NO_PRCTL
@@ -146,6 +149,41 @@ void printchat(const char* text, const char* color, unsigned int offset, const c
   }
   buffer_updatesize(buffer);
   chatview_autoscroll(chatview);
+}
+
+#ifdef HAVE_WEBKITGTK
+static void removefrom(GtkWidget* widget, void* parent)
+{
+  gtk_container_remove(parent, widget);
+}
+#endif
+
+void captcha_done(void* x, void* y)
+{
+  GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "captcha"));
+  gtk_widget_hide(window);
+  gtk_widget_show(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
+  write(tc_client_in[1], "\n", 1);
+  if(greenroompipe_in[1]>-1){write(greenroompipe_in[1], "\n", 1);}
+#ifdef HAVE_WEBKITGTK // Get rid of the webkit view when we're done with it
+  gtk_container_foreach(GTK_CONTAINER(window), removefrom, window);
+}
+
+void captchajs(WebKitWebView* webview, WebKitLoadEvent event, gpointer data)
+{
+  // Hide unrelated parts of the page (tinychat-specific)
+  webkit_web_view_run_javascript(webview, "document.getElementById('footer').style.display='none'; document.getElementById('tinychat').style.display='none';", 0, 0, 0);
+  if(event!=WEBKIT_LOAD_FINISHED){return;}
+  g_signal_handlers_disconnect_by_data(webview, data);
+  // Add a note about loading the captcha (which is pretty slow)
+  webkit_web_view_run_javascript(webview, "var loaddiv=document.createElement('div'); loaddiv.appendChild(document.createTextNode('Loading captcha...')); loaddiv.style.background='rgb(255,255,255)'; document.body.appendChild(loaddiv); CaptchaSolvedSuccessfully=window.close;", 0, 0, 0);
+  const char* js=data;
+  // Put the javascript into the body tag's onload event, which is still slightly later than WEBKIT_LOAD_FINISHED
+  char buf[strlen("document.body.onload=function(){};0")+strlen(js)];
+  sprintf(buf, "document.body.onload=function(){%s};", js);
+  webkit_web_view_run_javascript(webview, buf, 0, 0, 0);
+  free(data);
+#endif
 }
 
 unsigned int cameventsource=0;
@@ -268,10 +306,38 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
   if(!strncmp(buf, "Captcha: ", 9))
   {
     gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
-    gtk_widget_show_all(GTK_WIDGET(gtk_builder_get_object(gui, "captcha")));
+    GtkWidget* window=GTK_WIDGET(gtk_builder_get_object(gui, "captcha"));
+    gtk_widget_show_all(window);
+  #ifdef HAVE_WEBKITGTK
+    // Resize to fit the captcha and clear the window
+    gtk_window_resize(GTK_WINDOW(window), 450, 600);
+    gtk_container_foreach(GTK_CONTAINER(window), removefrom, window);
+    GtkWidget* box=gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_container_add(GTK_CONTAINER(window), box);
+    // Set up webkit webview
+    GtkWidget* webview=webkit_web_view_new();
+    g_signal_connect(webview, "close", G_CALLBACK(captcha_done), 0);
+    gtk_box_pack_start(GTK_BOX(box), webview, 1, 1, 0);
+    // Add a "Done" button, for skipping the captcha or if the captcha doesn't close the window itself
+    GtkWidget* button=gtk_button_new_with_label("Done");
+    g_signal_connect(button, "clicked", G_CALLBACK(captcha_done), 0);
+    gtk_box_pack_start(GTK_BOX(box), button, 0, 0, 0);
+    gtk_widget_show_all(box);
+    // Load the captcha page, and run the javascript if any was specified
+    char* js=strstr(&buf[9], " + javascript:");
+    if(js){js[0]=0;}
+    webkit_web_view_load_uri(WEBKIT_WEB_VIEW(webview), &buf[9]);
+    if(js)
+    {
+      js=&js[14];
+      // Wait for it to load
+      g_signal_connect(webview, "load-changed", G_CALLBACK(captchajs), strdup(js));
+    }
+  #else
     char link[snprintf(0,0,"Captcha: <a href=\"%s\">%s</a>", &buf[9], &buf[9])+1];
     sprintf(link, "Captcha: <a href=\"%s\">%s</a>", &buf[9], &buf[9]);
     gtk_label_set_markup(GTK_LABEL(gtk_builder_get_object(gui, "captcha_link")), link);
+  #endif
     return 1;
   }
   // Start streams once we're properly connected
@@ -1003,14 +1069,6 @@ void startsession(GtkButton* button, void* x)
     g_timeout_add(40, audiomixer, &audiopipe[1]);
   }
 #endif
-}
-
-void captcha_done(GtkWidget* button, void* x)
-{
-  gtk_widget_hide(GTK_WIDGET(gtk_builder_get_object(gui, "captcha")));
-  gtk_widget_show(GTK_WIDGET(gtk_builder_get_object(gui, "main")));
-  write(tc_client_in[1], "\n", 1);
-  if(greenroompipe_in[1]>-1){write(greenroompipe_in[1], "\n", 1);}
 }
 
 #ifndef _WIN32
