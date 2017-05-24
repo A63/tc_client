@@ -1,6 +1,6 @@
 /*
     tc_client-gtk, a graphical user interface for tc_client
-    Copyright (C) 2016  alicia@ion.nu
+    Copyright (C) 2016-2017  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -73,8 +73,10 @@ void postprocess(struct postproc_ctx* pp, unsigned char* buf, unsigned int width
     }
     if(pp->autoadjust)
     {
-      pp->min_brightness=min;
-      pp->max_brightness=max;
+      if(pp->min_brightness<min){++pp->min_brightness;}
+      else if(pp->min_brightness>min){--pp->min_brightness;}
+      if(pp->max_brightness<max){++pp->max_brightness;}
+      else if(pp->max_brightness>max){--pp->max_brightness;}
     }
   }
   if(pp->flip_horizontal)

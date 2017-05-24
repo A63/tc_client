@@ -19,6 +19,7 @@ tc_client-gtk: fixed a race-condition in the builtin video player.
 tc_client-gtk: fixed some memory leaks.
 tc_client-gtk: use /quit to guarantee a clean exit.
 tc_client-gtk: fixed segfault at exit by doing camera cleanup earlier.
+tc_client-gtk: made the automatic brightness postprocessing adjustment gradual.
 irchack: don't rely on connection ID.
 0.41.1:
 Use tinychat.com instead of apl.tinychat.com (works around SSL/TLS issues on windows)
