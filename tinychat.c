@@ -2,6 +2,7 @@
     tc_client, a simple non-flash client for tinychat(.com)
     Copyright (C) 2014-2017  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
+    Copyright (C) 2017  Aida
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -21,6 +22,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <time.h>
+#include <curl/curl.h>
 #include "client.h"
 #include "idlist.h"
 #include "rtmp.h"
@@ -454,15 +456,11 @@ static void fromowner(struct amf* amfin, int sock)
   if(amfin->items[2].type!=AMF_STRING){return;}
   if(!strncmp("notice", amfin->items[2].string.string, 6))
   {
-    char* notice=strdup(&amfin->items[2].string.string[6]);
-    // replace "%20" with spaces
-    char* space;
-    while((space=strstr(notice, "%20")))
-    {
-      memmove(space, &space[2], strlen(&space[2])+1);
-      space[0]=' ';
-    }
-    printf("%s %s\n", timestamp(), notice);
+    const char* notice=&amfin->items[2].string.string[6];
+    // Notices are partially URL-encoded, unescape them
+    char* unescaped=curl_easy_unescape(NULL, notice, 0, NULL);
+    printf("%s %s\n", timestamp(), unescaped);
+    curl_free(unescaped);
   }
   else if(!strcmp("mute", amfin->items[2].string.string))
   {
