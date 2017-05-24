@@ -78,7 +78,9 @@ extern void camera_remove(const char* id, char isnick);
 extern struct camera* camera_find(const char* id);
 extern struct camera* camera_findbynick(const char* nick);
 extern struct camera* camera_new(const char* nick, const char* id, unsigned char flags);
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern char camera_init_audio(struct camera* cam, uint8_t frameinfo);
+#endif
 extern void camera_cleanup(void);
 extern void freebuffer(guchar* pixels, gpointer data);
 extern void startcamout(CAM* cam);
@@ -97,7 +99,7 @@ extern gboolean mic_encode(GIOChannel* iochannel, GIOCondition condition, gpoint
 extern void camera_calcvolume(struct camera* cam, float* samples, unsigned int samplecount);
 extern void volume_indicator(GdkPixbuf* frame, struct camera* cam);
 extern void camera_decode(struct camera* cam, AVPacket* pkt, unsigned int width, unsigned int height);
-#ifdef HAVE_LIBAO
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 extern void mic_decode(struct camera* cam, AVPacket* pkt);
 #endif
 #endif

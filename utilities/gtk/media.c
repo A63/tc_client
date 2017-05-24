@@ -64,11 +64,14 @@ unsigned int camout_delay;
 #if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 void camera_playsnd(struct camera* cam, int16_t* samples, unsigned int samplecount)
 {
+#if defined(HAVE_PULSEAUDIO) || defined(HAVE_LIBAO)
   cam->samples=realloc(cam->samples, sizeof(int16_t)*(cam->samplecount+samplecount));
   memcpy(&cam->samples[cam->samplecount], samples, samplecount*sizeof(short));
   cam->samplecount+=samplecount;
+#endif
 }
 
+#if defined(HAVE_PULSEAUDIO) || defined(HAVE_LIBAO)
 gboolean audiomixer(void* p)
 {
   int audiopipe=*(int*)p;
@@ -102,6 +105,7 @@ gboolean audiomixer(void* p)
   write(audiopipe, samples, samplecount*sizeof(int16_t));
   return G_SOURCE_CONTINUE;
 }
+#endif
 #endif
 
 void camera_free(struct camera* cam)
@@ -213,7 +217,7 @@ struct camera* camera_new(const char* nick, const char* id, unsigned char flags)
   return cam;
 }
 
-#ifdef HAVE_LIBAO
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 char camera_init_audio(struct camera* cam, uint8_t frameinfo)
 {
   switch((frameinfo&0xc)/0x4)
@@ -797,7 +801,7 @@ void camera_decode(struct camera* cam, AVPacket* pkt, unsigned int width, unsign
   if(oldpixbuf){g_object_unref(oldpixbuf);}
 }
 
-#ifdef HAVE_LIBAO
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
 void mic_decode(struct camera* cam, AVPacket* pkt)
 {
   int gotframe;

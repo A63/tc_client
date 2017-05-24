@@ -16,6 +16,9 @@ while true; do
   if ! grep -q '^SWSCALE_LIBS' config.mk; then res="libswscale not found, can't test"; break; fi
   if ! grep -q '^GLIB_LIBS' config.mk; then res="glib not found, can't test"; break; fi
   sed -i -e '/^AO_LIBS/d' config.mk
+  sed -i -e '/^PULSE_LIBS/d' config.mk
+  sed -i -e '/^HAVE_AO/d' config.mk
+  sed -i -e '/^HAVE_PULSE/d' config.mk
   sed -i -e '/^AVFORMAT_LIBS/d' config.mk
   echo 'CFLAGS+=-Werror' >> config.mk
   if ! make utils > /dev/null 2> /dev/null; then

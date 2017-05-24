@@ -38,10 +38,15 @@
 #ifdef HAVE_AVRESAMPLE
   #include <libavutil/opt.h>
   #include <libavresample/avresample.h>
-  #include <ao/ao.h>
 #elif defined(HAVE_SWRESAMPLE)
   #include <libswresample/swresample.h>
-  #include <ao/ao.h>
+#endif
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
+  #ifdef HAVE_PULSEAUDIO
+    #include <pulse/simple.h>
+  #elif defined(HAVE_LIBAO)
+    #include <ao/ao.h>
+  #endif
 #endif
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
@@ -67,7 +72,6 @@ struct viddata
 {
   AVCodec* vdecoder;
   AVCodec* vencoder;
-  int audiopipe;
 };
 struct viddata* data;
 
@@ -209,7 +213,7 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
       g_io_channel_read_chars(iochannel, (gchar*)pkt.data+pos, size-pos, &r, 0);
       pos+=r;
     }
-#ifdef HAVE_LIBAO
+#if defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)
     // Find the camera representation for the given ID (for decoder context)
     struct camera* cam=camera_find(&buf[7]);
     if(!cam){printf("No cam found with ID '%s'\n", &buf[7]); return 1;}
@@ -584,10 +588,30 @@ gboolean handledata(GIOChannel* iochannel, GIOCondition condition, gpointer x)
   return 1;
 }
 
-#ifdef HAVE_LIBAO
+#if (defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE)) && (defined(HAVE_PULSEAUDIO) || defined(HAVE_LIBAO))
+extern void justwait(int);
 void* audiothread(void* fdp)
 {
   int fd=*(int*)fdp;
+  char buf[2048];
+  size_t len;
+  #ifdef HAVE_PULSEAUDIO
+  pa_simple* pulse;
+  pa_sample_spec pulsespec;
+  pulsespec.format=PA_SAMPLE_S16NE;
+  pulsespec.channels=1;
+  pulsespec.rate=SAMPLERATE_OUT;
+  signal(SIGCHLD, SIG_DFL); // Briefly revert to the default handler to not break pulseaudio's autospawn feature
+  pulse=pa_simple_new(0, "tc_client-gtk", PA_STREAM_PLAYBACK, 0, channel, &pulsespec, 0, 0, 0);
+  signal(SIGCHLD, justwait);
+  if(!pulse){return 0;}
+  while((len=read(fd, buf, 2048))>0)
+  {
+    if(pa_simple_write(pulse, buf, len, 0)<0){break;}
+  }
+  pa_simple_free(pulse);
+  close(fd);
+  #else
   ao_initialize();
   ao_sample_format samplefmt;
   samplefmt.bits=16;
@@ -597,13 +621,12 @@ void* audiothread(void* fdp)
   samplefmt.matrix=0;
   ao_option clientname={.key="client_name", .value="tc_client-gtk", .next=0};
   ao_device* dev=ao_open_live(ao_default_driver_id(), &samplefmt, &clientname);
-  char buf[2048];
-  size_t len;
   while((len=read(fd, buf, 2048))>0)
   {
     ao_play(dev, buf, len);
   }
   ao_close(dev);
+  #endif
   return 0;
 }
 #endif
@@ -971,6 +994,15 @@ void startsession(GtkButton* button, void* x)
   GIOChannel* tcchannel=g_io_channel_unix_new(tc_client[0]);
   g_io_channel_set_encoding(tcchannel, 0, 0);
   g_io_add_watch(tcchannel, G_IO_IN, handledata, data);
+#if (defined(HAVE_PULSEAUDIO) || defined(HAVE_LIBAO)) && (defined(HAVE_AVRESAMPLE) || defined(HAVE_SWRESAMPLE))
+  static int audiopipe[2]={-1,-1};
+  if(audiopipe[0]==-1)
+  {
+    pipe(audiopipe);
+    g_thread_new("audio", audiothread, audiopipe);
+    g_timeout_add(40, audiomixer, &audiopipe[1]);
+  }
+#endif
 }
 
 void captcha_done(GtkWidget* button, void* x)
@@ -988,7 +1020,7 @@ void justwait(int x){waitpid(-1, 0, WNOHANG);}
 int main(int argc, char** argv)
 {
   if(!strncmp(argv[0], "./", 2)){frombuild=1;}
-  struct viddata datax={0,0,0};
+  struct viddata datax={0,0};
   data=&datax;
   avcodec_register_all();
   data->vdecoder=avcodec_find_decoder(AV_CODEC_ID_FLV1);
@@ -1000,20 +1032,10 @@ int main(int argc, char** argv)
 #endif
   config_load();
 
-#ifdef HAVE_LIBAO
-  int audiopipe[2];
-  pipe(audiopipe);
-  data->audiopipe=audiopipe[1];
-  g_thread_new("audio", audiothread, audiopipe);
-#endif
-
   gtk_init(&argc, &argv);
   gui_init(frombuild);
   campreview.frame=av_frame_alloc();
   campreview.frame->data[0]=0;
-#ifdef HAVE_LIBAO
-  g_timeout_add(40, audiomixer, &audiopipe[1]);
-#endif
   gtk_main();
   camera_cleanup();
   write(tc_client_in[1], "/quit\n", 6);

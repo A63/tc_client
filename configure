@@ -3,6 +3,7 @@
 
 host=''
 prefix=''
+args="$@"
 while [ "$#" -gt 0 ]; do
   case "$1" in
   --host=*) host="`echo "$1" | sed -e 's/--host=//'`";;
@@ -17,6 +18,7 @@ while [ "$#" -gt 0 ]; do
 done
 rm -f config.mk
 true > config.h
+echo "# Generated with: $0 $args" > config.mk
 if [ -n "$prefix" ]; then echo "PREFIX=${prefix}" >> config.mk; fi
 
 printf 'Checking for a C compiler... '
@@ -78,6 +80,7 @@ testpkgconfig()
   if [ "x$testlibs" != "x" ]; then
     echo "${varprefix}_LIBS=${testlibs}" >> config.mk
     echo "${varprefix}_CFLAGS=`pkg-config --cflags "$pkgname"`" >> config.mk
+    echo "HAVE_${varprefix}=1" >> config.mk
     echo yes
     return 0
   else

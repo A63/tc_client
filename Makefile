@@ -28,28 +28,34 @@ ifdef SWSCALE_LIBS
   UTILS+=camviewer tc_client-gtk
   CFLAGS+=$(GTK_CFLAGS) $(AVCODEC_CFLAGS) $(AVUTIL_CFLAGS) $(SWSCALE_CFLAGS)
   INSTALLDEPS+=tc_client-gtk gtkgui.glade
-  ifdef AO_LIBS
-    ifdef AVRESAMPLE_LIBS
-      CONFINFO+=|  Will enable incoming mic support
-      CFLAGS+=-DHAVE_LIBAO=1 -DHAVE_AVRESAMPLE=1 $(AVRESAMPLE_CFLAGS) $(AO_CFLAGS)
+  ifdef HAVE_PULSE
+    AUDIO_CFLAGS=-DHAVE_PULSEAUDIO=1 $(PULSE_CFLAGS)
+    HAVE_AUDIOLIB=1
+  else
+    ifdef HAVE_AO
+      AUDIO_CFLAGS=-DHAVE_LIBAO=1 $(AO_CFLAGS)
+      HAVE_AUDIOLIB=1
     endif
-    ifdef SWRESAMPLE_LIBS
-      CONFINFO+=|  Will enable incoming mic support
-      CFLAGS+=-DHAVE_LIBAO=1 -DHAVE_SWRESAMPLE=1 $(SWRESAMPLE_CFLAGS) $(AO_CFLAGS)
-    endif
-    ifndef AVRESAMPLE_LIBS
-    ifndef SWRESAMPLE_LIBS
-      CONFINFO+=|  Incoming mic support will not be enabled
-    endif
-    endif
+  endif
+  ifdef AVRESAMPLE_LIBS
+    HAVE_RESAMPLELIB=1
+    CFLAGS+=-DHAVE_AVRESAMPLE=1 $(AVRESAMPLE_CFLAGS) $(AUDIO_CFLAGS)
+  endif
+  ifdef SWRESAMPLE_LIBS
+    HAVE_RESAMPLELIB=1
+    CFLAGS+=-DHAVE_SWRESAMPLE=1 $(SWRESAMPLE_CFLAGS) $(AUDIO_CFLAGS)
+  endif
+  ifeq ($(HAVE_RESAMPLELIB)$(HAVE_AUDIOLIB),11)
+    CONFINFO+=|  Will enable incoming mic support
+  else
+    CONFINFO+=|  Incoming mic support will not be enabled
   endif
   ifdef AVFORMAT_LIBS
     CFLAGS+=-DHAVE_AVFORMAT=1
     CONFINFO+=|  Will enable integrated youtube videos
   endif
-  ifdef PULSE_LIBS
+  ifeq ($(HAVE_RESAMPLELIB)$(HAVE_PULSE),11)
     CONFINFO+=|  Will enable outgoing mic support
-    CFLAGS+=-DHAVE_PULSEAUDIO=1 $(PULSE_CFLAGS)
   else
     CONFINFO+=|  Outgoing mic support will not be enabled
   endif
