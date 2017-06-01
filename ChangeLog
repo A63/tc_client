@@ -15,6 +15,7 @@ Added a /quit command.
 Workaround for the new captcha mechanism.
 Bugfix: use //IGNORE to skip characters instead of freezing if the locale can't represent them.
 Use curl's curl_easy_unescape() for from_owner notices instead of doing it ourselves (contributed by Aida)
+Added some basic support for tinychat beta (-s/--site tinychat_beta)
 modbot: use https instead of http and use the tcclient subdomain since some DNSes have trouble with underscores.
 modbot: added an option (--no-unapproved) to not add any unapproved videos to queue (videos still get approved by mods requesting or playing them manually)
 tc_client-gtk: fixed a race-condition in the builtin video player.

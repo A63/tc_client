@@ -113,6 +113,14 @@ ifdef READLINE_LIBS
   INSTALLDEPS+=cursedchat
 endif
 endif
+ifdef JSONC_LIBS
+ifdef WEBSOCKET_LIBS
+  CFLAGS+=-DHAVE_WEBSOCKET=1 $(WEBSOCKET_CFLAGS) $(JSONC_CFLAGS)
+  CONFINFO+=|Will enable support for tinychat beta
+  LIBS+=$(WEBSOCKET_LIBS) $(JSONC_LIBS)
+  OBJ+=tinychat_beta.o
+endif
+endif
 ifeq ($(AR),)
   AR=ar
 endif
@@ -160,7 +168,7 @@ libcamera.a: $(LIBCAMERA_OBJ)
 clean:
 	rm -f $(OBJ) $(IRCHACK_OBJ) $(MODBOT_OBJ) $(CAMVIEWER_OBJ) $(CURSEDCHAT_OBJ) $(TC_CLIENT_GTK_OBJ) $(LIBCAMERA_OBJ) tc_client irchack modbot camviewer cursedchat tc_client-gtk camplaceholder.gif
 
-SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endianutils.c media.c amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endianutils.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure
+SOURCES=Makefile client.c amfparser.c rtmp.c numlist.c amfwriter.c idlist.c colors.c endianutils.c media.c client.h amfparser.h rtmp.h numlist.h amfwriter.h idlist.h colors.h endianutils.h media.h LICENSE README ChangeLog crossbuild.sh testbuilds.sh configure tinychat.c tinychat_beta.c kageshi.c
 SOURCES+=utilities/irchack/irchack.c
 SOURCES+=utilities/modbot/modbot.c utilities/modbot/queue.c utilities/modbot/queue.h utilities/modbot/commands.html
 SOURCES+=utilities/camviewer/camviewer.c

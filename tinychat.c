@@ -204,7 +204,7 @@ static char checknick(const char* nick) // Returns zero if the nick is valid, ot
   return 0;
 }
 
-static void sendmessage_priv(int sock, const char* buf, const char* priv)
+static void sendmessage_priv(conn c, const char* buf, const char* priv)
 {
   int id=priv?idlist_get(priv):0;
   char privfield[snprintf(0, 0, "n%i-%s", id, priv?priv:"")+1];
@@ -232,13 +232,13 @@ static void sendmessage_priv(int sock, const char* buf, const char* priv)
     amfstring(&bamf, msg);
     amfstring(&bamf, colors[currentcolor%COLORCOUNT]);
     amfstring(&bamf, privfield);
-    amfsend(&bamf, sock);
+    amfsend(&bamf, c.fd);
   }
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
   free(msg);
 }
 
-static void sendmessage(int sock, const char* buf)
+static void sendmessage(conn c, const char* buf)
 {
   if(!strncmp(buf, "/priv ", 6))
   {
@@ -248,21 +248,21 @@ static void sendmessage(int sock, const char* buf)
       char priv[msg-&buf[6]+1];
       memcpy(priv, &buf[6], msg-&buf[6]);
       priv[msg-&buf[6]]=0;
-      sendmessage_priv(sock, &msg[1], priv);
+      sendmessage_priv(c, &msg[1], priv);
       return;
     }
   }
-  sendmessage_priv(sock, buf, 0);
+  sendmessage_priv(c, buf, 0);
 }
 
-static void sendpm(int sock, const char* buf, const char* recipient)
+static void sendpm(conn c, const char* buf, const char* recipient)
 {
   char msg[strlen("/msg  0")+strlen(recipient)+strlen(buf)];
   sprintf(msg, "/msg %s %s", recipient, buf);
-  sendmessage_priv(sock, msg, recipient);
+  sendmessage_priv(c, msg, recipient);
 }
 
-static void changenick(int sock, const char* newnick)
+static void changenick(conn c, const char* newnick)
 {
   char badchar;
   if((badchar=checknick(newnick)))
@@ -276,7 +276,7 @@ static void changenick(int sock, const char* newnick)
   amfnum(&amf, 0);
   amfnull(&amf);
   amfstring(&amf, newnick);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
 static void joinreg(struct amf* amfin, int sock)
@@ -328,7 +328,7 @@ static void joinreg(struct amf* amfin, int sock)
         amfsend(&amf, sock);
         free(key);
         // Set the given nickname
-        changenick(sock, nickname);
+        changenick((conn)sock, nickname);
         // Keep what the server gave us, just in case
         free(nickname);
         nickname=strdup(nick);
@@ -399,7 +399,7 @@ static void privmsg(struct amf* amfin, int sock)
   }
   else if(!strcmp(msg, "/version"))
   {
-    sendmessage_priv(sock, "/version tc_client-" VERSION, amfin->items[5].string.string);
+    sendmessage_priv((conn)sock, "/version tc_client-" VERSION, amfin->items[5].string.string);
   }
   free(msg);
 }
@@ -442,12 +442,12 @@ static void banned(struct amf* amfin, int sock)
   exit(1); // Getting banned is a failure, right?
 }
 
-static void closecam(int sock, const char* nick)
+static void closecam(conn c, const char* nick)
 {
   unsigned int userid=idlist_get(nick);
   char camid[snprintf(0,0,"%u", userid)+1];
   sprintf(camid, "%u", userid);
-  stream_stopvideo(sock, camid);
+  stream_stopvideo(c.fd, camid);
 }
 
 static void fromowner(struct amf* amfin, int sock)
@@ -473,7 +473,7 @@ static void fromowner(struct amf* amfin, int sock)
   else if(!strncmp("_close", amfin->items[2].string.string, 6) && !strcmp(&amfin->items[2].string.string[6], nickname))
   {
     printf("Outgoing media stream was closed\n");
-    closecam(sock, nickname);
+    closecam((conn)sock, nickname);
   }
 }
 
@@ -547,7 +547,7 @@ static void onstatus(struct amf* amfin, int sock)
   stream_handlestatus(amfin, sock);
 }
 
-static void mod_close(int sock, const char* nick)
+static void mod_close(conn c, const char* nick)
 {
   struct rtmp amf;
   amfinit(&amf, 2);
@@ -557,12 +557,12 @@ static void mod_close(int sock, const char* nick)
   char buf[strlen("closed: 0")+strlen(nick)];
   sprintf(buf, "_close%s", nick);
   amfstring(&amf, buf);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
   sprintf(buf, "closed: %s", nick);
-  sendmessage(sock, buf);
+  sendmessage(c, buf);
 }
 
-static void mod_ban(int sock, const char* nick)
+static void mod_ban(conn c, const char* nick)
 {
   struct rtmp amf;
   amfinit(&amf, 3);
@@ -574,7 +574,7 @@ static void mod_ban(int sock, const char* nick)
   char buf[strlen("notice%20was%20banned%20by%200")+strlen(nick)+strlen(nickname)];
   sprintf(buf, "notice%s%%20was%%20banned%%20by%%20%s", nick, nickname);
   amfstring(&amf, buf);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 //  printf("%s %s was banned by %s (%s)\n", timestamp(), nick, nickname, account_user);
   printf("%s %s was banned by %s\n", timestamp(), nick, nickname);
   // kick (this does the actual banning)
@@ -585,27 +585,27 @@ static void mod_ban(int sock, const char* nick)
   amfstring(&amf, nick);
   sprintf(buf, "%i", idlist_get(nick));
   amfstring(&amf, buf);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
-static void mod_banlist(int sock)
+static void mod_banlist(conn c)
 {
   struct rtmp amf;
   amfinit(&amf, 3);
   amfstring(&amf, "banlist");
   amfnum(&amf, 0);
   amfnull(&amf);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
-static void mod_unban(int sock, const char* nick)
+static void mod_unban(conn c, const char* nick)
 {
   free(unban);
   unban=strdup(nick);
-  mod_banlist(sock);
+  mod_banlist(c);
 }
 
-static void mod_mute(int sock)
+static void mod_mute(conn c)
 {
   struct rtmp amf;
   amfinit(&amf, 3);
@@ -613,10 +613,10 @@ static void mod_mute(int sock)
   amfnum(&amf, 0);
   amfnull(&amf);
   amfstring(&amf, "mute");
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
-static void mod_push2talk(int sock)
+static void mod_push2talk(conn c)
 {
   struct rtmp amf;
   amfinit(&amf, 3);
@@ -624,10 +624,10 @@ static void mod_push2talk(int sock)
   amfnum(&amf, 0);
   amfnull(&amf);
   amfstring(&amf, "push2talk");
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
-static void mod_topic(int sock, const char* newtopic)
+static void mod_topic(conn c, const char* newtopic)
 {
   struct rtmp amf;
   amfinit(&amf, 3);
@@ -636,18 +636,18 @@ static void mod_topic(int sock, const char* newtopic)
   amfnull(&amf);
   amfstring(&amf, newtopic);
   amfstring(&amf, "");
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
-static void mod_allowbroadcast(int sock, const char* nick)
+static void mod_allowbroadcast(conn c, const char* nick)
 {
   if(!bpassword){return;}
   char buf[strlen("/allowbroadcast 0")+strlen(bpassword)];
   sprintf(buf, "/allowbroadcast %s", bpassword);
-  sendmessage_priv(sock, buf, nick);
+  sendmessage_priv(c, buf, nick);
 }
 
-static void camup(int sock)
+static void camup(conn c)
 {
   // Retrieve and send the key for broadcasting access
   char* key=getbroadcastkey(channel, nickname, bpassword);
@@ -658,29 +658,29 @@ static void camup(int sock)
   amfnum(&amf, 0);
   amfnull(&amf);
   amfstring(&amf, key);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
   free(key);
   // Initiate stream
   unsigned int userid=idlist_get(nickname);
   char camid[snprintf(0,0,"%u", userid)+1];
   sprintf(camid, "%u", userid);
-  streamout_start(camid, sock);
+  streamout_start(camid, c.fd);
 }
 
-static void camdown(int sock)
+static void camdown(conn c)
 {
   unsigned int userid=idlist_get(nickname);
   char camid[snprintf(0,0,"%u", userid)+1];
   sprintf(camid, "%u", userid);
-  stream_stopvideo(sock, camid);
+  stream_stopvideo(c.fd, camid);
 }
 
-static void opencam(int sock, const char* nick)
+static void opencam(conn c, const char* nick)
 {
   unsigned int userid=idlist_get(nick);
   char camid[snprintf(0,0,"%u", userid)+1];
   sprintf(camid, "%u", userid);
-  stream_start(nick, camid, sock);
+  stream_start(nick, camid, c.fd);
 }
 
 int init_tinychat(const char* chanpass, const char* username, const char* userpass, struct site* site)

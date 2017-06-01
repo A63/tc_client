@@ -149,6 +149,9 @@ extern int rtmplog;
 #endif
 
 extern int init_tinychat(const char* chanpass, const char* username, const char* userpass, struct site* site);
+#ifdef HAVE_WEBSOCKET
+extern int init_tinychat_beta(const char* chanpass, const char* username, const char* userpass, struct site* site);
+#endif
 extern int init_kageshi(const char* chanpass, const char* username, const char* userpass, struct site* site);
 extern int init_kageshicam(struct site* site);
 int main(int argc, char** argv)
@@ -204,11 +207,15 @@ int main(int argc, char** argv)
   if(!channel||!nickname){usage(argv[0]); return 1;}
   if(sitestr &&
      strcmp(sitestr, "tinychat") &&
+#ifdef HAVE_WEBSOCKET
+     strcmp(sitestr, "tinychat_beta") &&
+#endif
      strcmp(sitestr, "kageshi") &&
      strcmp(sitestr, "kageshicam"))
   {
     printf("Unknown site '%s'. Currently supported sites:\n"
            "tinychat\n"
+           "tinychat_beta (if built with libwebsocket and json-c)\n"
            "kageshi\n"
            "kageshicam (server/camname/numkey as channel)\n", sitestr);
     return 1;
@@ -240,6 +247,13 @@ int main(int argc, char** argv)
   {
     domain=&domain[3];
     if(!strncmp(domain, "www.", 4)){domain=&domain[4];}
+#ifdef HAVE_WEBSOCKET
+    if(!strncmp(domain, "tinychat.com/room/", 18))
+    {
+      sitestr="tinychat_beta";
+      channel=&domain[18];
+    }else
+#endif
     if(!strncmp(domain, "tinychat.com/", 13))
     {
       sitestr="tinychat";
@@ -253,12 +267,18 @@ int main(int argc, char** argv)
     char* slash=strchr(channel, '/');
     if(slash){slash[0]=0;}
   }
-  struct site site;
+  struct site site={0};
   int sock;
   if(!sitestr || !strcmp(sitestr, "tinychat"))
   {
     sock=init_tinychat(password, account_user, account_pass, &site);
   }
+#ifdef HAVE_WEBSOCKET
+  else if(!sitestr || !strcmp(sitestr, "tinychat_beta"))
+  {
+    sock=init_tinychat_beta(password, account_user, account_pass, &site);
+  }
+#endif
   else if(!strcmp(sitestr, "kageshi"))
   {
     sock=init_kageshi(password, account_user, account_pass, &site);
@@ -283,6 +303,11 @@ int main(int argc, char** argv)
   pfd[1].events=POLLIN;
   pfd[1].revents=0;
   struct rtmp rtmp={0,0,0,0,0};
+  conn c;
+#ifdef HAVE_WEBSOCKET
+  if(site.websocket){c.ws=site.websocket;}else
+#endif
+  {c.fd=sock;}
   while(1)
   {
     // Poll for input, very crude chat UI
@@ -362,7 +387,7 @@ int main(int argc, char** argv)
         }
         else if(!strncmp(buf, "/nick ", 6))
         {
-          site.nick(sock, &buf[6]);
+          site.nick(c, &buf[6]);
           continue;
         }
         else if(!strncmp(buf, "/msg ", 5))
@@ -371,38 +396,38 @@ int main(int argc, char** argv)
           if(msg)
           {
             msg[0]=0;
-            site.sendpm(sock, &msg[1], &buf[5]);
+            site.sendpm(c, &msg[1], &buf[5]);
             continue;
           }
         }
         else if(!strncmp(buf, "/opencam ", 9))
         {
-          site.opencam(sock, &buf[9]);
+          site.opencam(c, &buf[9]);
           continue;
         }
         else if(!strncmp(buf, "/closecam ", 10))
         {
-          site.closecam(sock, &buf[10]);
+          site.closecam(c, &buf[10]);
           continue;
         }
         else if(!strncmp(buf, "/close ", 7)) // Stop someone's cam/mic broadcast
         {
-          site.mod_close(sock, &buf[7]);
+          site.mod_close(c, &buf[7]);
           continue;
         }
         else if(!strncmp(buf, "/ban ", 5)) // Ban someone
         {
-          site.mod_ban(sock, &buf[5]);
+          site.mod_ban(c, &buf[5]);
           continue;
         }
         else if(!strcmp(buf, "/banlist"))
         {
-          site.mod_banlist(sock);
+          site.mod_banlist(c);
           continue;
         }
         else if(!strncmp(buf, "/forgive ", 9))
         {
-          site.mod_unban(sock, &buf[9]);
+          site.mod_unban(c, &buf[9]);
           continue;
         }
         else if(!strcmp(buf, "/names"))
@@ -418,22 +443,22 @@ int main(int argc, char** argv)
         }
         else if(!strcmp(buf, "/mute"))
         {
-          site.mod_mute(sock);
+          site.mod_mute(c);
           continue;
         }
         else if(!strcmp(buf, "/push2talk"))
         {
-          site.mod_push2talk(sock);
+          site.mod_push2talk(c);
           continue;
         }
         else if(!strcmp(buf, "/camup"))
         {
-          site.camup(sock);
+          site.camup(c);
           continue;
         }
         else if(!strcmp(buf, "/camdown"))
         {
-          site.camdown(sock);
+          site.camdown(c);
           continue;
         }
         else if(!strncmp(buf, "/video ", 7)) // Send video data
@@ -454,7 +479,7 @@ int main(int argc, char** argv)
         }
         else if(!strncmp(buf, "/topic ", 7))
         {
-          site.mod_topic(sock, &buf[7]);
+          site.mod_topic(c, &buf[7]);
           continue;
         }
         else if(!strncmp(buf, "/whois ", 7)) // Get account username
@@ -476,7 +501,7 @@ int main(int argc, char** argv)
         }
         else if(!strncmp(buf, "/allow ", 7))
         {
-          site.mod_allowbroadcast(sock, &buf[7]);
+          site.mod_allowbroadcast(c, &buf[7]);
           continue;
         }
         else if(!strncmp(buf, "/getnick ", 9))
@@ -488,29 +513,44 @@ int main(int argc, char** argv)
         }
         else if(!strcmp(buf, "/quit")){break;}
       }
-      site.sendmessage(sock, buf);
-      continue;
+      site.sendmessage(c, buf);
     }
-    // Got data from server
-    pfd[1].revents=0;
-    // Read the RTMP stream and handle AMF0 packets
-    char rtmpres=rtmp_get(sock, &rtmp);
-    if(!rtmpres){printf("Server disconnected\n"); break;}
-    if(rtmpres==2){continue;} // Not disconnected, but we didn't get a complete chunk yet either
-    if(rtmp.type==RTMP_VIDEO || rtmp.type==RTMP_AUDIO){stream_handledata(&rtmp); continue;}
-    if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); fflush(stdout); continue;}
-    struct amf* amfin=amf_parse(rtmp.buf, rtmp.length);
-    for(i=0; i<commandcount; ++i)
+    if(pfd[1].revents)
     {
-      if(amfin->itemcount>=commands[i].minargs && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, commands[i].command))
+      // Got data from server
+      pfd[1].revents=0;
+#ifdef HAVE_WEBSOCKET
+      if(site.websocket)
       {
-        commands[i].callback(amfin, sock);
+        struct websock_head head;
+        if(!websock_readhead(c.ws, &head)){printf("Server disconnected\n"); break;}
+        char buf[head.length];
+        websock_readcontent(c.ws, buf, &head);
+        site.handlewspacket(c.ws, buf, &head);
         fflush(stdout);
-        break;
+      }else
+#endif
+      {
+        // Read the RTMP stream and handle AMF0 packets
+        char rtmpres=rtmp_get(sock, &rtmp);
+        if(!rtmpres){printf("Server disconnected\n"); break;}
+        if(rtmpres==2){continue;} // Not disconnected, but we didn't get a complete chunk yet either
+        if(rtmp.type==RTMP_VIDEO || rtmp.type==RTMP_AUDIO){stream_handledata(&rtmp); continue;}
+        if(rtmp.type!=RTMP_AMF0){printf("Got RTMP type 0x%x\n", rtmp.type); fflush(stdout); continue;}
+        struct amf* amfin=amf_parse(rtmp.buf, rtmp.length);
+        for(i=0; i<commandcount; ++i)
+        {
+          if(amfin->itemcount>=commands[i].minargs && amfin->items[0].type==AMF_STRING && amf_comparestrings_c(&amfin->items[0].string, commands[i].command))
+          {
+            commands[i].callback(amfin, sock);
+            fflush(stdout);
+            break;
+          }
+        }
+        // if(i==commandcount){printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
+        amf_free(amfin);
       }
     }
-    // if(i==commandcount){printf("Unknown command...\n"); printamf(amfin);} // (Debugging)
-    amf_free(amfin);
   }
   free(rtmp.buf);
   curl_easy_cleanup(curl);

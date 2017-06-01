@@ -162,7 +162,7 @@ static void result2(struct amf* amfin, int sock)
   }
 }
 
-static void sendmessage(int sock, const char* buf)
+static void sendmessage(conn c, const char* buf)
 {
   char color[8];
   memcpy(color, colors[currentcolor%COLORCOUNT], 7);
@@ -184,11 +184,11 @@ static void sendmessage(int sock, const char* buf)
   amfstring(&amf, color);
   amfstring(&amf, "1");
   amfnum(&amf, 1);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
 /* Not used yet
-static void sendpmtyping(int sock, const char* nick)
+static void sendpmtyping(conn c, const char* nick)
 {
   struct rtmp amf;
   amfinit(&amf, 3);
@@ -200,11 +200,11 @@ static void sendpmtyping(int sock, const char* nick)
   amfstring(&amf, nickname); // Spoofable?
   amfstring(&amf, nick);
   amfstring(&amf, "1"); // 0 for not typing anymore? (or 2? from observations)
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 */
 
-static void sendpm(int sock, const char* buf, const char* nick)
+static void sendpm(conn c, const char* buf, const char* nick)
 {
   char color[8];
   memcpy(color, colors[currentcolor%COLORCOUNT], 7);
@@ -226,7 +226,7 @@ static void sendpm(int sock, const char* buf, const char* nick)
   amfstring(&amf, color);
   amfstring(&amf, "1");
   amfnum(&amf, 1);
-  amfsend(&amf, sock);
+  amfsend(&amf, c.fd);
 }
 
 static void notimplemented()
@@ -370,14 +370,14 @@ static void result(struct amf* amfin, int sock)
   }
 }
 
-static void opencam(int sock, const char* camname)
+static void opencam(conn c, const char* camname)
 {
-  stream_start(camname, camname, sock);
+  stream_start(camname, camname, c.fd);
 }
 
-static void closecam(int sock, const char* camname)
+static void closecam(conn c, const char* camname)
 {
-  stream_stopvideo(sock, camname);
+  stream_stopvideo(c.fd, camname);
 }
 
 static void notimplemented2()

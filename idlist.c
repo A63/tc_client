@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2014-2016  alicia@ion.nu
+    Copyright (C) 2014-2017  alicia@ion.nu
     Copyright (C) 2014-2015  Jade Lea
 
     This program is free software: you can redistribute it and/or modify
@@ -48,12 +48,41 @@ void idlist_remove(const char* name)
   }
 }
 
+void idlist_removeid(int id)
+{
+  int i;
+  for(i=0; i<idlistlen; ++i)
+  {
+    if(idlist[i].id==id)
+    {
+      free((void*)idlist[i].name);
+      --idlistlen;
+      memmove(&idlist[i], &idlist[i+1], sizeof(struct idmap)*(idlistlen-i));
+      return;
+    }
+  }
+}
+
 void idlist_rename(const char* oldname, const char* newname)
 {
   int i;
   for(i=0; i<idlistlen; ++i)
   {
     if(!strcmp(oldname, idlist[i].name))
+    {
+      free((void*)idlist[i].name);
+      idlist[i].name=strdup(newname);
+      return;
+    }
+  }
+}
+
+void idlist_renameid(int id, const char* newname)
+{
+  int i;
+  for(i=0; i<idlistlen; ++i)
+  {
+    if(idlist[i].id==id)
     {
       free((void*)idlist[i].name);
       idlist[i].name=strdup(newname);

@@ -255,6 +255,9 @@ fi
 testpkgconfig webkit2gtk-4.0 WEBKITGTK || \
 testpkgconfig webkit2gtk-3.0 WEBKITGTK
 
+testpkgconfig libwebsocket WEBSOCKET
+testpkgconfig json-c JSONC
+
 printf 'Checking if we have a working poll()... '
 echo '#include <poll.h>' > polltest.c
 echo '#include <sys/socket.h>' >> polltest.c
