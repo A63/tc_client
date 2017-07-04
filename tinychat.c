@@ -683,8 +683,16 @@ static void opencam(conn c, const char* nick)
   stream_start(nick, camid, c.fd);
 }
 
+extern int init_tinychat_beta(const char* chanpass, const char* username, const char* userpass, struct site* site);
 int init_tinychat(const char* chanpass, const char* username, const char* userpass, struct site* site)
 {
+  char url[strlen("https://tinychat.com/0")+strlen(channel)];
+  sprintf(url, "https://tinychat.com/%s", channel);
+  char* res=http_get(url, 0);
+  if(!strstr(res, "swfobject.getFlashPlayerVersion()"))
+  { // Channel joined the beta, so use that
+    return init_tinychat_beta(chanpass, username, userpass, site);
+  }
   char badchar;
   if((badchar=checknick(nickname)))
   {
