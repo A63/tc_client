@@ -691,7 +691,11 @@ int init_tinychat(const char* chanpass, const char* username, const char* userpa
   char* res=http_get(url, 0);
   if(!strstr(res, "swfobject.getFlashPlayerVersion()"))
   { // Channel joined the beta, so use that
+#ifdef HAVE_WEBSOCKET
     return init_tinychat_beta(chanpass, username, userpass, site);
+#else
+    printf("This channel appears to have joined the tinychat beta, but this build of tc_client is missing support for the beta (requires libwebsocket and json-c)\n");
+#endif
   }
   char badchar;
   if((badchar=checknick(nickname)))
