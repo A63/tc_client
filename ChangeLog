@@ -18,6 +18,7 @@ Use curl's curl_easy_unescape() for from_owner notices instead of doing it ourse
 Added some basic support for tinychat beta (-s/--site tinychat_beta)
 Automatically use tinychat_beta for beta channels.
 If joining a tinychat beta channel when the client was built without support for it (requires libwebsocket, json-c), print a warning and continue connecting on RTMP.
+Added support for the tinychat beta commands sysmsg and yut_play (start youtube video)
 modbot: use https instead of http and use the tcclient subdomain since some DNSes have trouble with underscores.
 modbot: added an option (--no-unapproved) to not add any unapproved videos to queue (videos still get approved by mods requesting or playing them manually)
 tc_client-gtk: fixed a race-condition in the builtin video player.

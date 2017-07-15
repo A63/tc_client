@@ -135,6 +135,24 @@ static void handlepacket(websock_conn* conn, void* data, struct websock_head* he
     const char* nick=idlist_getnick(handle);
     printf("%s %s left the channel\n", timestamp(), nick);
     idlist_removeid(handle);
+  }
+  else if(!strcmp(cmd, "sysmsg"))
+  {
+    if(!json_object_object_get_ex(obj, "text", &cmdobj)){json_object_put(obj); return;}
+    const char* text=json_object_get_string(cmdobj);
+    printf("%s %s\n", timestamp(), text);
+  }
+  else if(!strcmp(cmd, "yut_play"))
+  {
+    if(!json_object_object_get_ex(obj, "success", &cmdobj)){json_object_put(obj); return;}
+    if(!json_object_get_boolean(cmdobj)){json_object_put(obj); return;} // Ignore failed media actions
+    struct json_object* item;
+    if(!json_object_object_get_ex(obj, "item", &item)){json_object_put(obj); return;}
+    if(!json_object_object_get_ex(item, "id", &cmdobj)){json_object_put(obj); return;}
+    const char* id=json_object_get_string(cmdobj);
+    if(!json_object_object_get_ex(item, "offset", &cmdobj)){json_object_put(obj); return;}
+    int64_t offset=json_object_get_int64(cmdobj)*1000; // Milliseconds
+    printf("Media start: youtube(%s) %llu\n", id, offset);
   }else{
     write(1, "Received: ", 10);
     write(1, data, head->length);
