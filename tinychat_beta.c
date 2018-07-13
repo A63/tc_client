@@ -1,6 +1,6 @@
 /*
     tc_client, a simple non-flash client for tinychat(.com)
-    Copyright (C) 2017  alicia@ion.nu
+    Copyright (C) 2017-2018  alicia@ion.nu
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -206,16 +206,33 @@ int init_tinychat_beta(const char* chanpass_, const char* username, const char* 
   site->camup=notimplemented;
   site->camdown=notimplemented;
   chanpass=chanpass_;
-  int sock=connectto("wss.tinychat.com", "443");
-  site->websocket=websock_new(sock, 1, 0, 0);
-  if(!websock_handshake_client(site->websocket, "/", "wss.tinychat.com", "tc", "https://tinychat.com", 0)){printf("Websocket handshake failed\n"); return -1;}
+  // Request token and endpoint
   char url[strlen("https://tinychat.com/api/v1.0/room/token/0")+strlen(channel)];
   sprintf(url, "https://tinychat.com/api/v1.0/room/token/%s", channel);
   char* tokenfile=http_get(url, 0);
-  if(strlen(tokenfile)<11){return -1;}
-  char* token=&tokenfile[11];
-  char* end;
-  if((end=strchr(token, '"'))){end[0]=0;}
+  struct json_tokener* tok=json_tokener_new();
+  struct json_object* obj=json_tokener_parse_ex(tok, tokenfile, strlen(tokenfile));
+  json_tokener_free(tok);
+  if(!obj){return -1;}
+  struct json_object* value;
+  if(!json_object_object_get_ex(obj, "result", &value)){return -1;}
+  const char* token=json_object_get_string(value);
+  if(!json_object_object_get_ex(obj, "endpoint", &value)){return -1;}
+  const char* endpointstr=json_object_get_string(value);
+  // Decompose endpoint into host and port
+  endpointstr=strstr(endpointstr, "://");
+  if(!endpointstr){return -1;}
+  endpointstr=&endpointstr[3];
+  char endpoint[strlen(endpointstr)+1];
+  strcpy(endpoint, endpointstr);
+  char* port=strchr(endpoint, ':');
+  if(!port){return -1;}
+  port[0]=0;
+  port=&port[1];
+  // Connect
+  int sock=connectto(endpoint, port);
+  site->websocket=websock_new(sock, 1, 0, 0);
+  if(!websock_handshake_client(site->websocket, "/", endpoint, "tc", "https://tinychat.com", 0)){printf("Websocket handshake failed\n"); return -1;}
   const char* fmt="{\"tc\":\"join\",\"useragent\":\"tc_client\",\"token\":\"%s\",\"room\":\"%s\",\"nick\":\"%s\"}";
   char buf[snprintf(0,0, fmt, token, channel, nickname)+1];
   sprintf(buf, fmt, token, channel, nickname);
